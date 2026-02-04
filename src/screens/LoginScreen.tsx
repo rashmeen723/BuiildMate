@@ -10,13 +10,16 @@ import {
     Platform,
     ScrollView,
     TouchableWithoutFeedback,
-    Keyboard
+    Keyboard,
+    Alert,
+    ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS, SIZES } from '../constants/theme';
+import { authApi } from '../services/api';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
@@ -26,24 +29,37 @@ const LoginScreen = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
 
-    const handleLogin = () => {
-        // Implement login logic here
-        console.log("Login pressed", { email, password });
-        // For now, navigate to Home
-        navigation.reset({
-            index: 0,
-            routes: [{ name: 'Home' }],
-        });
+    const handleLogin = async () => {
+        if (!email || !password) {
+            Alert.alert("Error", "Please enter both email and password.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const result = await authApi.login({ email, password });
+            console.log("Login Success:", result);
+
+            // Navigate to Home
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'Home' }],
+            });
+        } catch (error: any) {
+            Alert.alert("Login Failed", error.message);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSignUp = () => {
-        navigation.navigate('SignUp');
+        navigation.navigate('RoleSelection'); // Fixed: Should go to role selection
     };
 
     const handleForgotPassword = () => {
         console.log("Forgot password");
-        // navigation.navigate('ForgotPassword'); // Future implementation
     };
 
     return (
@@ -113,8 +129,16 @@ const LoginScreen = () => {
                                 <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-                                <Text style={styles.loginButtonText}>Log In</Text>
+                            <TouchableOpacity
+                                style={[styles.loginButton, loading && { opacity: 0.7 }]}
+                                onPress={handleLogin}
+                                disabled={loading}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator color={COLORS.white} />
+                                ) : (
+                                    <Text style={styles.loginButtonText}>Log In</Text>
+                                )}
                             </TouchableOpacity>
                         </View>
 
@@ -176,7 +200,7 @@ const styles = StyleSheet.create({
         marginBottom: 32,
     },
     title: {
-        fontSize: 28, // Matches other screens
+        fontSize: 28,
         fontWeight: 'bold',
         color: COLORS.darkBlue,
         marginBottom: 8,
@@ -301,7 +325,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     footerLink: {
-        color: COLORS.primary || '#007AFF', // Use a nice blue, or match the mockup's purple-ish blue? Theme says primary is blue.
+        color: COLORS.primary || '#007AFF',
         fontWeight: 'bold',
         fontSize: 14,
     },

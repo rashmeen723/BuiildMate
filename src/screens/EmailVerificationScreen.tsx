@@ -27,7 +27,7 @@ const { width } = Dimensions.get('window');
 const EmailVerificationScreen = () => {
     const navigation = useNavigation<EmailVerificationScreenNavigationProp>();
     const route = useRoute<EmailVerificationScreenRouteProp>();
-    const { email = 'your email' } = route.params || {};
+    const { email = 'your email', fullName, phone, role } = route.params || {};
 
     // State for OTP
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -122,8 +122,16 @@ const EmailVerificationScreen = () => {
     const handleVerify = () => {
         const code = otp.join('');
         if (code.length === 6) {
-            console.log("Verifying code:", code);
-            navigation.navigate('LocationPicker');
+            console.log("Verifying code:", code, { email, fullName, phone, role });
+
+            if (role === 'service_provider') {
+                navigation.navigate('ServiceProviderDetails', { email, fullName, phone, role });
+            } else if (role === 'rental_owner') {
+                navigation.navigate('RentalOwnerDetails', { email, fullName, phone, role });
+            } else {
+                // Household User Flow
+                navigation.navigate('LocationPicker', { email, fullName, phone, role });
+            }
         } else {
             // Shake animation or error message could go here
         }

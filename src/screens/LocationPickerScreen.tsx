@@ -29,6 +29,9 @@ const LocationPickerScreen = () => {
     const navigation = useNavigation<LocationPickerScreenNavigationProp>();
     const route = useRoute<LocationPickerScreenRouteProp>();
 
+    // Get user data
+    const { email, fullName, phone, role } = route.params || {};
+
     const [address, setAddress] = useState('');
     const [previewLocation, setPreviewLocation] = useState<{
         latitude: number;
@@ -56,11 +59,18 @@ const LocationPickerScreen = () => {
             return;
         }
         // Save address/location logic here
-        navigation.navigate('CreatePassword');
+        navigation.navigate('CreatePassword', {
+            email,
+            fullName,
+            phone,
+            role,
+            address,
+            location: previewLocation
+        });
     };
 
     const openMapSelection = () => {
-        navigation.navigate('MapSelection');
+        navigation.navigate('MapSelection', { returnScreen: 'LocationPicker' });
     };
 
     return (

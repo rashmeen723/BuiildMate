@@ -8,6 +8,7 @@ export const COLORS = {
   background: '#FFFFFF',
   darkBlue: '#14213D',
   orange: '#FCA311',
+  error: '#EF4444',
 };
 
 export const SIZES = {

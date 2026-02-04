@@ -14,8 +14,8 @@ const LoginSignupScreen = () => {
     const navigation = useNavigation<LoginSignupScreenNavigationProp>();
 
     const handleSignUp = () => {
-        // Navigate to SignUp screen
-        navigation.navigate('SignUp');
+        // Navigate to RoleSelection screen
+        navigation.navigate('RoleSelection');
     };
 
     const handleLogin = () => {

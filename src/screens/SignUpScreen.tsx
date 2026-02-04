@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS, SIZES } from '../constants/theme';
@@ -11,9 +11,15 @@ import { COLORS, SIZES } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 
 type SignUpScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'SignUp'>;
+type SignUpScreenRouteProp = RouteProp<RootStackParamList, 'SignUp'>;
 
 const SignUpScreen = () => {
     const navigation = useNavigation<SignUpScreenNavigationProp>();
+    const route = useRoute<SignUpScreenRouteProp>();
+
+    // Get the role passed from the previous screen
+    const { role } = route.params;
+
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
@@ -35,9 +41,9 @@ const SignUpScreen = () => {
             return;
         }
 
-        console.log("Next pressed", { fullName, email, phone });
+        console.log("Next pressed", { fullName, email, phone, role });
         // Navigate to Email Verification step
-        navigation.navigate('EmailVerification', { email });
+        navigation.navigate('EmailVerification', { fullName, email, phone, role });
     };
 
     return (

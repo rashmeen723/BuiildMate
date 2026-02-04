@@ -14,17 +14,20 @@ import CustomMap, { Marker, PROVIDER_GOOGLE } from '../components/CustomMap';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
 
 type MapSelectionScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'MapSelection'>;
+type MapSelectionScreenRouteProp = RouteProp<RootStackParamList, 'MapSelection'>;
 
 const { width, height } = Dimensions.get('window');
 
 const MapSelectionScreen = () => {
     const navigation = useNavigation<MapSelectionScreenNavigationProp>();
+    const route = useRoute<MapSelectionScreenRouteProp>();
+    const { returnScreen = 'LocationPicker' } = route.params || {};
 
     const [location, setLocation] = useState<{
         latitude: number;
@@ -129,8 +132,8 @@ const MapSelectionScreen = () => {
     };
 
     const handleConfirm = () => {
-        // Navigate back to LocationPicker with result
-        navigation.navigate('LocationPicker', {
+        // Navigate back to the caller with result
+        navigation.navigate(returnScreen as any, {
             selectedLocation: location,
             selectedAddress: address
         });
