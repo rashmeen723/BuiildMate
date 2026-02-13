@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS, SIZES } from '../constants/theme';
+import { authApi } from '../services/api';
 // Using a simple text for back button to avoid dependency issues if vector icons aren't set up, 
 // strictly generic. Or assume vector icons are safe (usually are in Expo).
 // Let's use a simple View or Image if needed, but unicode is safest for now or just generic.
@@ -24,7 +25,9 @@ const SignUpScreen = () => {
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
 
-    const handleNext = () => {
+    const [loading, setLoading] = useState(false);
+
+    const handleNext = async () => {
         if (!fullName.trim()) {
             Alert.alert("Error", "Please enter your full name");
             return;
@@ -41,9 +44,23 @@ const SignUpScreen = () => {
             return;
         }
 
-        console.log("Next pressed", { fullName, email, phone, role });
-        // Navigate to Email Verification step
-        navigation.navigate('EmailVerification', { fullName, email, phone, role });
+        setLoading(true);
+        try {
+            console.log("Sending OTP to:", email);
+            await authApi.sendOtp(email);
+
+            navigation.navigate('EmailVerification', {
+                fullName,
+                email,
+                phone,
+                role
+            });
+        } catch (error: any) {
+            console.error("Failed to send OTP:", error);
+            Alert.alert("Error", error.message || "Failed to send verification code. Please check your email and try again.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -57,10 +74,14 @@ const SignUpScreen = () => {
             </View>
 
             <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
                 style={{ flex: 1 }}
             >
-                <ScrollView contentContainerStyle={styles.scrollContent}>
+                <ScrollView
+                    contentContainerStyle={[styles.scrollContent, { flexGrow: 1 }]}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
                     <Text style={styles.title}>Let's start with the basics</Text>
                     <Text style={styles.subtitle}>
                         Please provide your contact details to create your BuildMate account. This information helps us verify your identity.
@@ -107,8 +128,16 @@ const SignUpScreen = () => {
                 </ScrollView>
 
                 <View style={styles.footer}>
-                    <TouchableOpacity style={styles.button} onPress={handleNext}>
-                        <Text style={styles.buttonText}>Next</Text>
+                    <TouchableOpacity
+                        style={[styles.button, loading && styles.buttonDisabled]}
+                        onPress={handleNext}
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <ActivityIndicator color={COLORS.white} />
+                        ) : (
+                            <Text style={styles.buttonText}>Next</Text>
+                        )}
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
@@ -196,6 +225,11 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 3,
         elevation: 3,
+    },
+    buttonDisabled: {
+        backgroundColor: '#94A3B8',
+        elevation: 0,
+        shadowOpacity: 0,
     },
     buttonText: {
         color: COLORS.white,

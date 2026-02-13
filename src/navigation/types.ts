@@ -8,6 +8,31 @@ export type RootStackParamList = {
     SignUp: { role: string };
     RoleSelection: undefined;
     Home: undefined;
+    ServiceCategory: { categoryName?: string };
+    ProviderProfile: {
+        providerId?: number;
+        providerName?: string;
+        providerImage?: string;
+        providerRating?: number;
+        providerReviews?: number;
+    };
+    BookService: {
+        providerId?: number;
+        providerName?: string;
+        providerImage?: string;
+        providerRating?: number;
+        providerReviews?: number;
+        providerPhone?: string;
+        providerEmail?: string;
+    };
+    BookingConfirmed: {
+        providerName?: string;
+        serviceType?: string;
+        date?: string;
+        time?: string;
+        address?: string;
+        estimatedTotal?: string;
+    };
     Details: undefined; // Placeholder for now
     EmailVerification: { email: string; fullName: string; phone: string; role: string };
     CreatePassword: {
@@ -25,7 +50,14 @@ export type RootStackParamList = {
         location?: any;
     };
     LocationPicker: { selectedLocation?: any; selectedAddress?: string; email?: string; fullName?: string; phone?: string; role?: string } | undefined;
-    MapSelection: { returnScreen?: string };
+    MapSelection: {
+        returnScreen?: string;
+        email?: string;
+        fullName?: string;
+        phone?: string;
+        role?: string;
+        currentAddress?: string;
+    };
     Welcome: undefined;
 
     // Service Provider Screens
@@ -90,6 +122,26 @@ export type RootStackParamList = {
         documents: any;
         serviceArea: any;
         password?: string;
+    };
+
+    // Tool Rental Screens
+    ToolCategory: { categoryName: string };
+    ToolDetails: { tool: any; fromDate?: string; toDate?: string };
+    RentTool: { tool: any; startDate: string; endDate: string; totalDays: number; totalPrice: number };
+    Activity: { updatedRentalId?: number; newStatus?: string } | undefined;
+    TrackService: { serviceId: number; providerName: string; serviceType: string };
+    RentalStatus: { rentalId: number; toolName: string; dueDate: string; image: string };
+    Payment: { id: number; title: string; amount: number; type: 'SERVICE' | 'RENTAL' };
+    Notification: undefined;
+    Profile: undefined;
+    EditProfile: { selectedLocation?: any; selectedAddress?: string } | undefined;
+    OrderHistory: undefined;
+    NotificationSettings: undefined;
+    WriteReview: {
+        serviceId: number;
+        serviceName: string;
+        providerName: string;
+        serviceImage: string;
     };
 };
 

@@ -9,7 +9,9 @@ import {
     Platform,
     TouchableWithoutFeedback,
     Keyboard,
-    Dimensions
+    Dimensions,
+    Alert,
+    ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -18,6 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS, SIZES } from '../constants/theme';
+import { authApi } from '../services/api';
+
 
 type EmailVerificationScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'EmailVerification'>;
 type EmailVerificationScreenRouteProp = RouteProp<RootStackParamList, 'EmailVerification'>;
@@ -34,6 +38,7 @@ const EmailVerificationScreen = () => {
     const [timer, setTimer] = useState(60);
     const [canResend, setCanResend] = useState(false);
     const [focusedIndex, setFocusedIndex] = useState(0);
+    const [loading, setLoading] = useState(false);
     const inputRefs = useRef<Array<TextInput | null>>([]);
 
     // Timer logic
@@ -109,31 +114,44 @@ const EmailVerificationScreen = () => {
         }
     };
 
-    const handleResend = () => {
+    const handleResend = async () => {
         if (canResend) {
-            setTimer(60);
-            setCanResend(false);
-            setOtp(['', '', '', '', '', '']);
-            inputRefs.current[0]?.focus();
-            console.log("Resending code...");
+            setLoading(true);
+            try {
+                await authApi.sendOtp(email);
+                setTimer(60);
+                setCanResend(false);
+                setOtp(['', '', '', '', '', '']);
+                inputRefs.current[0]?.focus();
+                Alert.alert("Success", "Verification code resent to your email.");
+            } catch (error: any) {
+                Alert.alert("Error", error.message || "Failed to resend code.");
+            } finally {
+                setLoading(false);
+            }
         }
     };
 
-    const handleVerify = () => {
+    const handleVerify = async () => {
         const code = otp.join('');
         if (code.length === 6) {
-            console.log("Verifying code:", code, { email, fullName, phone, role });
+            setLoading(true);
+            try {
+                await authApi.verifyOtp(email, code);
 
-            if (role === 'service_provider') {
-                navigation.navigate('ServiceProviderDetails', { email, fullName, phone, role });
-            } else if (role === 'rental_owner') {
-                navigation.navigate('RentalOwnerDetails', { email, fullName, phone, role });
-            } else {
-                // Household User Flow
-                navigation.navigate('LocationPicker', { email, fullName, phone, role });
+                if (role === 'service_provider') {
+                    navigation.navigate('ServiceProviderDetails', { email, fullName, phone, role });
+                } else if (role === 'rental_owner') {
+                    navigation.navigate('RentalOwnerDetails', { email, fullName, phone, role });
+                } else {
+                    // Household User Flow
+                    navigation.navigate('LocationPicker', { email, fullName, phone, role });
+                }
+            } catch (error: any) {
+                Alert.alert("Verification Failed", error.message || "Invalid or expired code.");
+            } finally {
+                setLoading(false);
             }
-        } else {
-            // Shake animation or error message could go here
         }
     };
 
@@ -232,14 +250,20 @@ const EmailVerificationScreen = () => {
                             <TouchableOpacity
                                 style={[
                                     styles.verifyButton,
-                                    otp.join('').length < 6 && styles.verifyButtonDisabled
+                                    (otp.join('').length < 6 || loading) && styles.verifyButtonDisabled
                                 ]}
                                 onPress={handleVerify}
                                 activeOpacity={0.8}
-                                disabled={otp.join('').length < 6}
+                                disabled={otp.join('').length < 6 || loading}
                             >
-                                <Text style={styles.verifyButtonText}>Verify Account</Text>
-                                <Ionicons name="arrow-forward" size={20} color={COLORS.white} style={{ marginLeft: 8 }} />
+                                {loading ? (
+                                    <ActivityIndicator color={COLORS.white} />
+                                ) : (
+                                    <>
+                                        <Text style={styles.verifyButtonText}>Verify Account</Text>
+                                        <Ionicons name="arrow-forward" size={20} color={COLORS.white} style={{ marginLeft: 8 }} />
+                                    </>
+                                )}
                             </TouchableOpacity>
                         </View>
                     </KeyboardAvoidingView>
