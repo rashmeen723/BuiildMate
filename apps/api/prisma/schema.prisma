@@ -1,0 +1,132 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. Enums for fixed values
+enum Role {
+  HOUSEHOLD
+  SERVICE_PROVIDER
+  RENTAL_OWNER
+  ADMIN
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// 2. Core User Table
+model User {
+  id                String       @id @default(uuid())
+  email             String       @unique
+  password          String
+  fullName          String
+  phone             String?      @unique
+  profileImage      String?
+  role              Role         @default(HOUSEHOLD)
+  isEmailVerified   Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  // Profile Relations
+  serviceProvider   ServiceProviderProfile?
+  rentalOwner       RentalOwnerProfile?
+  addresses         Address[]
+  documents         Document[]
+}
+
+// 3. Service Provider Specifics
+model ServiceProviderProfile {
+  id                String             @id @default(uuid())
+  userId            String             @unique
+  user              User               @relation(fields: [userId], references: [id])
+  
+  category          String             // e.g., "Electrician"
+  yearsOfExperience String?            // Keeping as string to match your frontend "e.g. 5"
+  skills            String[]           // Array of specialized skills
+  
+  status            VerificationStatus @default(PENDING)
+  
+  // Location & Service Area
+  latitude          Float?
+  longitude         Float?
+  serviceRadius     Float?             // km coverage
+  formattedAddress  String?
+
+
+  
+  // Working Hours & Days
+  workingDays       String[]           // e.g., ["Mon", "Tue"]
+  workingHoursStart String?            // e.g., "09:00 AM"
+  workingHoursEnd   String?            // e.g., "05:00 PM"
+
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+// 4. Rental Owner Specifics
+model RentalOwnerProfile {
+  id                String             @id @default(uuid())
+  userId            String             @unique
+  user              User               @relation(fields: [userId], references: [id])
+  
+  businessName      String
+  toolCategories    String[]
+  yearsInBusiness   String?            // Keeping as string to match your frontend "e.g. 3"
+  
+  status            VerificationStatus @default(PENDING)
+  
+  latitude          Float?
+  longitude         Float?
+  formattedAddress  String?
+
+
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+// 5. Verification Documents
+model Document {
+  id                String             @id @default(uuid())
+  documentType      String             // e.g., "ID_CARD", "LICENSE"
+  documentUrl       String             // URL to Cloud Storage
+  
+  userId            String
+  user              User               @relation(fields: [userId], references: [id])
+
+  createdAt         DateTime           @default(now())
+}
+
+model Otp {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+// 6. Generic Address (for Household users)
+model Address {
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id])
+  
+  addressLine1      String?
+  city              String?
+  latitude          Float
+  longitude         Float
+  isDefault         Boolean   @default(false)
+
+  createdAt         DateTime  @default(now())
+}
