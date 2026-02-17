@@ -20,11 +20,13 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS, SIZES } from '../constants/theme';
 import { authApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
 const LoginScreen = () => {
     const navigation = useNavigation<LoginScreenNavigationProp>();
+    const { login } = useAuth();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -41,6 +43,9 @@ const LoginScreen = () => {
         try {
             const result = await authApi.login({ email, password });
             console.log("Login Success:", result);
+
+            // Save user and token in Context
+            await login(result.user, result.token);
 
             // Navigate to Home
             navigation.reset({
@@ -71,11 +76,15 @@ const LoginScreen = () => {
             </View>
 
             <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
                 style={{ flex: 1 }}
             >
                 <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                    <ScrollView contentContainerStyle={styles.scrollContent}>
+                    <ScrollView
+                        contentContainerStyle={[styles.scrollContent, { flexGrow: 1 }]}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                    >
                         <View style={styles.textContainer}>
                             <Text style={styles.title}>Welcome back</Text>
                             <Text style={styles.subtitle}>
@@ -161,7 +170,10 @@ const LoginScreen = () => {
 
                         <View style={styles.footer}>
                             <Text style={styles.footerText}>Don't have an account? </Text>
-                            <TouchableOpacity onPress={handleSignUp}>
+                            <TouchableOpacity onPress={() => {
+                                Keyboard.dismiss();
+                                handleSignUp();
+                            }}>
                                 <Text style={styles.footerLink}>Sign Up</Text>
                             </TouchableOpacity>
                         </View>

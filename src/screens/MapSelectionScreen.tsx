@@ -99,8 +99,11 @@ const MapSelectionScreen = () => {
                 setAddress(addr);
             }
         } catch (error) {
-            console.error(error);
-            setAddress('Unknown location');
+            console.error("Reverse Geocode Error:", error);
+            // Don't overwrite the address if we already have one from search or initial
+            if (address === 'Searching for address...') {
+                setAddress(`Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
+            }
         } finally {
             setSearching(false);
         }
@@ -132,8 +135,12 @@ const MapSelectionScreen = () => {
     };
 
     const handleConfirm = () => {
-        // Navigate back to the caller with result
+        // Collect everything we received so we can send it back
+        const { returnScreen: _, ...userInfo } = route.params || {};
+
+        // Navigate back to the caller with result AND preserve user info
         navigation.navigate(returnScreen as any, {
+            ...userInfo,
             selectedLocation: location,
             selectedAddress: address
         });

@@ -11,7 +11,8 @@ import {
     ScrollView,
     TouchableWithoutFeedback,
     Keyboard,
-    Dimensions
+    Dimensions,
+    Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -29,8 +30,13 @@ const LocationPickerScreen = () => {
     const navigation = useNavigation<LocationPickerScreenNavigationProp>();
     const route = useRoute<LocationPickerScreenRouteProp>();
 
-    // Get user data
-    const { email, fullName, phone, role } = route.params || {};
+    // State to hold user info if params change
+    const [userInfo, setUserInfo] = useState({
+        email: route.params?.email,
+        fullName: route.params?.fullName,
+        phone: route.params?.phone,
+        role: route.params?.role
+    });
 
     const [address, setAddress] = useState('');
     const [previewLocation, setPreviewLocation] = useState<{
@@ -48,29 +54,37 @@ const LocationPickerScreen = () => {
         if (route.params?.selectedLocation) {
             setPreviewLocation(route.params.selectedLocation);
         }
+
+        // If we received user info in this navigation, sync it to our local state
+        if (route.params?.email) {
+            setUserInfo({
+                email: route.params.email,
+                fullName: route.params.fullName,
+                phone: route.params.phone,
+                role: route.params.role
+            });
+        }
     }, [route.params]);
 
     const handleNext = () => {
         if (!address) {
-            // Validate input
-            // For now just proceed or show error
-            // alert('Please enter an address');
-            navigation.navigate('Home');
+            Alert.alert("Location Required", "Please select your home location to continue.");
             return;
         }
-        // Save address/location logic here
+
         navigation.navigate('CreatePassword', {
-            email,
-            fullName,
-            phone,
-            role,
+            ...userInfo,
             address,
             location: previewLocation
         });
     };
 
     const openMapSelection = () => {
-        navigation.navigate('MapSelection', { returnScreen: 'LocationPicker' });
+        navigation.navigate('MapSelection', {
+            returnScreen: 'LocationPicker',
+            ...userInfo,
+            currentAddress: address
+        });
     };
 
     return (

@@ -24,6 +24,23 @@ import RentalOwnerDetailsScreen from '../screens/RentalOwnerDetailsScreen';
 import RentalOwnerDocumentsScreen from '../screens/RentalOwnerDocumentsScreen';
 import RentalOwnerServiceAreaScreen from '../screens/RentalOwnerServiceAreaScreen';
 import RentalOwnerReviewScreen from '../screens/RentalOwnerReviewScreen';
+import ServiceCategoryScreen from '../screens/ServiceCategoryScreen';
+import ProviderProfileScreen from '../screens/ProviderProfileScreen';
+import BookServiceScreen from '../screens/BookServiceScreen';
+import BookingConfirmedScreen from '../screens/BookingConfirmedScreen';
+import ToolCategoryScreen from '../screens/ToolCategoryScreen';
+import ToolDetailsScreen from '../screens/ToolDetailsScreen';
+import RentToolScreen from '../screens/RentToolScreen';
+import ActivityScreen from '../screens/ActivityScreen';
+import TrackServiceScreen from '../screens/TrackServiceScreen';
+import RentalStatusScreen from '../screens/RentalStatusScreen';
+import PaymentScreen from '../screens/PaymentScreen';
+import NotificationScreen from '../screens/NotificationScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
+import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
+import OrderHistoryScreen from '../screens/OrderHistoryScreen';
+import WriteReviewScreen from '../screens/WriteReviewScreen';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -60,6 +77,23 @@ const AppNavigator = () => {
                 <Stack.Screen name="RentalOwnerServiceArea" component={RentalOwnerServiceAreaScreen} />
                 <Stack.Screen name="RentalOwnerReview" component={RentalOwnerReviewScreen} />
                 <Stack.Screen name="Home" component={HomeScreen} />
+                <Stack.Screen name="ServiceCategory" component={ServiceCategoryScreen} />
+                <Stack.Screen name="ProviderProfile" component={ProviderProfileScreen} />
+                <Stack.Screen name="BookService" component={BookServiceScreen} />
+                <Stack.Screen name="BookingConfirmed" component={BookingConfirmedScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="ToolCategory" component={ToolCategoryScreen} />
+                <Stack.Screen name="ToolDetails" component={ToolDetailsScreen} />
+                <Stack.Screen name="RentTool" component={RentToolScreen} />
+                <Stack.Screen name="Activity" component={ActivityScreen} />
+                <Stack.Screen name="TrackService" component={TrackServiceScreen} />
+                <Stack.Screen name="RentalStatus" component={RentalStatusScreen} />
+                <Stack.Screen name="Payment" component={PaymentScreen} />
+                <Stack.Screen name="Notification" component={NotificationScreen} />
+                <Stack.Screen name="Profile" component={ProfileScreen} />
+                <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+                <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
+                <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+                <Stack.Screen name="WriteReview" component={WriteReviewScreen} />
                 {/* Add more screens here later */}
             </Stack.Navigator>
         </NavigationContainer>

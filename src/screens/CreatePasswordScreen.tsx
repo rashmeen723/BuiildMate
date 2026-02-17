@@ -84,15 +84,44 @@ const CreatePasswordScreen = () => {
             // Household User - Submit directly
             setLoading(true);
             try {
-                await authApi.register({
+                // Prepare registration data
+                const registrationData: any = {
                     email: params.email,
                     fullName: params.fullName,
                     phone: params.phone,
                     role: 'HOUSEHOLD',
                     password: password,
-                });
-                navigation.navigate('Welcome');
+                    address: params.address,
+                };
+
+                // Add location if available
+                if (params.location) {
+                    registrationData.location = {
+                        latitude: params.location.latitude,
+                        longitude: params.location.longitude,
+                    };
+                }
+
+                console.log('Registering household user:', registrationData);
+                const result = await authApi.register(registrationData);
+
+                console.log('Registration successful! User created:', result);
+
+                Alert.alert(
+                    "Account Created",
+                    "Congratulations! Your BuildMate account has been created successfully. You can now login to get started.",
+                    [{
+                        text: "Login Now", onPress: () => {
+                            Keyboard.dismiss();
+                            navigation.reset({
+                                index: 0,
+                                routes: [{ name: 'Login' }],
+                            });
+                        }
+                    }]
+                );
             } catch (error: any) {
+                console.error("Registration failed:", error);
                 Alert.alert("Registration Failed", error.message);
             } finally {
                 setLoading(false);
@@ -116,11 +145,15 @@ const CreatePasswordScreen = () => {
     return (
         <SafeAreaView style={styles.container}>
             <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
                 style={{ flex: 1 }}
             >
                 <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                    <ScrollView contentContainerStyle={styles.scrollContent}>
+                    <ScrollView
+                        contentContainerStyle={[styles.scrollContent, { flexGrow: 1 }]}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                    >
                         <View style={styles.header}>
                             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                                 <Ionicons name="chevron-back" size={24} color={COLORS.black} />
