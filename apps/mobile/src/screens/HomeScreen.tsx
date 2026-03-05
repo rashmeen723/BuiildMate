@@ -1,30 +1,58 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image, FlatList, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image, Dimensions, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
-import { useNavigation, RouteProp, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
-import { COLORS, SIZES } from '../constants/theme';
+import { COLORS } from '../constants/theme';
 import BottomNavBar from '../components/BottomNavBar';
 import { useAuth } from '../context/AuthContext';
+import { authApi } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
-type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
-
 const HomeScreen = () => {
     const navigation = useNavigation<HomeScreenNavigationProp>();
     const { user } = useAuth();
+    const [activeTab, setActiveTab] = useState<'Services' | 'Tools'>('Services');
+    const [hasUnread, setHasUnread] = useState(false);
+    const [nearbyProviders, setNearbyProviders] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
-    // Get user data from route params if available
-    // In a real app, this would be stored in Context/Redux upon login
-    // const route = useRoute<HomeScreenRouteProp>();
-    // const { user } = route.params || {}; 
+    // Fetch nearby providers based on user's default address
+    useEffect(() => {
+        if (user?.addresses) {
+            const defaultAddr = user.addresses.find((a: any) => a.isDefault) || user.addresses[0];
+            if (defaultAddr) {
+                setLoading(true);
+                authApi.getNearbyProviders(defaultAddr.latitude, defaultAddr.longitude)
+                    .then(setNearbyProviders)
+                    .catch((err: any) => console.error('Error fetching nearby:', err))
+                    .finally(() => setLoading(false));
+            }
+        }
+    }, [user]);
 
-    const [activeTab, setActiveTab] = useState<'Services' | 'Tools'>('Tools');
+    // Fetch unread notification count when screen is focused
+    useFocusEffect(
+        React.useCallback(() => {
+            const fetchUnreadCount = async () => {
+                if (user?.id) {
+                    try {
+                        const notifications = await authApi.getNotifications(user.id);
+                        setHasUnread(notifications.some((n: any) => !n.isRead));
+                    } catch (error) {
+                        console.error('Error fetching notifications:', error);
+                    }
+                }
+            };
+            fetchUnreadCount();
+        }, [user?.id])
+    );
 
     const renderHeader = () => (
         <View style={styles.header}>
@@ -38,15 +66,11 @@ const HomeScreen = () => {
                         style={styles.avatar}
                     />
                 ) : (
-                    <View style={[styles.avatar, { backgroundColor: COLORS.orange, justifyContent: 'center', alignItems: 'center' }]}>
-                        <Text style={{ color: COLORS.white, fontSize: 18, fontWeight: 'bold' }}>
-                            {user?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || 'K'}
-                        </Text>
-                    </View>
+                    <Image source={{ uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || 'User')}&background=random` }} style={styles.avatar} />
                 )}
                 <View style={styles.greetingContainer}>
                     <Text style={styles.greetingText}>Good Morning,</Text>
-                    <Text style={styles.userName}>Hello, {user?.fullName || 'Kavindya'}</Text>
+                    <Text style={styles.userName}>{user?.fullName || 'Guest'}</Text>
                 </View>
             </TouchableOpacity>
             <TouchableOpacity
@@ -54,6 +78,7 @@ const HomeScreen = () => {
                 onPress={() => navigation.navigate('Notification')}
             >
                 <Ionicons name="notifications-outline" size={24} color={COLORS.black} />
+                {hasUnread && <View style={styles.notificationDot} />}
             </TouchableOpacity>
         </View>
     );
@@ -79,93 +104,77 @@ const HomeScreen = () => {
         <View style={styles.searchContainer}>
             <Ionicons name="search" size={20} color={COLORS.gray} style={styles.searchIcon} />
             <TextInput
-                placeholder="Search for drills, saws, ladders..."
+                placeholder={activeTab === 'Services' ? "Search for electricians, plumbers..." : "Search for drills, saws, ladders..."}
                 placeholderTextColor={COLORS.gray}
                 style={styles.searchInput}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
             />
+            {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Ionicons name="close-circle" size={20} color={COLORS.gray} />
+                </TouchableOpacity>
+            )}
         </View>
     );
 
     const renderToolsContent = () => {
-        const categories = [
-            { id: 1, name: 'Power', icon: 'flash' },
-            { id: 2, name: 'Hand', icon: 'hammer' },
-            { id: 3, name: 'Heavy', icon: 'home' },
-            { id: 4, name: 'More', icon: 'grid' },
+        const toolCategories = [
+            { id: 1, name: 'Power Tools', icon: 'hammer' },
+            { id: 2, name: 'Ladders', icon: 'reorder-four' },
+            { id: 3, name: 'Painting', icon: 'brush' },
+            { id: 4, name: 'Plumbing', icon: 'water' },
+            { id: 5, name: 'Cleaning', icon: 'sparkles' },
+            { id: 6, name: 'Safety Gear', icon: 'shield-checkmark' },
+            { id: 7, name: 'Gardening', icon: 'leaf' },
+            { id: 8, name: 'Scaffolding', icon: 'grid' },
         ];
 
-        const featuredDeal = {
-            title: 'Industrial Drill',
-            description: 'Professional grade tools at 20% lower rental rates.',
-            image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-        };
-
-        const nearbyItems = [
-            { id: 1, name: 'DeWalt Impact Drill', rating: 4.9, price: 'LKR 500/d', image: 'https://images.unsplash.com/photo-1572981779307-38b8cabb2407?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' },
-            { id: 2, name: 'Circular Power Saw', rating: 4.8, price: 'LKR 800/d', image: 'https://images.unsplash.com/photo-1581147036324-c17ac41dfa6c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' },
-        ];
+        const filteredToolCategories = toolCategories.filter(cat =>
+            cat.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
 
         return (
             <>
-                <Text style={styles.sectionTitle}>Featured Deals</Text>
-                <View style={styles.featuredCard}>
-                    <Image source={{ uri: featuredDeal.image }} style={styles.featuredImageBackground} resizeMode="cover" />
+                <Text style={styles.sectionTitle}>Featured Equipment</Text>
+                <View style={[styles.featuredCard, { height: 150, marginTop: 12 }]}>
+                    <Image source={{ uri: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80' }} style={styles.featuredImageBackground} resizeMode="cover" />
                     <View style={styles.featuredOverlay} />
                     <View style={styles.featuredContent}>
-                        <View style={styles.dealTag}>
-                            <Text style={styles.dealTagText}>LIMITED OFFER</Text>
+                        <View style={[styles.dealTag, { backgroundColor: '#10B981' }]}>
+                            <Text style={[styles.dealTagText, { color: COLORS.white }]}>PREMIUM QUALITY</Text>
                         </View>
-                        <Text style={styles.featuredTitle}>{featuredDeal.title}</Text>
-                        <Text style={styles.featuredDesc}>{featuredDeal.description}</Text>
-                        <TouchableOpacity style={styles.rentNowButton}>
+                        <Text style={styles.featuredTitle}>DeWalt Impact Drills</Text>
+                        <Text style={styles.featuredDesc}>Professional grade tools available for daily rent.</Text>
+                        <TouchableOpacity
+                            style={styles.rentNowButton}
+                            onPress={() => navigation.navigate('ToolCategory', { categoryName: 'Power Tools' })}
+                        >
                             <Text style={styles.rentNowText}>Rent Now</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
 
                 <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Categories</Text>
+                    <Text style={styles.sectionTitle}>Tool Categories</Text>
                 </View>
 
-                <View style={styles.categoriesContainer}>
-                    {categories.map((cat) => (
+                <View style={styles.serviceGrid}>
+                    {filteredToolCategories.map((cat) => (
                         <TouchableOpacity
                             key={cat.id}
-                            style={styles.categoryItem}
+                            style={styles.serviceItem}
                             onPress={() => navigation.navigate('ToolCategory', { categoryName: cat.name })}
                         >
-                            <View style={styles.categoryIconBox}>
-                                <Ionicons name={cat.icon as any} size={28} color={COLORS.darkBlue} />
+                            <View style={styles.serviceIconBox}>
+                                <Ionicons name={cat.icon as any} size={28} color={COLORS.primary} />
                             </View>
-                            <Text style={styles.categoryText}>{cat.name}</Text>
+                            <Text style={styles.serviceText}>{cat.name}</Text>
                         </TouchableOpacity>
                     ))}
-                </View>
-
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Available Nearby</Text>
-                    <TouchableOpacity><Text style={styles.viewAllText}>View All</Text></TouchableOpacity>
-                </View>
-
-                <View style={styles.nearbyContainer}>
-                    {nearbyItems.map((item) => (
-                        <View key={item.id} style={styles.itemCard}>
-                            <Image source={{ uri: item.image }} style={styles.itemImage} resizeMode="contain" />
-                            <Text style={styles.itemTitle}>{item.name}</Text>
-                            <View style={styles.ratingContainer}>
-                                <Ionicons name="star" size={14} color={COLORS.orange} />
-                                <Text style={styles.ratingText}>{item.rating}</Text>
-                            </View>
-                            <View style={styles.itemFooter}>
-                                <View style={styles.priceTag}>
-                                    <Text style={styles.priceText}>{item.price}</Text>
-                                </View>
-                                <TouchableOpacity style={styles.addButton}>
-                                    <Ionicons name="add" size={20} color={COLORS.white} />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    ))}
+                    {filteredToolCategories.length === 0 && (
+                        <Text style={styles.emptyText}>No tool categories match your search.</Text>
+                    )}
                 </View>
             </>
         );
@@ -176,23 +185,26 @@ const HomeScreen = () => {
             { id: 1, name: 'Electrician', icon: 'flash' },
             { id: 2, name: 'Plumber', icon: 'water' },
             { id: 3, name: 'Painter', icon: 'color-palette' },
-            { id: 4, name: 'Carpentry', icon: 'hammer' },
-            { id: 5, name: 'Cleaning', icon: 'sparkles' },
-            { id: 6, name: 'AC Repair', icon: 'thermometer' },
-            { id: 7, name: 'Pest Control', icon: 'bug' },
-            { id: 8, name: 'Other', icon: 'settings' },
+            { id: 4, name: 'Carpenter', icon: 'hammer' },
+            { id: 5, name: 'Home Cleaner', icon: 'sparkles' },
+            { id: 6, name: 'AC Technician', icon: 'thermometer' },
+            { id: 7, name: 'Gardener', icon: 'leaf' },
+            { id: 8, name: 'Mason', icon: 'construct' },
         ];
 
-        const suggestions = [
-            { id: 1, name: 'Nimal Priyankara', role: 'Master Electrician', verified: true, jobs: 145, distance: '4.5 Km', rating: 4.9, image: 'https://randomuser.me/api/portraits/men/32.jpg' },
-            { id: 2, name: 'Sumesh Kalhara', role: 'Interior Painter', verified: false, jobs: 42, distance: '2.1 Km', rating: 4.8, image: 'https://randomuser.me/api/portraits/men/45.jpg' },
-            { id: 3, name: 'Kamal Perera', role: 'Plumber', verified: true, jobs: 89, distance: '3.0 Km', rating: 4.7, image: 'https://randomuser.me/api/portraits/men/12.jpg' },
-        ];
+        const filteredServiceCategories = serviceCategories.filter(cat =>
+            cat.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+
+        const filteredProviders = nearbyProviders.filter(p =>
+            p.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            p.category.toLowerCase().includes(searchQuery.toLowerCase())
+        );
 
         return (
             <>
                 <Text style={styles.sectionTitle}>Featured Deals</Text>
-                <View style={styles.featuredCard}>
+                <View style={[styles.featuredCard, { height: 150, marginTop: 12 }]}>
                     <Image source={{ uri: 'https://images.unsplash.com/photo-1621905251918-48416bd8575a?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80' }} style={styles.featuredImageBackground} resizeMode="cover" />
                     <View style={styles.featuredOverlay} />
                     <View style={styles.featuredContent}>
@@ -212,7 +224,7 @@ const HomeScreen = () => {
                 </View>
 
                 <View style={styles.serviceGrid}>
-                    {serviceCategories.map((cat) => (
+                    {filteredServiceCategories.map((cat) => (
                         <TouchableOpacity
                             key={cat.id}
                             style={styles.serviceItem}
@@ -224,45 +236,80 @@ const HomeScreen = () => {
                             <Text style={styles.serviceText}>{cat.name}</Text>
                         </TouchableOpacity>
                     ))}
+                    {filteredServiceCategories.length === 0 && (
+                        <Text style={styles.emptyText}>No categories match your search.</Text>
+                    )}
                 </View>
 
                 <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-                    <Text style={styles.sectionTitle}>Top Rated Pros</Text>
-                    <TouchableOpacity><Text style={styles.viewAllText}>View Map</Text></TouchableOpacity>
+                    <Text style={styles.sectionTitle}>Top Rated Pros Near You</Text>
+                    <TouchableOpacity onPress={() => {
+                        if (user?.addresses) {
+                            const defaultAddr = user.addresses.find((a: any) => a.isDefault) || user.addresses[0];
+                            if (defaultAddr) {
+                                navigation.navigate('ServiceProviderMap', {
+                                    providers: nearbyProviders,
+                                    initialRegion: {
+                                        latitude: defaultAddr.latitude,
+                                        longitude: defaultAddr.longitude,
+                                        latitudeDelta: 0.05,
+                                        longitudeDelta: 0.05,
+                                    }
+                                });
+                            }
+                        }
+                    }}>
+                        <Text style={styles.viewAllText}>View Map</Text>
+                    </TouchableOpacity>
                 </View>
 
                 <View style={styles.suggestionsContainer}>
-                    {suggestions.map((person) => (
-                        <TouchableOpacity key={person.id} style={styles.proCard} activeOpacity={0.9}>
-                            <Image source={{ uri: person.image }} style={styles.proImage} />
-                            <View style={styles.proInfo}>
-                                <View style={styles.proHeader}>
-                                    <Text style={styles.proName}>{person.name}</Text>
-                                    {person.verified && <Ionicons name="checkmark-circle" size={16} color="#10B981" style={{ marginLeft: 4 }} />}
+                    {loading ? (
+                        <ActivityIndicator size="large" color={COLORS.orange} style={{ marginVertical: 20 }} />
+                    ) : (
+                        filteredProviders.slice(0, 5).map((person) => (
+                            <TouchableOpacity
+                                key={person.id}
+                                style={styles.proCard}
+                                activeOpacity={0.9}
+                                onPress={() => navigation.navigate('ProviderProfile', {
+                                    providerId: person.id,
+                                    providerName: person.fullName,
+                                    providerImage: person.profileImage,
+                                    providerRating: person.rating,
+                                })}
+                            >
+                                <Image
+                                    source={{ uri: person.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(person.fullName || 'Provider')}&background=random` }}
+                                    style={styles.proImage}
+                                />
+                                <View style={styles.proInfo}>
+                                    <View style={styles.proHeader}>
+                                        <Text style={styles.proName}>{person.fullName}</Text>
+                                        <Ionicons name="checkmark-circle" size={16} color="#10B981" style={{ marginLeft: 4 }} />
+                                    </View>
+                                    <Text style={styles.proRole}>{person.category} • {person.yearsOfExperience}y Exp</Text>
+                                    <View style={styles.proStats}>
+                                        <View style={styles.proStatItem}>
+                                            <Ionicons name="star" size={14} color={COLORS.orange} />
+                                            <Text style={styles.proStatText}>{person.rating}</Text>
+                                        </View>
+                                        <View style={styles.proDivider} />
+                                        <View style={styles.proStatItem}>
+                                            <Ionicons name="location-outline" size={14} color={COLORS.gray} />
+                                            <Text style={styles.proStatText}>{person.distance} km</Text>
+                                        </View>
+                                    </View>
                                 </View>
-                                <Text style={styles.proRole}>{person.role}</Text>
-                                <View style={styles.proStats}>
-                                    <View style={styles.proStatItem}>
-                                        <Ionicons name="star" size={14} color={COLORS.orange} />
-                                        <Text style={styles.proStatText}>{person.rating}</Text>
-                                    </View>
-                                    <View style={styles.proDivider} />
-                                    <View style={styles.proStatItem}>
-                                        <Ionicons name="briefcase-outline" size={14} color={COLORS.gray} />
-                                        <Text style={styles.proStatText}>{person.jobs} Jobs</Text>
-                                    </View>
-                                    <View style={styles.proDivider} />
-                                    <View style={styles.proStatItem}>
-                                        <Ionicons name="location-outline" size={14} color={COLORS.gray} />
-                                        <Text style={styles.proStatText}>{person.distance}</Text>
-                                    </View>
-                                </View>
-                            </View>
-                            <TouchableOpacity style={styles.bookBtn}>
-                                <Text style={styles.bookBtnText}>Book</Text>
+                                <TouchableOpacity style={styles.bookBtn}>
+                                    <Text style={styles.bookBtnText}>Book</Text>
+                                </TouchableOpacity>
                             </TouchableOpacity>
-                        </TouchableOpacity>
-                    ))}
+                        ))
+                    )}
+                    {!loading && filteredProviders.length === 0 && (
+                        <Text style={styles.emptyText}>No professionals match your search.</Text>
+                    )}
                 </View>
             </>
         );
@@ -274,471 +321,74 @@ const HomeScreen = () => {
                 {renderHeader()}
                 {renderToggle()}
                 {renderSearchBar()}
-                {activeTab === 'Tools' ? renderToolsContent() : renderServicesContent()}
+                {activeTab === 'Services' ? renderServicesContent() : renderToolsContent()}
                 <View style={{ height: 100 }} />
             </ScrollView>
-
-            {/* Bottom Navigation */}
             <BottomNavBar />
         </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.white,
-    },
-    scrollContent: {
-        paddingHorizontal: 20,
-        paddingTop: 10,
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    userInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    avatar: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        marginRight: 12,
-    },
-    greetingContainer: {
-        justifyContent: 'center',
-    },
-    greetingText: {
-        fontSize: 14,
-        color: COLORS.gray,
-    },
-    userName: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: COLORS.black,
-    },
-    notificationButton: {
-        padding: 8,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: COLORS.lightGray,
-    },
-    toggleContainer: {
-        flexDirection: 'row',
-        backgroundColor: COLORS.lightGray,
-        borderRadius: 12,
-        padding: 4,
-        marginBottom: 20,
-    },
-    toggleButton: {
-        flex: 1,
-        paddingVertical: 10,
-        alignItems: 'center',
-        borderRadius: 10,
-    },
-    activeToggle: {
-        backgroundColor: COLORS.darkBlue,
-    },
-    toggleText: {
-        fontSize: 16,
-        color: COLORS.gray,
-        fontWeight: '600',
-    },
-    activeToggleText: {
-        color: COLORS.white,
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: COLORS.white,
-        borderWidth: 1,
-        borderColor: COLORS.lightGray,
-        borderRadius: 12,
-        paddingHorizontal: 12,
-        height: 50,
-        marginBottom: 24,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3.84,
-        elevation: 2,
-    },
-    searchIcon: {
-        marginRight: 10,
-    },
-    searchInput: {
-        flex: 1,
-        fontSize: 14,
-        color: COLORS.black,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: COLORS.black,
-        marginBottom: 16,
-    },
-    categoriesContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 24,
-    },
-    categoryItem: {
-        alignItems: 'center',
-        width: '22%',
-    },
-    categoryIconBox: {
-        width: 60,
-        height: 60,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: COLORS.lightGray,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    categoryText: {
-        fontSize: 12,
-        color: COLORS.black,
-        fontWeight: '500',
-    },
-    featuredCard: {
-        height: 180,
-        borderRadius: 16,
-        overflow: 'hidden',
-        marginBottom: 24,
-        position: 'relative',
-        backgroundColor: COLORS.darkBlue, // Fallback
-    },
-    featuredImageBackground: {
-        ...StyleSheet.absoluteFillObject,
-    },
-    featuredOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(20, 33, 61, 0.7)', // Overlay to make text pop
-    },
-    featuredContent: {
-        padding: 20,
-        justifyContent: 'center',
-        height: '100%',
-    },
-    dealTag: {
-        backgroundColor: COLORS.orange,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
-        alignSelf: 'flex-start',
-        marginBottom: 8,
-    },
-    dealTagText: {
-        color: COLORS.darkBlue,
-        fontSize: 10,
-        fontWeight: 'bold',
-    },
-    featuredTitle: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        color: COLORS.white,
-        marginBottom: 8,
-    },
-    featuredDesc: {
-        fontSize: 12,
-        color: '#E0E0E0',
-        marginBottom: 16,
-        maxWidth: '70%',
-    },
-    rentNowButton: {
-        backgroundColor: COLORS.white,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 8,
-        alignSelf: 'flex-start',
-    },
-    rentNowText: {
-        color: COLORS.darkBlue,
-        fontWeight: 'bold',
-        fontSize: 12,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    viewAllText: {
-        fontSize: 14,
-        color: COLORS.gray,
-    },
-    nearbyContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    itemCard: {
-        width: '48%',
-        backgroundColor: COLORS.white,
-        borderRadius: 12,
-        padding: 12,
-        borderWidth: 1,
-        borderColor: COLORS.lightGray,
-    },
-    itemImage: {
-        width: '100%',
-        height: 100,
-        marginBottom: 8,
-    },
-    itemTitle: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: COLORS.black,
-        marginBottom: 4,
-    },
-    ratingContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    ratingText: {
-        fontSize: 12,
-        color: COLORS.black,
-        marginLeft: 4,
-        fontWeight: 'bold',
-    },
-    itemFooter: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    priceTag: {
-        backgroundColor: COLORS.orange,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
-    },
-    priceText: {
-        fontSize: 10,
-        fontWeight: 'bold',
-        color: COLORS.darkBlue,
-    },
-    addButton: {
-        backgroundColor: COLORS.darkBlue,
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    // Services Styles
-    serviceGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-    },
-    serviceItem: {
-        width: '23%',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    serviceIconBox: {
-        width: 60,
-        height: 60,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: COLORS.lightGray,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    serviceText: {
-        fontSize: 11,
-        color: COLORS.black,
-        textAlign: 'center',
-    },
-    suggestionsContainer: {
-        gap: 16,
-    },
-    personCard: {
-        flexDirection: 'row',
-        padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: COLORS.lightGray,
-        backgroundColor: COLORS.white,
-    },
-    personImage: {
-        width: 60,
-        height: 80, // slightly rectangular portrait
-        borderRadius: 8,
-        marginRight: 12,
-    },
-    personInfo: {
-        flex: 1,
-        justifyContent: 'space-between',
-    },
-    personHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-    },
-    personName: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: COLORS.black,
-    },
-    ratingRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    personRole: {
-        fontSize: 12,
-        color: COLORS.gray,
-        marginTop: 2,
-    },
-    distanceText: {
-        color: COLORS.gray,
-    },
-    personActions: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 8,
-    },
-    viewProfileBtn: {
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderWidth: 1,
-        borderColor: COLORS.orange,
-        borderRadius: 6,
-    },
-    viewProfileText: {
-        fontSize: 12,
-        color: COLORS.orange,
-        fontWeight: '600',
-    },
-    bookNowSmallBtn: {
-        backgroundColor: COLORS.darkBlue,
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderRadius: 6,
-    },
-    bookNowSmallText: {
-        fontSize: 12,
-        color: COLORS.white,
-        fontWeight: '600',
-    },
-    // Service Chips
-    chipScroll: {
-        marginBottom: 8,
-    },
-    chipContainer: {
-        paddingRight: 20,
-    },
-    chipItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#F3F4F6',
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 20,
-        marginRight: 10,
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-    },
-    chipText: {
-        fontSize: 14,
-        color: COLORS.darkBlue,
-        fontWeight: '600',
-    },
-    // New Pro Card Styles
-    proCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: COLORS.white,
-        borderRadius: 16,
-        padding: 12,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: '#F3F4F6',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    proImage: {
-        width: 70,
-        height: 70,
-        borderRadius: 35,
-        marginRight: 16,
-    },
-    proInfo: {
-        flex: 1,
-    },
-    proHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    proName: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: COLORS.black,
-    },
-    proRole: {
-        fontSize: 13,
-        color: '#6B7280',
-        marginBottom: 8,
-    },
-    proStats: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    proStatItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    proStatText: {
-        fontSize: 12,
-        color: '#4B5563',
-        marginLeft: 4,
-        fontWeight: '500',
-    },
-    proDivider: {
-        width: 1,
-        height: 12,
-        backgroundColor: '#E5E7EB',
-        marginHorizontal: 8,
-    },
-    bookBtn: {
-        backgroundColor: COLORS.darkBlue,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 8,
-    },
-    bookBtnText: {
-        color: COLORS.white,
-        fontSize: 12,
-        fontWeight: 'bold',
-    },
-    bottomNav: {
+    container: { flex: 1, backgroundColor: COLORS.white },
+    scrollContent: { paddingHorizontal: 20, paddingTop: 10 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    userInfo: { flexDirection: 'row', alignItems: 'center' },
+    avatar: { width: 50, height: 50, borderRadius: 25, marginRight: 12 },
+    greetingContainer: { justifyContent: 'center' },
+    greetingText: { fontSize: 13, color: COLORS.gray },
+    userName: { fontSize: 17, fontWeight: 'bold', color: COLORS.black },
+    notificationButton: { padding: 8, borderRadius: 20, borderWidth: 1, borderColor: '#F3F4F6' },
+    toggleContainer: { flexDirection: 'row', backgroundColor: '#F3F4F6', borderRadius: 12, padding: 4, marginBottom: 20 },
+    toggleButton: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
+    activeToggle: { backgroundColor: COLORS.darkBlue },
+    toggleText: { fontSize: 15, color: COLORS.gray, fontWeight: '600' },
+    activeToggleText: { color: COLORS.white },
+    searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderWidth: 1, borderColor: '#F3F4F6', borderRadius: 12, paddingHorizontal: 12, height: 50, marginBottom: 24, elevation: 2 },
+    searchIcon: { marginRight: 10 },
+    searchInput: { flex: 1, fontSize: 14, color: COLORS.black },
+    sectionTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.black },
+    featuredCard: { height: 160, borderRadius: 16, overflow: 'hidden', marginBottom: 24, position: 'relative' },
+    featuredImageBackground: { ...StyleSheet.absoluteFillObject },
+    featuredOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(20, 33, 61, 0.6)' },
+    featuredContent: { padding: 20, justifyContent: 'center', height: '100%' },
+    dealTag: { backgroundColor: COLORS.orange, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, alignSelf: 'flex-start', marginBottom: 8 },
+    dealTagText: { color: COLORS.darkBlue, fontSize: 10, fontWeight: 'bold' },
+    featuredTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.white, marginBottom: 4 },
+    featuredDesc: { fontSize: 12, color: '#E0E0E0', marginBottom: 12, maxWidth: '80%' },
+    rentNowButton: { backgroundColor: COLORS.white, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start' },
+    rentNowText: { color: COLORS.darkBlue, fontWeight: 'bold', fontSize: 12 },
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    viewAllText: { fontSize: 14, color: COLORS.orange, fontWeight: '600' },
+    serviceGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+    serviceItem: { width: '23%', alignItems: 'center', marginBottom: 16 },
+    serviceIconBox: { width: 55, height: 55, borderRadius: 12, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 6 },
+    serviceText: { fontSize: 10, color: COLORS.black, textAlign: 'center' },
+    suggestionsContainer: { gap: 12 },
+    proCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 16, padding: 12, marginBottom: 4, borderWidth: 1, borderColor: '#F3F4F6', elevation: 1 },
+    proImage: { width: 60, height: 60, borderRadius: 30, marginRight: 12 },
+    proInfo: { flex: 1 },
+    proHeader: { flexDirection: 'row', alignItems: 'center' },
+    proName: { fontSize: 15, fontWeight: 'bold', color: COLORS.black },
+    proRole: { fontSize: 12, color: '#6B7280', marginBottom: 4 },
+    proStats: { flexDirection: 'row', alignItems: 'center' },
+    proStatItem: { flexDirection: 'row', alignItems: 'center' },
+    proStatText: { fontSize: 11, color: '#4B5563', marginLeft: 4, fontWeight: '500' },
+    proDivider: { width: 1, height: 10, backgroundColor: '#E5E7EB', marginHorizontal: 8 },
+    bookBtn: { backgroundColor: COLORS.darkBlue, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+    bookBtnText: { color: COLORS.white, fontSize: 11, fontWeight: 'bold' },
+    emptyText: { textAlign: 'center', color: COLORS.gray, marginTop: 20 },
+    placeholderText: { color: COLORS.gray, fontStyle: 'italic' },
+    notificationDot: {
         position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        backgroundColor: COLORS.white,
-        paddingVertical: 12,
-        borderTopWidth: 1,
-        borderTopColor: COLORS.lightGray,
-    },
-    navItem: {
-        alignItems: 'center',
-    },
-    navText: {
-        fontSize: 10,
-        marginTop: 4,
-        color: COLORS.gray,
+        top: 10,
+        right: 10,
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: COLORS.orange,
+        borderWidth: 1,
+        borderColor: COLORS.white,
     },
 });
 

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -7,6 +8,9 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
 import BottomNavBar from '../components/BottomNavBar';
+import { authApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { ActivityIndicator } from 'react-native';
 
 type ActivityScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Activity'>;
 
@@ -14,6 +18,11 @@ const { width } = Dimensions.get('window');
 
 const ActivityScreen = () => {
     const navigation = useNavigation<ActivityScreenNavigationProp>();
+    const { user } = useAuth();
+    const isProvider = user?.role === 'SERVICE_PROVIDER';
+    const [ongoingServices, setOngoingServices] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [selectedTab, setSelectedTab] = useState('ALL');
 
     // Mock Data for Ongoing Services
     const initialServices = [
@@ -65,15 +74,58 @@ const ActivityScreen = () => {
 
     const route = useRoute<RouteProp<RootStackParamList, 'Activity'>>();
 
+    useFocusEffect(
+        useCallback(() => {
+            const fetchBookings = async () => {
+                if (!user) return;
+                try {
+                    let data;
+                    if (isProvider) {
+                        data = await authApi.getProviderBookings(user.id);
+                    } else {
+                        data = await authApi.getUserBookings(user.id);
+                    }
+                    setOngoingServices(data);
+                } catch (error) {
+                    console.error('Error fetching bookings:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            fetchBookings();
+        }, [user])
+    );
+
     React.useEffect(() => {
         if (route.params?.updatedRentalId && route.params?.newStatus) {
             setRentals(prevRentals => prevRentals.map(rental =>
-                rental.id === route.params!.updatedRentalId
-                    ? { ...rental, status: route.params!.newStatus || rental.status }
+                rental.id === (route.params as any).updatedRentalId
+                    ? { ...rental, status: (route.params as any).newStatus || rental.status }
                     : rental
             ));
         }
     }, [route.params]);
+
+    const getStatusText = (status: string) => {
+        switch (status) {
+            case 'PENDING': return 'WAITING CONFIRMATION';
+            case 'CONFIRMED': return 'PROVIDER CONFIRMED';
+            case 'COMPLETED': return 'COMPLETED';
+            case 'PAID': return 'COMPLETED';
+            default: return status;
+        }
+    };
+
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'PENDING': return COLORS.orange;
+            case 'CONFIRMED': return '#4F46E5';
+            case 'COMPLETED': return '#10B981';
+            case 'PAID': return '#059669';
+            default: return COLORS.gray;
+        }
+    };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -93,58 +145,162 @@ const ActivityScreen = () => {
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
+                {isProvider && (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContainer}>
+                        {['ALL', 'PENDING', 'ACTIVE', 'COMPLETED'].map((tab) => (
+                            <TouchableOpacity
+                                key={tab}
+                                style={[styles.tabButton, selectedTab === tab && styles.tabButtonActive]}
+                                onPress={() => setSelectedTab(tab)}
+                            >
+                                <Text style={[styles.tabText, selectedTab === tab && styles.tabTextActive]}>
+                                    {tab}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                )}
+
                 {/* Ongoing Services Section */}
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Ongoing Services</Text>
                     <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{initialServices.length} ACTIVE</Text>
+                        <Text style={styles.badgeText}>{ongoingServices.length} ACTIVE</Text>
                     </View>
                 </View>
 
-                {initialServices.map((service) => (
-                    <View key={service.id} style={styles.card}>
-                        <View style={styles.cardContent}>
-                            <View style={styles.textContainer}>
-                                <Text style={[styles.statusText, service.status === 'PAYMENT DUE' ? { color: 'red' } : {}]}>{service.status}</Text>
-                                <Text style={styles.cardTitle}>{service.title}</Text>
-                                <Text style={styles.subText}>Provider: {service.provider}</Text>
+                {loading ? (
+                    <ActivityIndicator size="large" color={COLORS.orange} style={{ marginVertical: 20 }} />
+                ) : (
+                    (() => {
+                        const filteredServices = ongoingServices.filter(s => {
+                            if (!isProvider) return true; // Show all to Customers (or handle differently)
+                            if (selectedTab === 'ALL') return true;
+                            if (selectedTab === 'PENDING') return s.status === 'PENDING';
+                            if (selectedTab === 'ACTIVE') return s.status === 'CONFIRMED' || s.status === 'ON_THE_WAY' || s.status === 'ARRIVED';
+                            if (selectedTab === 'COMPLETED') return s.status === 'COMPLETED' || s.status === 'PAID';
+                            return true;
+                        });
 
-                                {service.status === 'PAYMENT DUE' ? (
-                                    <TouchableOpacity
-                                        style={[styles.trackButton, { backgroundColor: COLORS.darkBlue }]}
-                                        onPress={() => navigation.navigate('Payment', {
-                                            id: service.id,
-                                            title: service.title,
-                                            amount: 2500, // Mock amount
-                                            type: 'SERVICE'
-                                        })}
-                                    >
-                                        <Text style={styles.trackButtonText}>Pay Now</Text>
-                                    </TouchableOpacity>
-                                ) : (
-                                    <TouchableOpacity
-                                        style={styles.trackButton}
-                                        onPress={() => navigation.navigate('TrackService', {
-                                            serviceId: service.id,
-                                            providerName: service.provider,
-                                            serviceType: service.title
-                                        })}
-                                    >
-                                        <Text style={styles.trackButtonText}>Track</Text>
-                                    </TouchableOpacity>
-                                )}
+                        return filteredServices.length > 0 ? filteredServices.map((service) => (
+                            <View key={service.id} style={styles.card}>
+                                <View style={styles.cardContent}>
+                                    <View style={styles.textContainer}>
+                                        <Text style={[styles.statusText, { color: getStatusColor(service.status) }]}>
+                                            {getStatusText(service.status)}
+                                        </Text>
+                                        <Text style={styles.cardTitle}>{service.serviceType}</Text>
+                                        <Text style={styles.subText}>
+                                            {isProvider ? 'Customer: ' : 'Provider: '}
+                                            {isProvider ? (service.customer?.fullName || 'N/A') : (service.provider?.fullName || 'N/A')}
+                                        </Text>
+
+                                        <View style={styles.buttonRow}>
+                                            {isProvider && service.status === 'PENDING' ? (
+                                                <View style={{ flexDirection: 'row', gap: 8 }}>
+                                                    <TouchableOpacity
+                                                        style={[styles.trackButton, { backgroundColor: COLORS.orange }]}
+                                                        onPress={async () => {
+                                                            try {
+                                                                await authApi.updateBookingStatus(service.id.toString(), 'CONFIRMED');
+                                                                // Reload bookings
+                                                                const data = await authApi.getProviderBookings(user.id);
+                                                                setOngoingServices(data);
+                                                            } catch (error) {
+                                                                console.error(error);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Text style={styles.trackButtonText}>Accept</Text>
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity
+                                                        style={[styles.trackButton, { backgroundColor: COLORS.gray }]}
+                                                        onPress={async () => {
+                                                            try {
+                                                                await authApi.updateBookingStatus(service.id.toString(), 'REJECTED');
+                                                                // Reload bookings
+                                                                const data = await authApi.getProviderBookings(user.id);
+                                                                setOngoingServices(data);
+                                                            } catch (error) {
+                                                                console.error(error);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Text style={styles.trackButtonText}>Decline</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            ) : service.status !== 'PAID' ? (
+                                                <TouchableOpacity
+                                                    style={styles.trackButton}
+                                                    onPress={() => {
+                                                        navigation.navigate('TrackService', {
+                                                            serviceId: service.id,
+                                                            providerId: isProvider ? service.customerId : (service.provider?.userId || service.providerId),
+                                                            providerName: isProvider ? (service.customer?.fullName || 'Customer') : (service.provider?.fullName || 'Provider'),
+                                                            serviceType: service.serviceType,
+                                                            status: service.status,
+                                                            arrivedAt: service.arrivedAt,
+                                                            serviceImage: isProvider ? (service.customer?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(service.customer?.fullName || 'User')}&background=random`) : (service.provider?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(service.provider?.fullName || 'User')}&background=random`)
+                                                        });
+                                                    }}
+                                                >
+                                                    <Text style={styles.trackButtonText}>
+                                                        {service.status === 'COMPLETED' ? 'Review Invoice' : 'Track'}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ) : (
+                                                !isProvider && (
+                                                    service.reviews?.some((r: any) => r.reviewerId === user?.id) ? (
+                                                        <View style={[styles.trackButton, { backgroundColor: '#F3F4F6', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 }]}>
+                                                            <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                                                            <Text style={[styles.trackButtonText, { color: '#6B7280', marginLeft: 4 }]}>Rated</Text>
+                                                        </View>
+                                                    ) : (
+                                                        <TouchableOpacity
+                                                            style={[styles.trackButton, { backgroundColor: COLORS.orange }]}
+                                                            onPress={() => {
+                                                                navigation.navigate('WriteReview', {
+                                                                    serviceId: service.id.toString(),
+                                                                    providerId: service.provider?.id || service.provider?.userId || service.providerId,
+                                                                    serviceName: service.serviceType,
+                                                                    providerName: service.provider?.fullName || 'Provider',
+                                                                    serviceImage: service.provider?.profileImage || 'https://via.placeholder.com/150'
+                                                                });
+                                                            }}
+                                                        >
+                                                            <Text style={styles.trackButtonText}>Rate Provider</Text>
+                                                        </TouchableOpacity>
+                                                    )
+                                                )
+                                            )}
+
+                                            <Text style={styles.dateTimeText}>
+                                                {new Date(service.bookingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} | {service.startTime}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    <Image
+                                        source={{ uri: isProvider ? (service.customer?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(service.customer?.fullName || 'User')}&background=random`) : (service.provider?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(service.provider?.fullName || 'User')}&background=random`) }}
+                                        style={styles.cardImage}
+                                    />
+                                </View>
                             </View>
-                            <Image source={{ uri: service.image }} style={styles.cardImage} />
-                        </View>
-                    </View>
-                ))}
+                        )) : (
+                            <View style={styles.emptyCard}>
+                                <Ionicons name="calendar-outline" size={40} color={COLORS.lightGray} />
+                                <Text style={styles.emptyText}>No ongoing services found</Text>
+                            </View>
+                        );
+                    }))()}
 
                 {/* Active Rentals Section */}
-                <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-                    <Text style={styles.sectionTitle}>Active Rentals</Text>
-                </View>
+                {!isProvider && (
+                    <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+                        <Text style={styles.sectionTitle}>Active Rentals</Text>
+                    </View>
+                )}
 
-                {rentals.map((rental) => (
+                {!isProvider && rentals.map((rental) => (
                     <View key={rental.id} style={styles.card}>
                         <View style={styles.cardContent}>
                             <View style={styles.textContainer}>
@@ -325,6 +481,31 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         backgroundColor: '#E5E7EB',
     },
+    buttonRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    dateTimeText: {
+        fontSize: 11,
+        color: COLORS.gray,
+        fontWeight: '500',
+    },
+    emptyCard: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 40,
+        backgroundColor: COLORS.white,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderStyle: 'dashed',
+    },
+    emptyText: {
+        marginTop: 12,
+        color: COLORS.gray,
+        fontSize: 14,
+    },
     bottomNav: {
         position: 'absolute',
         bottom: 0,
@@ -362,6 +543,38 @@ const styles = StyleSheet.create({
         color: COLORS.orange,
         marginLeft: 6,
     },
+    tabsContainer: {
+        flexDirection: 'row',
+        paddingBottom: 20,
+        gap: 12,
+        paddingHorizontal: 4,
+    },
+    tabButton: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 20,
+        backgroundColor: '#F3F4F6',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        marginRight: 8,
+    },
+    tabButtonActive: {
+        backgroundColor: COLORS.darkBlue,
+        borderColor: COLORS.darkBlue,
+        shadowColor: COLORS.darkBlue,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    tabText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: COLORS.gray,
+    },
+    tabTextActive: {
+        color: COLORS.white,
+    }
 });
 
 export default ActivityScreen;

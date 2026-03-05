@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import BottomNavBar from '../components/BottomNavBar';
+import { authApi } from '../services/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -14,48 +16,148 @@ const ProviderProfileScreen = () => {
     const navigation = useNavigation<ProviderProfileScreenNavigationProp>();
     const route = useRoute<ProviderProfileScreenRouteProp>();
 
-    // Mock data - would come from route params or API
-    const provider = {
-        name: 'John Perera',
-        role: 'Electrician',
-        rating: 4.8,
-        reviews: 120,
-        phone: '+9477-7863456',
-        email: 'johnperera@gmail.com',
-        image: 'https://randomuser.me/api/portraits/men/32.jpg',
-        experience: '8+ years',
-        skills: ['Wiring', 'Lighting', 'Repairs'],
-    };
+    const {
+        providerId,
+        providerName: initialName,
+        providerImage: initialImage,
+        providerRating: initialRating,
+        role: initialRole
+    } = route.params || {};
 
-    const [selectedMonth, setSelectedMonth] = useState('Nov');
-    const [selectedDay, setSelectedDay] = useState(21);
+    const [loading, setLoading] = useState(true);
+    const [provider, setProvider] = useState<any>({
+        name: initialName || 'Professional',
+        role: initialRole || 'Service Provider',
+        rating: initialRating || 5.0,
+        reviews: 0,
+        phone: '',
+        email: '',
+        image: initialImage || 'https://via.placeholder.com/150',
+        experience: '0 years',
+        skills: [],
+    });
+
+    useEffect(() => {
+        const fetchDetails = async () => {
+            if (!providerId) {
+                setLoading(false);
+                return;
+            }
+            try {
+                const data = await authApi.getProviderDetails(providerId);
+                setProvider({
+                    name: data.fullName,
+                    role: initialRole || data.category,
+                    rating: data.rating || 5.0,
+                    reviews: data.reviews || 120,
+                    phone: data.phone,
+                    email: data.email,
+                    image: data.profileImage || 'https://via.placeholder.com/150',
+                    experience: `${data.yearsOfExperience}+ years`,
+                    skills: data.skills || [],
+                });
+            } catch (error) {
+                console.error('Error fetching provider details:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDetails();
+    }, [providerId]);
+
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    const [displayedMonth, setDisplayedMonth] = useState(new Date());
+    const [availableSlots, setAvailableSlots] = useState<any[]>([]);
+    const [loadingSlots, setLoadingSlots] = useState(false);
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+
+    useEffect(() => {
+        const fetchAvailability = async () => {
+            if (!providerId || !selectedDate) return;
+            setLoadingSlots(true);
+            try {
+                const dateStr = selectedDate.toISOString().split('T')[0];
+                const data = await authApi.getProviderAvailability(providerId, dateStr);
+                setAvailableSlots(data.slots);
+            } catch (error) {
+                console.error('Error fetching availability:', error);
+            } finally {
+                setLoadingSlots(false);
+            }
+        };
+
+        fetchAvailability();
+    }, [providerId, selectedDate]);
 
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const calendarDays = [
-        { day: 20, date: 'Sun' },
-        { day: 21, date: 'Mon' },
-        { day: 22, date: 'Tue' },
-        { day: 23, date: 'Wed' },
-        { day: 24, date: 'Thu' },
-        { day: 25, date: 'Fri' },
-        { day: 26, date: 'Sat' },
-    ];
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-    const availableTimes = [
-        { time: '9 - 10 am', status: 'available' },
-        { time: '10 - 11 am', status: 'available' },
-        { time: '11 - 12 am', status: 'available' },
-        { time: '12 - 1 pm', status: 'limited' },
-        { time: '1 - 2 pm', status: 'not available' },
-        { time: '2 - 3 pm', status: 'not available' },
-        { time: '3 - 4 pm', status: 'available' },
-        { time: '4 - 5 pm', status: 'available' },
-    ];
+    const generateCalendarDays = (date: Date) => {
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    const reviews = [
-        { id: 1, name: 'John S.', rating: 5, comment: 'Great service — arrived on time...', date: 'Nov 10, 2025' },
-        { id: 2, name: 'Ayesha P.', rating: 4, comment: 'Good work, fair pricing..', date: 'Nov 8, 2025' },
-    ];
+        const days = [];
+        // Add empty slots for days before the first day of the month
+        for (let i = 0; i < firstDay; i++) {
+            days.push(null);
+        }
+        // Add actual days
+        for (let i = 1; i <= daysInMonth; i++) {
+            days.push(new Date(year, month, i));
+        }
+        return days;
+    };
+
+    const isDateDisabled = (date: Date) => {
+        return date < currentDate;
+    };
+
+    const isWorkingDay = (date: Date) => {
+        if (!provider.workingDays) return true;
+        const dayName = weekDays[date.getDay()]; // 'Sun', 'Mon', etc.
+        const shortDayName = dayName.slice(0, 3);
+
+        if (provider.workingDays.includes('Everyday')) return true;
+        if (provider.workingDays.includes(shortDayName)) return true;
+        if ((shortDayName === 'Sun' || shortDayName === 'Sat') && provider.workingDays.includes('Weekend only')) return true;
+
+        return false;
+    };
+
+    const navigateMonth = (direction: 'prev' | 'next') => {
+        const newMonth = new Date(displayedMonth);
+        if (direction === 'prev') {
+            newMonth.setMonth(newMonth.getMonth() - 1);
+            const minMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            if (newMonth < minMonth) return;
+        } else {
+            newMonth.setMonth(newMonth.getMonth() + 1);
+        }
+        setDisplayedMonth(newMonth);
+    };
+
+    const [reviews, setReviews] = useState<any[]>([]);
+    const [loadingReviews, setLoadingReviews] = useState(true);
+
+    useEffect(() => {
+        const fetchReviews = async () => {
+            if (!providerId) return;
+            try {
+                const data = await authApi.getProviderReviews(providerId);
+                setReviews(data);
+            } catch (error) {
+                console.error('Error fetching reviews:', error);
+            } finally {
+                setLoadingReviews(false);
+            }
+        };
+
+        fetchReviews();
+    }, [providerId]);
 
     const renderStars = (rating: number) => {
         const stars = [];
@@ -86,14 +188,17 @@ const ProviderProfileScreen = () => {
     };
 
     const handleBooking = () => {
+        if (!providerId) return;
         navigation.navigate('BookService', {
-            providerId: 1,
+            providerId: providerId,
             providerName: provider.name,
             providerImage: provider.image,
             providerRating: provider.rating,
             providerReviews: provider.reviews,
             providerPhone: provider.phone,
             providerEmail: provider.email,
+            role: provider.role,
+            selectedDate: selectedDate.toISOString(),
         });
     };
 
@@ -110,147 +215,198 @@ const ProviderProfileScreen = () => {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                {/* Provider Info Card */}
-                <View style={styles.profileCard}>
-                    <Image source={{ uri: provider.image }} style={styles.profileImage} />
-                    <Text style={styles.providerName}>{provider.name}</Text>
-
-                    <View style={styles.ratingRow}>
-                        <Text style={styles.ratingValue}>{provider.rating}</Text>
-                        <View style={styles.starsContainer}>{renderStars(provider.rating)}</View>
-                        <Text style={styles.reviewCount}>({provider.reviews} reviews)</Text>
-                    </View>
-
-                    <View style={styles.contactRow}>
-                        <Ionicons name="call-outline" size={16} color={COLORS.gray} />
-                        <Text style={styles.contactText}>{provider.phone}</Text>
-                    </View>
-
-                    <View style={styles.contactRow}>
-                        <Ionicons name="mail-outline" size={16} color={COLORS.gray} />
-                        <Text style={styles.contactText}>{provider.email}</Text>
-                    </View>
-
-                    <TouchableOpacity style={styles.bookButton} onPress={handleBooking}>
-                        <Text style={styles.bookButtonText}>Book This {provider.role}</Text>
-                    </TouchableOpacity>
+            {loading ? (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color={COLORS.orange} />
+                    <Text style={{ marginTop: 12, color: COLORS.gray }}>Loading profile details...</Text>
                 </View>
+            ) : (
+                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                    {/* Provider Info Card */}
+                    <View style={styles.profileCard}>
+                        <Image source={{ uri: provider.image }} style={styles.profileImage} />
+                        <Text style={styles.providerName}>{provider.name}</Text>
 
-                {/* Experience */}
-                <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Experience :</Text>
-                    <View style={styles.experienceBadge}>
-                        <Text style={styles.experienceText}>{provider.experience}</Text>
-                    </View>
-                </View>
-
-                {/* Skills */}
-                <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Skills :</Text>
-                    <View style={styles.skillsContainer}>
-                        {provider.skills.map((skill, index) => (
-                            <View key={index} style={styles.skillBadge}>
-                                <Text style={styles.skillText}>{skill}</Text>
-                            </View>
-                        ))}
-                    </View>
-                </View>
-
-                {/* Availability Calendar */}
-                <Text style={styles.sectionTitle}>Availability :</Text>
-                <View style={styles.calendarCard}>
-                    <View style={styles.calendarHeader}>
-                        <TouchableOpacity>
-                            <Ionicons name="chevron-back" size={20} color={COLORS.white} />
-                        </TouchableOpacity>
-                        <Text style={styles.monthText}>{'< Nov >'}</Text>
-                        <TouchableOpacity>
-                            <Ionicons name="chevron-forward" size={20} color={COLORS.white} />
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.weekDaysRow}>
-                        {weekDays.map((day, index) => (
-                            <Text key={index} style={styles.weekDayText}>{day}</Text>
-                        ))}
-                    </View>
-
-                    <View style={styles.datesRow}>
-                        {calendarDays.map((item, index) => (
-                            <TouchableOpacity
-                                key={index}
-                                style={[
-                                    styles.dateItem,
-                                    selectedDay === item.day && styles.selectedDateItem
-                                ]}
-                                onPress={() => setSelectedDay(item.day)}
-                            >
-                                <Text style={[
-                                    styles.dateText,
-                                    selectedDay === item.day && styles.selectedDateText
-                                ]}>{item.day}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </View>
-
-                {/* Available Times */}
-                <Text style={styles.sectionTitle}>Available Times :</Text>
-                <View style={styles.timesCard}>
-                    {availableTimes.map((slot, index) => (
-                        <View key={index} style={styles.timeSlot}>
-                            <Text style={styles.timeText}>{slot.time}</Text>
-                            <View style={styles.statusContainer}>
-                                <View style={[styles.statusDot, { backgroundColor: getStatusColor(slot.status) }]} />
-                                <Text style={[styles.statusText, { color: getStatusColor(slot.status) }]}>
-                                    {slot.status}
-                                </Text>
-                            </View>
+                        <View style={styles.ratingRow}>
+                            <Text style={styles.ratingValue}>{provider.rating}</Text>
+                            <View style={styles.starsContainer}>{renderStars(provider.rating)}</View>
+                            <Text style={styles.reviewCount}>({provider.reviews} reviews)</Text>
                         </View>
-                    ))}
-                </View>
 
-                {/* Reviews */}
-                <Text style={styles.sectionTitle}>Reviews :</Text>
-                {reviews.map((review) => (
-                    <View key={review.id} style={styles.reviewCard}>
-                        <View style={styles.reviewHeader}>
-                            <View style={styles.reviewerInfo}>
-                                <View style={styles.reviewerAvatar}>
-                                    <Ionicons name="person" size={20} color={COLORS.gray} />
+                        <View style={styles.contactRow}>
+                            <Ionicons name="call-outline" size={16} color={COLORS.gray} />
+                            <Text style={styles.contactText}>{provider.phone}</Text>
+                        </View>
+
+                        <View style={styles.contactRow}>
+                            <Ionicons name="mail-outline" size={16} color={COLORS.gray} />
+                            <Text style={styles.contactText}>{provider.email}</Text>
+                        </View>
+
+                        <TouchableOpacity style={styles.bookButton} onPress={handleBooking}>
+                            <Text style={styles.bookButtonText}>Book This {provider.role}</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Experience */}
+                    <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Experience :</Text>
+                        <View style={styles.experienceBadge}>
+                            <Text style={styles.experienceText}>{provider.experience}</Text>
+                        </View>
+                    </View>
+
+                    {/* Skills */}
+                    <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Skills :</Text>
+                        <View style={styles.skillsContainer}>
+                            {provider.skills.map((skill: string, index: number) => (
+                                <View key={index} style={styles.skillBadge}>
+                                    <Text style={styles.skillText}>{skill}</Text>
                                 </View>
-                                <Text style={styles.reviewerName}>{review.name}</Text>
-                            </View>
-                            <View style={styles.reviewStars}>{renderStars(review.rating)}</View>
+                            ))}
                         </View>
-                        <Text style={styles.reviewComment}>{review.comment}</Text>
-                        <Text style={styles.reviewDate}>{review.date}</Text>
                     </View>
-                ))}
 
-                <View style={{ height: 100 }} />
-            </ScrollView>
+                    {/* Availability Calendar */}
+                    <Text style={styles.sectionTitle}>Availability :</Text>
+                    <View style={styles.calendarCard}>
+                        <View style={styles.calendarHeader}>
+                            <TouchableOpacity onPress={() => navigateMonth('prev')}>
+                                <Ionicons name="chevron-back" size={20} color={COLORS.white} />
+                            </TouchableOpacity>
+                            <Text style={styles.monthText}>{months[displayedMonth.getMonth()]} {displayedMonth.getFullYear()}</Text>
+                            <TouchableOpacity onPress={() => navigateMonth('next')}>
+                                <Ionicons name="chevron-forward" size={20} color={COLORS.white} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.weekDaysRow}>
+                            {weekDays.map((day, index) => (
+                                <Text key={index} style={styles.weekDayText}>{day}</Text>
+                            ))}
+                        </View>
+
+                        <View style={styles.datesGrid}>
+                            {generateCalendarDays(displayedMonth).map((date, index) => {
+                                if (!date) return <View key={`empty-${index}`} style={styles.dateItem} />;
+
+                                const isDisabled = isDateDisabled(date);
+                                const isSelected = selectedDate.toDateString() === date.toDateString();
+                                const hasWork = isWorkingDay(date);
+
+                                return (
+                                    <TouchableOpacity
+                                        key={index}
+                                        disabled={isDisabled}
+                                        style={[
+                                            styles.dateItem,
+                                            isSelected && styles.selectedDateItem,
+                                            isDisabled && styles.disabledDateItem,
+                                            !hasWork && !isDisabled && !isSelected && { backgroundColor: '#374151' } // Darker blue if no work
+                                        ]}
+                                        onPress={() => setSelectedDate(date)}
+                                    >
+                                        <Text style={[
+                                            styles.dateText,
+                                            isSelected && styles.selectedDateText,
+                                            isDisabled && styles.disabledDateText
+                                        ]}>{date.getDate()}</Text>
+                                        {!isDisabled && hasWork && !isSelected && <View style={styles.workDot} />}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </View>
+
+                    {/* Available Times */}
+                    <Text style={styles.sectionTitle}>Available Times for {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} :</Text>
+                    <View style={styles.timesCard}>
+                        {loadingSlots ? (
+                            <ActivityIndicator size="small" color={COLORS.orange} style={{ padding: 20 }} />
+                        ) : availableSlots.length > 0 ? (
+                            availableSlots.map((slot, index) => (
+                                <View key={index} style={styles.timeSlot}>
+                                    <Text style={styles.timeText}>{slot.time}</Text>
+                                    <View style={styles.statusContainer}>
+                                        <View style={[styles.statusDot, { backgroundColor: getStatusColor(slot.status) }]} />
+                                        <Text style={[styles.statusText, { color: getStatusColor(slot.status) }]}>
+                                            {slot.status}
+                                        </Text>
+                                    </View>
+                                </View>
+                            ))
+                        ) : (
+                            <Text style={{ textAlign: 'center', color: COLORS.gray, padding: 20 }}>No availability for this day</Text>
+                        )}
+                    </View>
+
+                    {/* Reviews */}
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Reviews :</Text>
+                        {reviews.length > 3 && (
+                            <TouchableOpacity onPress={() => navigation.navigate('ProviderRatings', { providerId, providerName: provider.name })}>
+                                <Text style={styles.seeAllText}>See All</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    {loadingReviews ? (
+                        <ActivityIndicator size="small" color={COLORS.orange} style={{ padding: 20 }} />
+                    ) : reviews.length > 0 ? (
+                        reviews.slice(0, 3).map((review) => (
+                            <View key={review.id} style={styles.reviewCard}>
+                                <View style={styles.reviewHeader}>
+                                    <View style={styles.reviewerInfo}>
+                                        <View style={styles.reviewerAvatar}>
+                                            {review.reviewer?.profileImage ? (
+                                                <Image source={{ uri: review.reviewer.profileImage }} style={{ width: '100%', height: '100%', borderRadius: 12 }} />
+                                            ) : (
+                                                <Ionicons name="person" size={20} color={COLORS.gray} />
+                                            )}
+                                        </View>
+                                        <Text style={styles.reviewerName}>{review.reviewer?.fullName || 'Anonymous'}</Text>
+                                    </View>
+                                    <View style={styles.reviewStars}>
+                                        <Text style={{ fontSize: 12, color: COLORS.orange, fontWeight: 'bold', marginRight: 4 }}>{review.rating.toFixed(1)}</Text>
+                                        {renderStars(review.rating)}
+                                    </View>
+                                </View>
+                                <Text style={styles.reviewComment}>{review.comment}</Text>
+                                {review.images && review.images.length > 0 && (
+                                    <View style={{ marginTop: 10, marginBottom: 5 }}>
+                                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                            {review.images.map((img: string, idx: number) => (
+                                                <Image key={idx} source={{ uri: img }} style={{ width: 100, height: 100, borderRadius: 10, marginRight: 8 }} />
+                                            ))}
+                                        </ScrollView>
+                                    </View>
+                                )}
+                                <Text style={styles.reviewDate}>
+                                    {new Date(review.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </Text>
+
+                                {review.reply && (
+                                    <View style={{ marginTop: 12, padding: 12, backgroundColor: '#F8FAFC', borderRadius: 8, borderLeftWidth: 3, borderLeftColor: COLORS.orange }}>
+                                        <Text style={{ fontSize: 13, fontWeight: 'bold', color: COLORS.orange, marginBottom: 4 }}>Provider response:</Text>
+                                        <Text style={{ fontSize: 13, color: '#475569', fontStyle: 'italic' }}>"{review.reply}"</Text>
+                                    </View>
+                                )}
+                            </View>
+                        ))
+                    ) : (
+                        <View style={styles.emptyCard}>
+                            <Ionicons name="chatbox-ellipses-outline" size={40} color={COLORS.lightGray} />
+                            <Text style={styles.emptyText}>No reviews yet</Text>
+                        </View>
+                    )}
+
+                    <View style={{ height: 100 }} />
+                </ScrollView>
+            )}
 
             {/* Bottom Navigation */}
-            <View style={styles.bottomNav}>
-                <TouchableOpacity style={styles.navItem}>
-                    <Ionicons name="home" size={24} color={COLORS.secondary} />
-                    <Text style={[styles.navText, { color: COLORS.secondary }]}>Active</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem}>
-                    <Ionicons name="document-text-outline" size={24} color={COLORS.gray} />
-                    <Text style={styles.navText}>Activity</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem}>
-                    <Ionicons name="notifications-outline" size={24} color={COLORS.gray} />
-                    <Text style={styles.navText}>Notification</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem}>
-                    <Ionicons name="person-outline" size={24} color={COLORS.gray} />
-                    <Text style={styles.navText}>Account</Text>
-                </TouchableOpacity>
-            </View>
+            <BottomNavBar />
         </SafeAreaView>
     );
 };
@@ -351,6 +507,22 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
+    emptyCard: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 40,
+        backgroundColor: '#F9FAFB',
+        borderRadius: 16,
+        marginTop: 10,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderStyle: 'dashed',
+    },
+    emptyText: {
+        marginTop: 12,
+        color: COLORS.gray,
+        fontSize: 14,
+    },
     infoRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -393,7 +565,17 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         color: COLORS.black,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: 12,
+    },
+    seeAllText: {
+        fontSize: 14,
+        color: COLORS.orange,
+        fontWeight: 'bold',
     },
     calendarCard: {
         backgroundColor: COLORS.darkBlue,
@@ -424,19 +606,23 @@ const styles = StyleSheet.create({
         width: 40,
         textAlign: 'center',
     },
-    datesRow: {
+    datesGrid: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
+        flexWrap: 'wrap',
     },
     dateItem: {
-        width: 40,
+        width: `${100 / 7}%`,
         height: 40,
-        borderRadius: 8,
         justifyContent: 'center',
         alignItems: 'center',
+        borderRadius: 8,
+        marginVertical: 2,
     },
     selectedDateItem: {
         backgroundColor: COLORS.orange,
+    },
+    disabledDateItem: {
+        opacity: 0.3,
     },
     dateText: {
         fontSize: 14,
@@ -445,6 +631,17 @@ const styles = StyleSheet.create({
     },
     selectedDateText: {
         color: COLORS.darkBlue,
+    },
+    disabledDateText: {
+        color: COLORS.lightGray,
+    },
+    workDot: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: COLORS.orange,
+        position: 'absolute',
+        bottom: 4,
     },
     timesCard: {
         backgroundColor: '#FFFBEB',

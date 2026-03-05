@@ -5,9 +5,9 @@ import { Platform } from 'react-native';
 const DEV_HUB_IP = '192.168.43.101'; // Your Wi-Fi IP
 
 export const API_BASE_URL = Platform.select({
-    ios: `http://${DEV_HUB_IP}:3000`,
-    android: `http://${DEV_HUB_IP}:3000`,
-    default: 'http://localhost:3000',
+    ios: `http://${DEV_HUB_IP}:5000`,
+    android: `http://${DEV_HUB_IP}:5000`,
+    default: 'http://localhost:5000',
 });
 
 export const authApi = {
@@ -227,6 +227,191 @@ export const authApi = {
             console.error('Public upload error:', error);
             throw new Error(error.message || 'Upload failed');
         }
+    },
+    getNearbyProviders: async (lat: number, lng: number, category?: string, date?: string, time?: string) => {
+        try {
+            let url = `${API_BASE_URL}/services/nearby?lat=${lat}&lng=${lng}`;
+            if (category) url += `&category=${category}`;
+            if (date) url += `&date=${date}`;
+            if (time) url += `&time=${time}`;
+
+            const response = await fetch(url);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch nearby providers');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Nearby Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    getProviderDetails: async (id: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/services/provider/${id}`);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch provider details');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Provider Details Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    getProviderAvailability: async (id: string, date: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/services/provider/${id}/availability?date=${date}`);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch availability');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Availability Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    createBooking: async (bookingData: any) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/services/book`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(bookingData),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to create booking');
+            return result;
+        } catch (error: any) {
+            console.error('Create Booking Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    getUserBookings: async (userId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/services/user/${userId}/bookings`);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch bookings');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Bookings Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    getProviderReviews: async (providerId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/services/provider/${providerId}/reviews`);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch reviews');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Reviews Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    getUserReviews: async (userId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/services/user/${userId}/reviews`);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch reviews');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch User Reviews Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    createReview: async (reviewData: any) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/services/review`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(reviewData),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to submit review');
+            return result;
+        } catch (error: any) {
+            console.error('Submit Review Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    getProviderBookings: async (providerId: string, date?: string) => {
+        try {
+            const url = date
+                ? `${API_BASE_URL}/services/provider/${providerId}/bookings?date=${date}`
+                : `${API_BASE_URL}/services/provider/${providerId}/bookings`;
+            const response = await fetch(url);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch provider bookings');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Provider Bookings Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    updateBookingStatus: async (bookingId: string, status: string, additionalCharges?: number) => {
+        try {
+            const bodyData: any = { bookingId, status };
+            if (additionalCharges !== undefined) {
+                bodyData.additionalCharges = additionalCharges;
+            }
+            const response = await fetch(`${API_BASE_URL}/services/booking/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(bodyData),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to update booking status');
+            return result;
+        } catch (error: any) {
+            console.error('Update Booking Status Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    replyToReview: async (reviewId: string, reply: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/services/review/${reviewId}/reply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reply }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to reply to review');
+            return result;
+        } catch (error: any) {
+            console.error('Reply Review Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    likeReview: async (reviewId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/services/review/${reviewId}/like`, {
+                method: 'POST',
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to like review');
+            return result;
+        } catch (error: any) {
+            console.error('Like Review Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    getNotifications: async (userId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/services/user/${userId}/notifications`);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch notifications');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Notifications Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    markNotificationAsRead: async (id: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/services/notification/${id}/read`, {
+                method: 'POST',
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to mark as read');
+            return result;
+        } catch (error: any) {
+            console.error('Mark Read Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
     }
 };
-

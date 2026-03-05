@@ -1,111 +1,135 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, FlatList } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, FlatList, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
 import BottomNavBar from '../components/BottomNavBar';
+import { authApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+
+const formatTimeAgo = (date: Date) => {
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    let interval = Math.floor(seconds / 31536000);
+    if (interval > 1) return interval + " years ago";
+    interval = Math.floor(seconds / 2592000);
+    if (interval > 1) return interval + " months ago";
+    interval = Math.floor(seconds / 86400);
+    if (interval > 1) return interval + " days ago";
+    interval = Math.floor(seconds / 3600);
+    if (interval > 1) return interval + " hours ago";
+    interval = Math.floor(seconds / 60);
+    if (interval >= 1) return interval + " minutes ago";
+    return "just now";
+};
 
 type NotificationScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Notification'>;
 
-const notificationsData = [
-    {
-        id: 1,
-        title: 'Electrician arriving soon',
-        category: 'Services',
-        timestamp: '2min ago',
-        description: 'John is 5 min away from your location',
-        action: 'Track',
-        icon: 'flash',
-        iconColor: '#F59E0B',
-        iconBg: '#FFF7ED',
-        type: 'SERVICE',
-        serviceId: 1,
-        providerName: 'John',
-        serviceType: 'Electrician'
-    },
-    {
-        id: 2,
-        title: 'Rental Reminder',
-        category: 'Tools',
-        timestamp: '1h ago',
-        description: 'Return the DeWalt Drill by 5 PM today to avoid late fees',
-        action: 'Extend',
-        icon: 'hammer',
-        iconColor: '#3B82F6',
-        iconBg: '#EFF6FF',
-        type: 'RENTAL',
-        rentalId: 1,
-        toolName: 'DeWalt Drill',
-        dueDate: 'today',
-    },
-    {
-        id: 3,
-        title: 'Weekend Special: 20% off',
-        category: 'Promotions',
-        timestamp: '5h ago',
-        description: 'Get 20% off all Plumbing services booked this weekend. Limited slots!',
-        action: null,
-        icon: 'pricetag',
-        iconColor: '#10B981',
-        iconBg: '#ECFDF5',
-        type: 'PROMOTION',
-    }
-];
-
 const NotificationScreen = () => {
     const navigation = useNavigation<NotificationScreenNavigationProp>();
+    const { user } = useAuth();
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [selectedFilter, setSelectedFilter] = useState('All');
 
-    const filters = ['All', 'Services', 'Tools', 'Promotions'];
+    const filters = ['All', 'Bookings', 'Reviews', 'Other'];
 
-    const filteredData = selectedFilter === 'All'
-        ? notificationsData
-        : notificationsData.filter(item => item.category === selectedFilter);
-
-    const handleAction = (item: any) => {
-        if (item.action && item.action.includes('Track')) {
-            navigation.navigate('TrackService', {
-                serviceId: item.serviceId,
-                providerName: item.providerName,
-                serviceType: item.serviceType
-            });
-        } else if (item.action && item.action.includes('Extend')) {
-            navigation.navigate('RentalStatus', {
-                rentalId: item.rentalId,
-                toolName: item.toolName,
-                dueDate: item.dueDate,
-                image: 'https://images.unsplash.com/photo-1572981779307-38b8cabb2407?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'
-            });
+    const fetchNotifications = async () => {
+        if (!user?.id) return;
+        try {
+            const data = await authApi.getNotifications(user.id);
+            setNotifications(data);
+        } catch (error) {
+            console.error('Error fetching notifications:', error);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
         }
     };
 
-    const renderItem = ({ item }: { item: any }) => (
-        <TouchableOpacity style={styles.notificationItem} onPress={() => handleAction(item)}>
-            <View style={[styles.iconContainer, { backgroundColor: item.iconBg }]}>
-                <Ionicons name={item.icon as any} size={24} color={item.iconColor} />
-            </View>
-            <View style={styles.textContainer}>
-                <View style={styles.itemHeader}>
-                    <Text style={styles.itemTitle}>{item.title}</Text>
-                    <Text style={styles.timestamp}>{item.timestamp}</Text>
-                </View>
-                <Text style={styles.itemDesc}>{item.description}</Text>
-
-                {item.action && (
-                    <Text style={[styles.actionLink, { color: item.iconColor }]}>{item.action} Now →</Text>
-                )}
-            </View>
-            {/* Optional dot for unread state (mock) */}
-            {item.id === 1 && <View style={styles.unreadDot} />}
-        </TouchableOpacity>
+    useFocusEffect(
+        useCallback(() => {
+            fetchNotifications();
+        }, [user?.id])
     );
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        fetchNotifications();
+    };
+
+    const getIconInfo = (type: string) => {
+        switch (type) {
+            case 'BOOKING_REQUEST':
+                return { icon: 'calendar', color: '#F59E0B', bg: '#FFF7ED', category: 'Bookings' };
+            case 'STATUS_UPDATE':
+                return { icon: 'notifications', color: '#3B82F6', bg: '#EFF6FF', category: 'Bookings' };
+            case 'REVIEW_RECEIVED':
+            case 'REVIEW_REPLY':
+                return { icon: 'star', color: '#10B981', bg: '#ECFDF5', category: 'Reviews' };
+            default:
+                return { icon: 'information-circle', color: '#6B7280', bg: '#F3F4F6', category: 'Other' };
+        }
+    };
+
+    const handleNotificationPress = async (item: any) => {
+        if (!item.isRead) {
+            try {
+                await authApi.markNotificationAsRead(item.id);
+                // Optimistic update
+                setNotifications(prev => prev.map(n => n.id === item.id ? { ...n, isRead: true } : n));
+            } catch (error) {
+                console.error('Error marking read:', error);
+            }
+        }
+
+        // Navigation logic based on type
+        if (item.type === 'BOOKING_REQUEST' || item.type === 'STATUS_UPDATE') {
+            navigation.navigate('Activity'); // Should ideally go to specific booking, but Activity is safe
+        } else if (item.type === 'REVIEW_RECEIVED' || item.type === 'REVIEW_REPLY') {
+            if (user?.role === 'SERVICE_PROVIDER') {
+                navigation.navigate('ProviderRatings');
+            } else {
+                navigation.navigate('Profile');
+            }
+        }
+    };
+
+    const filteredData = notifications.filter(item => {
+        if (selectedFilter === 'All') return true;
+        const info = getIconInfo(item.type);
+        return info.category === selectedFilter;
+    });
+
+    const renderItem = ({ item }: { item: any }) => {
+        const info = getIconInfo(item.type);
+        const timeAgoStr = formatTimeAgo(new Date(item.createdAt));
+
+        return (
+            <TouchableOpacity
+                style={[styles.notificationItem, !item.isRead && styles.unreadItem]}
+                onPress={() => handleNotificationPress(item)}
+            >
+                <View style={[styles.iconContainer, { backgroundColor: info.bg }]}>
+                    <Ionicons name={info.icon as any} size={24} color={info.color} />
+                </View>
+                <View style={styles.textContainer}>
+                    <View style={styles.itemHeader}>
+                        <Text style={[styles.itemTitle, !item.isRead && { fontWeight: '800' }]}>{item.title}</Text>
+                        <Text style={styles.timestamp}>{timeAgoStr}</Text>
+                    </View>
+                    <Text style={styles.itemDesc}>{item.message}</Text>
+                    {!item.isRead && <View style={styles.unreadDot} />}
+                </View>
+            </TouchableOpacity>
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="chevron-back" size={24} color={COLORS.black} />
@@ -114,7 +138,6 @@ const NotificationScreen = () => {
                 <View style={{ width: 40 }} />
             </View>
 
-            {/* Filters */}
             <View style={styles.filterContainer}>
                 <FlatList
                     horizontal
@@ -133,17 +156,31 @@ const NotificationScreen = () => {
                 />
             </View>
 
-            {/* Notifications List */}
-            <FlatList
-                data={filteredData}
-                keyExtractor={item => item.id.toString()}
-                renderItem={renderItem}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-                ItemSeparatorComponent={() => <View style={styles.separator} />}
-            />
+            {loading && !refreshing ? (
+                <View style={styles.centerContainer}>
+                    <ActivityIndicator size="large" color={COLORS.orange} />
+                </View>
+            ) : (
+                <FlatList
+                    data={filteredData}
+                    keyExtractor={item => item.id}
+                    renderItem={renderItem}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                    ItemSeparatorComponent={() => <View style={styles.separator} />}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.orange]} />
+                    }
+                    ListEmptyComponent={
+                        <View style={styles.emptyContainer}>
+                            <Ionicons name="notifications-off-outline" size={64} color="#CBD5E1" />
+                            <Text style={styles.emptyTitle}>No Notifications yet</Text>
+                            <Text style={styles.emptySubtitle}>We'll notify you when something important happens.</Text>
+                        </View>
+                    }
+                />
+            )}
 
-            {/* Bottom Navigation */}
             <BottomNavBar />
         </SafeAreaView>
     );
@@ -152,7 +189,7 @@ const NotificationScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF', // Clean white background
+        backgroundColor: '#FFFFFF',
     },
     header: {
         flexDirection: 'row',
@@ -165,7 +202,12 @@ const styles = StyleSheet.create({
         borderBottomColor: '#F3F4F6',
     },
     backButton: {
-        padding: 8,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#F3F4F6',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     headerTitle: {
         fontSize: 20,
@@ -201,7 +243,13 @@ const styles = StyleSheet.create({
     notificationItem: {
         flexDirection: 'row',
         paddingVertical: 16,
+        paddingHorizontal: 12,
         alignItems: 'flex-start',
+        borderRadius: 12,
+        marginVertical: 4,
+    },
+    unreadItem: {
+        backgroundColor: '#F8FAFC',
     },
     iconContainer: {
         width: 48,
@@ -213,6 +261,7 @@ const styles = StyleSheet.create({
     },
     textContainer: {
         flex: 1,
+        position: 'relative',
     },
     itemHeader: {
         flexDirection: 'row',
@@ -220,58 +269,57 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     itemTitle: {
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: 'bold',
         color: COLORS.black,
         flex: 1,
         marginRight: 8,
     },
     timestamp: {
-        fontSize: 12,
+        fontSize: 11,
         color: COLORS.gray,
     },
     itemDesc: {
         fontSize: 14,
         color: '#4B5563',
-        marginBottom: 8,
         lineHeight: 20,
     },
-    actionLink: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        marginTop: 4,
-    },
     unreadDot: {
+        position: 'absolute',
+        top: 2,
+        right: -8,
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: '#EF4444', // Red dot
-        marginTop: 6,
-        marginLeft: 8,
+        backgroundColor: COLORS.orange,
     },
     separator: {
         height: 1,
-        backgroundColor: '#F3F4F6',
+        backgroundColor: '#F1F5F9',
     },
-    bottomNav: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        backgroundColor: COLORS.white,
-        paddingVertical: 12,
-        borderTopWidth: 1,
-        borderTopColor: '#E5E7EB',
-    },
-    navItem: {
+    centerContainer: {
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
     },
-    navText: {
-        fontSize: 10,
-        marginTop: 4,
-        color: '#6B7280',
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 100,
+        paddingHorizontal: 40,
+    },
+    emptyTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: COLORS.black,
+        marginTop: 16,
+    },
+    emptySubtitle: {
+        fontSize: 14,
+        color: COLORS.gray,
+        textAlign: 'center',
+        marginTop: 8,
     },
 });
 

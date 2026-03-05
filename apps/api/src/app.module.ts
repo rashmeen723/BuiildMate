@@ -3,6 +3,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { AdminModule } from './admin/admin.module';
+import { ServicesModule } from './services/services.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { EjsAdapter } from '@nestjs-modules/mailer/dist/adapters/ejs.adapter';
@@ -33,6 +35,8 @@ import { ConfigModule } from '@nestjs/config';
     }),
     PrismaModule,
     AuthModule,
+    AdminModule,
+    ServicesModule,
     CloudinaryModule
   ],
   controllers: [AppController],

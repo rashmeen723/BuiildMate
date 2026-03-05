@@ -64,17 +64,28 @@ const MapSelectionScreen = () => {
             }
 
             try {
-                let currentLocation = await Location.getCurrentPositionAsync({});
-                const initialRegion = {
-                    latitude: currentLocation.coords.latitude,
-                    longitude: currentLocation.coords.longitude,
-                    latitudeDelta: 0.005,
-                    longitudeDelta: 0.005,
-                };
-                setLocation(initialRegion);
-                reverseGeocode(initialRegion.latitude, initialRegion.longitude);
+                // Request location with balanced accuracy for better reliability in emulators/poor signal
+                let currentLocation = await Location.getCurrentPositionAsync({
+                    accuracy: Location.Accuracy.Balanced,
+                }).catch(() => {
+                    // Fallback to last known location if current is unavailable
+                    return Location.getLastKnownPositionAsync({});
+                });
+
+                if (currentLocation) {
+                    const initialRegion = {
+                        latitude: currentLocation.coords.latitude,
+                        longitude: currentLocation.coords.longitude,
+                        latitudeDelta: 0.005,
+                        longitudeDelta: 0.005,
+                    };
+                    setLocation(initialRegion);
+                    reverseGeocode(initialRegion.latitude, initialRegion.longitude);
+                } else {
+                    throw new Error("Location unavailable");
+                }
             } catch (error) {
-                console.error("Error getting location:", error);
+                console.warn("Error getting location, using default:", error);
                 const defaultLoc = {
                     latitude: 6.9271,
                     longitude: 79.8612,
@@ -92,18 +103,23 @@ const MapSelectionScreen = () => {
     const reverseGeocode = async (latitude: number, longitude: number) => {
         setSearching(true);
         try {
-            const result = await Location.reverseGeocodeAsync({ latitude, longitude });
-            if (result.length > 0) {
+            // Add a timeout wrapper for reverse geocoding to prevent infinite wait
+            const geocodePromise = Location.reverseGeocodeAsync({ latitude, longitude });
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Geocode timeout")), 3000)
+            );
+
+            const result: any = await Promise.race([geocodePromise, timeoutPromise]);
+
+            if (result && result.length > 0) {
                 const item = result[0];
-                const addr = `${item.name ? item.name + ', ' : ''}${item.street ? item.street + ', ' : ''}${item.city ? item.city : item.district}`;
-                setAddress(addr);
+                const addr = `${item.name ? item.name + ', ' : ''}${item.street ? item.street + ', ' : ''}${item.city ? item.city : item.district || ''}`;
+                setAddress(addr || `Location at ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
             }
         } catch (error) {
-            console.error("Reverse Geocode Error:", error);
-            // Don't overwrite the address if we already have one from search or initial
-            if (address === 'Searching for address...') {
-                setAddress(`Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
-            }
+            console.warn("Reverse Geocode Error:", error);
+            // Fallback to coordinates if geocoding fails or times out
+            setAddress(`Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
         } finally {
             setSearching(false);
         }
