@@ -32,10 +32,12 @@ const ServiceProviderDetailsScreen = () => {
     const initialCategory = currentDetails?.categories?.[0] || null;
     const initialExperience = currentDetails?.yearsOfExperience || '';
     const initialSkills = currentDetails?.skills || [];
+    const initialHourlyRate = currentDetails?.hourlyRate ? currentDetails.hourlyRate.toString() : '';
 
     const [selectedCategory, setSelectedCategory] = useState<string | null>(initialCategory);
     const [yearsOfExperience, setYearsOfExperience] = useState(initialExperience);
     const [selectedSkills, setSelectedSkills] = useState<string[]>(initialSkills);
+    const [hourlyRate, setHourlyRate] = useState(initialHourlyRate);
 
     // Derived state for available skills based on selected category
     const availableSkills = selectedCategory ? (SKILLS_BY_CATEGORY[selectedCategory] || []) : [];
@@ -67,6 +69,10 @@ const ServiceProviderDetailsScreen = () => {
             Alert.alert("Required", "Please enter your years of experience.");
             return;
         }
+        if (!hourlyRate) {
+            Alert.alert("Required", "Please enter your hourly rate.");
+            return;
+        }
 
         navigation.navigate('ServiceProviderDocuments', {
             email,
@@ -76,7 +82,8 @@ const ServiceProviderDetailsScreen = () => {
             professionalDetails: {
                 categories: [selectedCategory], // Still passing as array for compatibility if needed elsewhere
                 yearsOfExperience,
-                skills: selectedSkills
+                skills: selectedSkills,
+                hourlyRate: parseFloat(hourlyRate)
             }
         });
     };
@@ -145,6 +152,19 @@ const ServiceProviderDetailsScreen = () => {
                         </View>
                     </View>
                 )}
+
+                {/* Hourly Rate */}
+                <View style={styles.section}>
+                    <Text style={styles.label}>Hourly Rate (LKR)</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="e.g. 1000"
+                        placeholderTextColor={COLORS.gray}
+                        keyboardType="numeric"
+                        value={hourlyRate}
+                        onChangeText={setHourlyRate}
+                    />
+                </View>
             </ScrollView>
 
             <View style={styles.footer}>

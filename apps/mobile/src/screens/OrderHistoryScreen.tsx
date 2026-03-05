@@ -17,6 +17,7 @@ const orders = [
         type: 'SERVICE',
         title: 'Plumbing Service',
         provider: 'Nimal Fernando',
+        providerId: 'provider-1',
         amount: 2500,
         date: 'Oct 24, 2024',
         status: 'Completed',
@@ -27,6 +28,7 @@ const orders = [
         type: 'RENTAL',
         title: 'Bosch Power Drill',
         provider: 'Rental Store',
+        providerId: 'provider-2',
         amount: 1500,
         date: 'Oct 15, 2024',
         status: 'Returns',
@@ -37,6 +39,7 @@ const orders = [
         type: 'SERVICE',
         title: 'Home Cleaning',
         provider: 'Sarah Jones',
+        providerId: 'provider-3',
         amount: 4000,
         date: 'Sep 28, 2024',
         status: 'Cancelled',
@@ -72,7 +75,8 @@ const OrderHistoryScreen = () => {
                     <TouchableOpacity
                         style={styles.reviewButton}
                         onPress={() => navigation.navigate('WriteReview', {
-                            serviceId: item.id,
+                            serviceId: item.id.toString(),
+                            providerId: item.providerId,
                             serviceName: item.title,
                             providerName: item.provider,
                             serviceImage: item.image,

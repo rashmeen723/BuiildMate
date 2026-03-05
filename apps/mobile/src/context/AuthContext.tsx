@@ -15,6 +15,7 @@ interface User {
         category: string;
         status: string;
         yearsOfExperience?: string;
+        hourlyRate?: number;
     };
     rentalOwner?: {
         id: string;

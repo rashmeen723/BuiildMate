@@ -8,93 +8,71 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
 import BottomNavBar from '../components/BottomNavBar';
+import { useAuth } from '../context/AuthContext';
+import { authApi } from '../services/api';
 
 type ServiceCategoryScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ServiceCategory'>;
 type ServiceCategoryScreenRouteProp = RouteProp<RootStackParamList, 'ServiceCategory'>;
 
-interface Provider {
-    id: number;
-    name: string;
-    distance: string;
-    rating: number;
-    reviews: number;
-    price: string;
-    priceUnit: string;
-    availability: string;
-    image: string;
-    verified: boolean;
-}
-
 const ServiceCategoryScreen = () => {
     const navigation = useNavigation<ServiceCategoryScreenNavigationProp>();
     const route = useRoute<ServiceCategoryScreenRouteProp>();
-
+    const { user } = useAuth();
     const { categoryName = 'Electrician' } = route.params || {};
 
     // State management
-    const [address, setAddress] = useState('216 Ananda Road, Moratuwa, Colombo');
-    const [tempAddress, setTempAddress] = useState('');
+    const [address, setAddress] = useState('Loading address...');
+    const [location, setLocation] = useState<{ latitude: number, longitude: number } | null>(null);
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [selectedTime, setSelectedTime] = useState(new Date());
-    const [providers, setProviders] = useState<Provider[]>([]);
+    const [providers, setProviders] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
     // Modal states
-    const [showAddressModal, setShowAddressModal] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
 
+    // Update location from user data on initial load
+    useEffect(() => {
+        if (user?.addresses && !location) {
+            const defaultAddr = user.addresses.find((a: any) => a.isDefault) || user.addresses[0];
+            if (defaultAddr) {
+                const displayAddr = defaultAddr.formattedAddress || `${defaultAddr.addressLine1}, ${defaultAddr.city}`;
+                setAddress(displayAddr);
+                setLocation({ latitude: defaultAddr.latitude, longitude: defaultAddr.longitude });
+            }
+        }
+    }, [user, location]);
+
+    // Update location if returning from MapSelection
+    useEffect(() => {
+        const params = route.params as any;
+        if (params?.selectedLocation && params?.selectedAddress) {
+            setLocation({
+                latitude: params.selectedLocation.latitude,
+                longitude: params.selectedLocation.longitude
+            });
+            setAddress(params.selectedAddress);
+        }
+    }, [route.params]);
+
     // Fetch providers from API
     const fetchProviders = async () => {
+        if (!location) return;
+
         setLoading(true);
         try {
-            // TODO: Replace with actual API endpoint when backend is ready
-            // const response = await fetch(`${API_BASE_URL}/providers?category=${categoryName}&location=${address}&date=${selectedDate.toISOString()}`);
-            // const data = await response.json();
+            const dateStr = selectedDate.toISOString().split('T')[0];
+            const timeStr = selectedTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-            // Mock data for now - simulating API call
-            await new Promise(resolve => setTimeout(resolve, 800));
-
-            const mockProviders: Provider[] = [
-                {
-                    id: 1,
-                    name: 'John Perera',
-                    distance: '1.5 km away',
-                    rating: 4.8,
-                    reviews: 120,
-                    price: 'LKR 1500',
-                    priceUnit: '/ per hour',
-                    availability: `Available at ${formatTime(selectedTime)}`,
-                    image: 'https://randomuser.me/api/portraits/men/32.jpg',
-                    verified: true,
-                },
-                {
-                    id: 2,
-                    name: 'Kamal Silva',
-                    distance: '2.00 km away',
-                    rating: 4.8,
-                    reviews: 120,
-                    price: 'LKR 1200',
-                    priceUnit: '/ per hour',
-                    availability: 'Available at 2:00 PM',
-                    image: 'https://randomuser.me/api/portraits/men/45.jpg',
-                    verified: false,
-                },
-                {
-                    id: 3,
-                    name: 'Nimal Fernando',
-                    distance: '1.5 km away',
-                    rating: 4.8,
-                    reviews: 120,
-                    price: 'LKR 1500',
-                    priceUnit: '/ per hour',
-                    availability: 'Available at 2:30 PM',
-                    image: 'https://randomuser.me/api/portraits/men/12.jpg',
-                    verified: true,
-                },
-            ];
-
-            setProviders(mockProviders);
+            const data = await authApi.getNearbyProviders(
+                location.latitude,
+                location.longitude,
+                categoryName,
+                dateStr,
+                timeStr
+            );
+            setProviders(data);
         } catch (error) {
             console.error('Error fetching providers:', error);
             Alert.alert('Error', 'Failed to load service providers');
@@ -105,7 +83,7 @@ const ServiceCategoryScreen = () => {
 
     useEffect(() => {
         fetchProviders();
-    }, [categoryName, address, selectedDate, selectedTime]);
+    }, [categoryName, location, selectedDate, selectedTime]);
 
     const formatDate = (date: Date) => {
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -117,7 +95,7 @@ const ServiceCategoryScreen = () => {
 
     const formatTimeRange = (date: Date) => {
         const start = formatTime(date);
-        const endDate = new Date(date.getTime() + 2 * 60 * 60 * 1000); // Add 2 hours
+        const endDate = new Date(date.getTime() + 2 * 60 * 60 * 1000); // Add 2 hours for display
         const end = formatTime(endDate);
         return `${start} - ${end}`;
     };
@@ -140,19 +118,11 @@ const ServiceCategoryScreen = () => {
         }
     };
 
-    const handleSaveAddress = () => {
-        if (tempAddress.trim()) {
-            setAddress(tempAddress);
-            setShowAddressModal(false);
-            setTempAddress('');
-        } else {
-            Alert.alert('Error', 'Please enter a valid address');
-        }
-    };
-
-    const openAddressModal = () => {
-        setTempAddress(address);
-        setShowAddressModal(true);
+    const openMapSelection = () => {
+        navigation.navigate('MapSelection', {
+            returnScreen: 'ServiceCategory',
+            currentAddress: address
+        });
     };
 
     const renderStars = (rating: number) => {
@@ -191,8 +161,8 @@ const ServiceCategoryScreen = () => {
                         <Text style={styles.addressLabel}>SERVICE ADDRESS</Text>
                     </View>
                     <View style={styles.addressRow}>
-                        <Text style={styles.addressText}>{address}</Text>
-                        <TouchableOpacity onPress={openAddressModal}>
+                        <Text style={styles.addressText} numberOfLines={1}>{address}</Text>
+                        <TouchableOpacity onPress={openMapSelection}>
                             <Ionicons name="pencil" size={20} color={COLORS.orange} />
                         </TouchableOpacity>
                     </View>
@@ -213,90 +183,90 @@ const ServiceCategoryScreen = () => {
                         <Ionicons name="time-outline" size={20} color={COLORS.orange} />
                         <View style={styles.dateTimeInfo}>
                             <Text style={styles.dateTimeLabel}>TIME</Text>
-                            <Text style={styles.dateTimeValue}>{formatTimeRange(selectedTime)}</Text>
+                            <Text style={styles.dateTimeValue}>{formatTime(selectedTime)}</Text>
                         </View>
                     </TouchableOpacity>
                 </View>
 
-                {/* Recommended List */}
+                {/* Recommended List Header */}
                 <View style={styles.listHeader}>
                     <Text style={styles.listTitle}>Recommended List</Text>
-                    <TouchableOpacity>
-                        <Text style={styles.viewAllText}>View All</Text>
-                    </TouchableOpacity>
                 </View>
 
                 {/* Loading Indicator */}
-                {loading && (
+                {loading ? (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={COLORS.darkBlue} />
-                        <Text style={styles.loadingText}>Finding available providers...</Text>
+                        <Text style={styles.loadingText}>Searching for available pros...</Text>
                     </View>
-                )}
+                ) : providers.length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                        <Ionicons name="calendar-outline" size={64} color={COLORS.lightGray} />
+                        <Text style={styles.emptyText}>No pros available at this time.</Text>
+                        <Text style={styles.emptySubText}>Try selecting a different date or time.</Text>
+                    </View>
+                ) : (
+                    providers.map((provider) => (
+                        <View key={provider.id} style={styles.providerCard}>
+                            <Image
+                                source={{ uri: provider.profileImage || 'https://via.placeholder.com/100' }}
+                                style={styles.providerImage}
+                            />
 
-                {/* Provider Cards */}
-                {!loading && providers.map((provider) => (
-                    <View key={provider.id} style={styles.providerCard}>
-                        <Image source={{ uri: provider.image }} style={styles.providerImage} />
-
-                        <View style={styles.providerInfo}>
-                            <View style={styles.providerHeader}>
-                                <Text style={styles.providerName}>{provider.name}</Text>
-                                {provider.verified && (
+                            <View style={styles.providerInfo}>
+                                <View style={styles.providerHeader}>
+                                    <Text style={styles.providerName}>{provider.fullName}</Text>
                                     <Ionicons name="checkmark-circle" size={16} color="#10B981" style={{ marginLeft: 4 }} />
-                                )}
-                            </View>
+                                </View>
 
-                            <View style={styles.providerMeta}>
-                                <Ionicons name="location-outline" size={14} color={COLORS.gray} />
-                                <Text style={styles.distanceText}>{provider.distance}</Text>
-                            </View>
+                                <View style={styles.providerMeta}>
+                                    <Ionicons name="location-outline" size={14} color={COLORS.gray} />
+                                    <Text style={styles.distanceText}>{provider.distance} km away</Text>
+                                </View>
 
-                            <View style={styles.ratingRow}>
-                                <Text style={styles.ratingValue}>{provider.rating}</Text>
-                                <View style={styles.starsContainer}>{renderStars(provider.rating)}</View>
-                                <Text style={styles.reviewCount}>({provider.reviews} reviews)</Text>
-                            </View>
+                                <View style={styles.ratingRow}>
+                                    <Text style={styles.ratingValue}>{provider.rating}</Text>
+                                    <View style={styles.starsContainer}>{renderStars(provider.rating)}</View>
+                                </View>
 
-                            <View style={styles.priceRow}>
-                                <Text style={styles.priceValue}>{provider.price}</Text>
-                                <Text style={styles.priceUnit}>{provider.priceUnit}</Text>
-                            </View>
+                                <View style={styles.priceRow}>
+                                    <Text style={styles.priceValue}>LKR {provider.yearsOfExperience * 500 + 1000}</Text>
+                                    <Text style={styles.priceUnit}>/ per task</Text>
+                                </View>
 
-                            <View style={styles.availabilityRow}>
-                                <View style={styles.availabilityDot} />
-                                <Text style={styles.availabilityText}>{provider.availability}</Text>
-                            </View>
-
-                            <View style={styles.actionRow}>
-                                <TouchableOpacity
-                                    style={styles.viewProfileBtn}
-                                    onPress={() => navigation.navigate('ProviderProfile', {
-                                        providerId: provider.id,
-                                        providerName: provider.name,
-                                        providerImage: provider.image,
-                                        providerRating: provider.rating,
-                                        providerReviews: provider.reviews,
-                                    })}
-                                >
-                                    <Text style={styles.viewProfileText}>View profile</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.bookNowBtn}
-                                    onPress={() => navigation.navigate('BookService', {
-                                        providerId: provider.id,
-                                        providerName: provider.name,
-                                        providerImage: provider.image,
-                                        providerRating: provider.rating,
-                                        providerReviews: provider.reviews,
-                                    })}
-                                >
-                                    <Text style={styles.bookNowText}>Book Now</Text>
-                                </TouchableOpacity>
+                                <View style={styles.actionRow}>
+                                    <TouchableOpacity
+                                        style={styles.viewProfileBtn}
+                                        onPress={() => navigation.navigate('ProviderProfile', {
+                                            providerId: provider.id,
+                                            providerName: provider.fullName,
+                                            providerImage: provider.profileImage,
+                                            providerRating: provider.rating,
+                                            role: provider.category || categoryName,
+                                        })}
+                                    >
+                                        <Text style={styles.viewProfileText}>View Profile</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.bookNowBtn}
+                                        onPress={() => navigation.navigate('BookService', {
+                                            providerId: provider.id,
+                                            providerName: provider.fullName,
+                                            providerImage: provider.profileImage,
+                                            providerRating: provider.rating,
+                                            role: provider.category || categoryName,
+                                            selectedDate: selectedDate.toISOString(),
+                                            selectedTime: selectedTime.toISOString(),
+                                            address: address
+                                        })}
+                                    >
+                                        <Text style={styles.bookNowText}>Book Now</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </View>
-                    </View>
-                ))}
+                    ))
+                )}
 
                 <View style={{ height: 100 }} />
             </ScrollView>
@@ -321,38 +291,6 @@ const ServiceCategoryScreen = () => {
                     onChange={handleTimeChange}
                 />
             )}
-
-            {/* Address Edit Modal */}
-            <Modal
-                visible={showAddressModal}
-                transparent
-                animationType="slide"
-                onRequestClose={() => setShowAddressModal(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Edit Service Address</Text>
-                            <TouchableOpacity onPress={() => setShowAddressModal(false)}>
-                                <Ionicons name="close" size={24} color={COLORS.black} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <TextInput
-                            style={styles.addressInput}
-                            value={tempAddress}
-                            onChangeText={setTempAddress}
-                            placeholder="Enter your address"
-                            multiline
-                            numberOfLines={3}
-                        />
-
-                        <TouchableOpacity style={styles.saveButton} onPress={handleSaveAddress}>
-                            <Text style={styles.saveButtonText}>Save Address</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
 
             {/* Bottom Navigation */}
             <BottomNavBar />
@@ -471,16 +409,27 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: COLORS.black,
     },
-    viewAllText: {
-        fontSize: 14,
-        color: COLORS.gray,
-    },
     loadingContainer: {
         paddingVertical: 40,
         alignItems: 'center',
     },
     loadingText: {
         marginTop: 12,
+        fontSize: 14,
+        color: COLORS.gray,
+    },
+    emptyContainer: {
+        paddingVertical: 40,
+        alignItems: 'center',
+    },
+    emptyText: {
+        marginTop: 12,
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: COLORS.black,
+    },
+    emptySubText: {
+        marginTop: 4,
         fontSize: 14,
         color: COLORS.gray,
     },
@@ -499,8 +448,8 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     providerImage: {
-        width: 90,
-        height: 120,
+        width: 100,
+        height: 130,
         borderRadius: 12,
         marginRight: 16,
     },
@@ -540,16 +489,11 @@ const styles = StyleSheet.create({
     },
     starsContainer: {
         flexDirection: 'row',
-        marginRight: 6,
-    },
-    reviewCount: {
-        fontSize: 12,
-        color: COLORS.gray,
     },
     priceRow: {
         flexDirection: 'row',
         alignItems: 'baseline',
-        marginBottom: 8,
+        marginBottom: 12,
     },
     priceValue: {
         fontSize: 16,
@@ -561,23 +505,6 @@ const styles = StyleSheet.create({
         color: COLORS.gray,
         marginLeft: 4,
     },
-    availabilityRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    availabilityDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#10B981',
-        marginRight: 6,
-    },
-    availabilityText: {
-        fontSize: 12,
-        color: '#10B981',
-        fontWeight: '500',
-    },
     actionRow: {
         flexDirection: 'row',
         gap: 8,
@@ -586,13 +513,13 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingVertical: 8,
         borderWidth: 1,
-        borderColor: COLORS.orange,
+        borderColor: '#E5E7EB',
         borderRadius: 8,
         alignItems: 'center',
     },
     viewProfileText: {
         fontSize: 12,
-        color: COLORS.orange,
+        color: COLORS.black,
         fontWeight: '600',
     },
     bookNowBtn: {
@@ -609,7 +536,7 @@ const styles = StyleSheet.create({
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'flex-end',
     },
     modalContent: {
@@ -637,7 +564,7 @@ const styles = StyleSheet.create({
         padding: 16,
         fontSize: 14,
         color: COLORS.black,
-        marginBottom: 20,
+        marginBottom: 24,
         minHeight: 100,
         textAlignVertical: 'top',
     },
@@ -651,27 +578,7 @@ const styles = StyleSheet.create({
         color: COLORS.white,
         fontSize: 16,
         fontWeight: 'bold',
-    },
-    bottomNav: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        backgroundColor: COLORS.white,
-        paddingVertical: 12,
-        borderTopWidth: 1,
-        borderTopColor: COLORS.lightGray,
-    },
-    navItem: {
-        alignItems: 'center',
-    },
-    navText: {
-        fontSize: 10,
-        marginTop: 4,
-        color: COLORS.gray,
-    },
+    }
 });
 
 export default ServiceCategoryScreen;

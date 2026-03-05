@@ -115,7 +115,7 @@ const RentalOwnerReviewScreen = () => {
 
                 <Section title="Store Information" onEdit={handleEditDetails}>
                     <Row label="Store Name" value={rentalDetails.businessName} />
-                    <Row label="Categories" value={rentalDetails.categories.join(', ')} />
+                    <Row label="Categories" value={rentalDetails.toolCategories.join(', ')} />
                     <Row label="Experience" value={rentalDetails.yearsInBusiness ? `${rentalDetails.yearsInBusiness} years` : 'N/A'} />
                 </Section>
 

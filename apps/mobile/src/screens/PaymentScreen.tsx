@@ -6,6 +6,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
+import { authApi } from '../services/api';
 
 type PaymentScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Payment'>;
 type PaymentScreenRouteProp = RouteProp<RootStackParamList, 'Payment'>;
@@ -13,7 +14,15 @@ type PaymentScreenRouteProp = RouteProp<RootStackParamList, 'Payment'>;
 const PaymentScreen = () => {
     const navigation = useNavigation<PaymentScreenNavigationProp>();
     const route = useRoute<PaymentScreenRouteProp>();
-    const { id, title, amount, type } = route.params || { id: 1, title: 'Mock Service', amount: 1500, type: 'SERVICE' };
+    const {
+        id,
+        title,
+        amount,
+        type,
+        baseAmount,
+        additionalCharges,
+        serviceFee
+    } = route.params || { id: 1, title: 'Mock Service', amount: 1500, type: 'SERVICE' };
 
     const [paymentMethod, setPaymentMethod] = useState<'CARD' | 'CASH'>('CARD');
     const [cardNumber, setCardNumber] = useState('');
@@ -21,7 +30,7 @@ const PaymentScreen = () => {
     const [cvv, setCvv] = useState('');
     const [nameOnCard, setNameOnCard] = useState('');
 
-    const handlePayment = () => {
+    const handlePayment = async () => {
         if (paymentMethod === 'CARD') {
             if (!cardNumber || !expiry || !cvv || !nameOnCard) {
                 Alert.alert('Missing Information', 'Please fill in all card details.');
@@ -34,14 +43,36 @@ const PaymentScreen = () => {
             }
         }
 
-        // Process Payment Logic Here (Mock)
-        Alert.alert(
-            'Payment Successful',
-            `You have successfully paid LKR ${amount} for ${title} using ${paymentMethod === 'CARD' ? 'Card' : 'Cash'}.`,
-            [
-                { text: 'OK', onPress: () => navigation.navigate('Activity', { updatedRentalId: type === 'RENTAL' ? id : undefined, newStatus: 'COMPLETED' }) }
-            ]
-        );
+        try {
+            if (type === 'SERVICE') {
+                if (paymentMethod === 'CARD') {
+                    // Digital payment is immediate
+                    await authApi.updateBookingStatus(id.toString(), 'PAID');
+                    Alert.alert(
+                        'Payment Successful',
+                        `You have successfully paid LKR ${amount.toLocaleString()} for ${title} using Card.`,
+                        [
+                            { text: 'OK', onPress: () => navigation.navigate('Activity', { updatedRentalId: undefined, newStatus: 'PAID' }) }
+                        ]
+                    );
+                } else {
+                    // Cash payment needs provider confirmation
+                    Alert.alert(
+                        'Cash Payment Notified',
+                        `Please hand over LKR ${amount.toLocaleString()} to the provider. The job will be marked as paid once the provider confirms receipt.`,
+                        [
+                            { text: 'OK', onPress: () => navigation.goBack() }
+                        ]
+                    );
+                }
+            } else {
+                // Rental logic
+                Alert.alert('Payment Successful', `Payment for ${title} processed.`);
+                navigation.navigate('Activity', { updatedRentalId: Number(id), newStatus: 'PAID' });
+            }
+        } catch (error) {
+            Alert.alert('Payment Failed', 'Failed to process payment. Try again.');
+        }
     };
 
     return (
@@ -61,17 +92,38 @@ const PaymentScreen = () => {
                 <View style={styles.summaryCard}>
                     <Text style={styles.summaryTitle}>Payment Summary</Text>
                     <View style={styles.summaryRow}>
-                        <Text style={styles.summaryLabel}>Item Name</Text>
+                        <Text style={styles.summaryLabel}>Service</Text>
                         <Text style={styles.summaryValue}>{title}</Text>
                     </View>
-                    <View style={styles.summaryRow}>
-                        <Text style={styles.summaryLabel}>Type</Text>
-                        <Text style={styles.summaryValue}>{type}</Text>
-                    </View>
+
+                    {type === 'SERVICE' && (baseAmount || additionalCharges) && (
+                        <>
+                            <View style={styles.summaryRow}>
+                                <Text style={styles.summaryLabel}>Base Labor Fee</Text>
+                                <Text style={styles.summaryValue}>LKR {baseAmount?.toLocaleString()}</Text>
+                            </View>
+                            <View style={styles.summaryRow}>
+                                <Text style={styles.summaryLabel}>Materials/Extra</Text>
+                                <Text style={styles.summaryValue}>LKR {additionalCharges?.toLocaleString()}</Text>
+                            </View>
+                            <View style={styles.summaryRow}>
+                                <Text style={styles.summaryLabel}>BuildMate Service Fee</Text>
+                                <Text style={styles.summaryValue}>LKR {serviceFee || (amount - (amount / 1.05)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</Text>
+                            </View>
+                        </>
+                    )}
+
+                    {!baseAmount && !additionalCharges && (
+                        <View style={styles.summaryRow}>
+                            <Text style={styles.summaryLabel}>Type</Text>
+                            <Text style={styles.summaryValue}>{type}</Text>
+                        </View>
+                    )}
+
                     <View style={styles.divider} />
                     <View style={styles.summaryRow}>
-                        <Text style={styles.totalLabel}>Total Amount</Text>
-                        <Text style={styles.totalValue}>LKR {amount}</Text>
+                        <Text style={styles.totalLabel}>Total Payable</Text>
+                        <Text style={styles.totalValue}>LKR {amount.toLocaleString()}</Text>
                     </View>
                 </View>
 
@@ -150,14 +202,16 @@ const PaymentScreen = () => {
                 )}
             </ScrollView>
 
-            {/* Pay Button */}
-            <View style={styles.footer}>
-                <TouchableOpacity style={styles.payButton} onPress={handlePayment}>
-                    <Text style={styles.payButtonText}>
-                        {paymentMethod === 'CARD' ? `Pay LKR ${amount}` : 'Confirm Cash Payment'}
-                    </Text>
-                </TouchableOpacity>
-            </View>
+            {/* Pay Button - Only for Card */}
+            {paymentMethod === 'CARD' && (
+                <View style={styles.footer}>
+                    <TouchableOpacity style={styles.payButton} onPress={handlePayment}>
+                        <Text style={styles.payButtonText}>
+                            Pay LKR {amount.toLocaleString()}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )}
         </SafeAreaView>
     );
 };

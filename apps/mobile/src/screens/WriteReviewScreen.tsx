@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
+import { authApi } from '../services/api';
+import * as ImagePicker from 'expo-image-picker';
 
 type WriteReviewScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'WriteReview'>;
 type WriteReviewScreenRouteProp = RouteProp<RootStackParamList, 'WriteReview'>;
@@ -14,28 +17,74 @@ const WriteReviewScreen = () => {
     const navigation = useNavigation<WriteReviewScreenNavigationProp>();
     const route = useRoute<WriteReviewScreenRouteProp>();
 
-    // Default params in case they aren't passed (for testing)
-    const {
-        serviceName = 'Plumbing Service',
-        providerName = 'Nimal Fernando',
-        serviceImage = 'https://randomuser.me/api/portraits/men/32.jpg'
-    } = route.params || {};
-
+    const { user } = useAuth();
     const [rating, setRating] = useState(0);
     const [review, setReview] = useState('');
+    const [images, setImages] = useState<string[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const handleSubmit = () => {
+    const {
+        serviceId,
+        providerId,
+        serviceName = 'Plumbing Service',
+        providerName = 'Nimal Fernando',
+        serviceImage = 'https://via.placeholder.com/150'
+    } = route.params || {};
+
+    const pickImage = async () => {
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.8,
+        });
+
+        if (!result.canceled) {
+            setImages([...images, result.assets[0].uri]);
+        }
+    };
+
+    const removeImage = (index: number) => {
+        const newImages = [...images];
+        newImages.splice(index, 1);
+        setImages(newImages);
+    };
+
+    const handleSubmit = async () => {
         if (rating === 0) {
             Alert.alert('Rating Required', 'Please select a star rating before submitting.');
             return;
         }
 
-        // Mock API call
-        setTimeout(() => {
+        if (!user || !providerId) {
+            Alert.alert('Error', 'Unable to submit review. missing user/provider info.');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            // Upload images first
+            const uploadedUrls = await Promise.all(
+                images.map(uri => authApi.uploadPublicFile(uri))
+            );
+
+            await authApi.createReview({
+                reviewerId: user.id,
+                revieweeId: providerId, // This is the target user's ID
+                bookingId: serviceId.toString(),
+                rating,
+                comment: review,
+                images: uploadedUrls
+            });
+
             Alert.alert('Review Submitted', 'Thank you for your feedback!', [
-                { text: 'OK', onPress: () => navigation.goBack() }
+                { text: 'OK', onPress: () => navigation.navigate('Activity') }
             ]);
-        }, 1000);
+        } catch (error: any) {
+            Alert.alert('Submission Failed', error.message || 'Could not submit review. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const renderStars = () => {
@@ -110,9 +159,50 @@ const WriteReviewScreen = () => {
                     />
                 </View>
 
+                {/* Photo Upload Section */}
+                <View style={styles.photoSection}>
+                    <Text style={styles.inputLabel}>Add Photos (Optional)</Text>
+                    <View style={styles.imageGrid}>
+                        {images.map((uri, index) => (
+                            <View key={index} style={styles.imagePreviewContainer}>
+                                <Image source={{ uri }} style={styles.imagePreview} />
+                                <TouchableOpacity
+                                    style={styles.removeImageBtn}
+                                    onPress={() => removeImage(index)}
+                                >
+                                    <Ionicons name="close-circle" size={24} color={COLORS.error} />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                        {images.length < 3 && (
+                            <TouchableOpacity style={styles.addImageBtn} onPress={pickImage}>
+                                <Ionicons name="camera" size={32} color={COLORS.gray} />
+                                <Text style={styles.addImageText}>Add Photo</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
+
                 {/* Submit Button */}
-                <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-                    <Text style={styles.submitButtonText}>Submit Review</Text>
+                <TouchableOpacity
+                    style={[styles.submitButton, isSubmitting && { opacity: 0.7 }]}
+                    onPress={handleSubmit}
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? (
+                        <ActivityIndicator color={COLORS.white} />
+                    ) : (
+                        <Text style={styles.submitButtonText}>Submit Review</Text>
+                    )}
+                </TouchableOpacity>
+
+                {/* Skip Button */}
+                <TouchableOpacity
+                    style={styles.skipButton}
+                    onPress={() => navigation.navigate('Activity')}
+                    disabled={isSubmitting}
+                >
+                    <Text style={styles.skipButtonText}>Skip for now</Text>
                 </TouchableOpacity>
 
             </ScrollView>
@@ -252,6 +342,58 @@ const styles = StyleSheet.create({
         color: COLORS.white,
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    skipButton: {
+        marginTop: 16,
+        paddingVertical: 12,
+        alignItems: 'center',
+    },
+    skipButtonText: {
+        color: COLORS.gray,
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    photoSection: {
+        marginBottom: 32,
+    },
+    imageGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+        marginTop: 8,
+    },
+    imagePreviewContainer: {
+        position: 'relative',
+    },
+    imagePreview: {
+        width: 80,
+        height: 80,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    removeImageBtn: {
+        position: 'absolute',
+        top: -10,
+        right: -10,
+        backgroundColor: COLORS.white,
+        borderRadius: 12,
+    },
+    addImageBtn: {
+        width: 80,
+        height: 80,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        borderColor: '#E5E7EB',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#F9FAFB',
+    },
+    addImageText: {
+        fontSize: 10,
+        color: COLORS.gray,
+        marginTop: 4,
     },
 });
 

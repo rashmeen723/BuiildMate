@@ -24,6 +24,17 @@ enum VerificationStatus {
   REJECTED
 }
 
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  ON_THE_WAY
+  ARRIVED
+  COMPLETED
+  PAID
+  CANCELLED
+  REJECTED
+}
+
 // 2. Core User Table
 model User {
   id                String       @id @default(uuid())
@@ -42,6 +53,32 @@ model User {
   rentalOwner       RentalOwnerProfile?
   addresses         Address[]
   documents         Document[]
+  
+  // Booking Relations
+  customerBookings  Booking[]    @relation("CustomerBookings")
+  providerBookings  Booking[]    @relation("ProviderBookings")
+
+  // Review Relations
+  reviewsGiven      Review[]     @relation("ReviewsGiven")
+  reviewsReceived   Review[]     @relation("ReviewsReceived")
+
+  // Notifications
+  notifications     Notification[]
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  title       String
+  message     String
+  type        String   // BOOKING_REQUEST, STATUS_UPDATE, REVIEW_RECEIVED, etc.
+  isRead      Boolean  @default(false)
+  linkId      String?  // e.g. bookingId or reviewId
+  data        Json?    // Optional extra data
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
 }
 
 // 3. Service Provider Specifics
@@ -53,6 +90,7 @@ model ServiceProviderProfile {
   category          String             // e.g., "Electrician"
   yearsOfExperience String?            // Keeping as string to match your frontend "e.g. 5"
   skills            String[]           // Array of specialized skills
+  hourlyRate        Float?             // Hourly rate in LKR
   
   status            VerificationStatus @default(PENDING)
   
@@ -129,4 +167,59 @@ model Address {
   isDefault         Boolean   @default(false)
 
   createdAt         DateTime  @default(now())
+}
+
+// 7. Bookings
+model Booking {
+  id              String         @id @default(uuid())
+  
+  // Relations
+  customerId      String
+  customer        User           @relation("CustomerBookings", fields: [customerId], references: [id])
+  providerId      String
+  provider        User           @relation("ProviderBookings", fields: [providerId], references: [id])
+  
+  serviceType     String
+  bookingDate     DateTime
+  startTime       String         // e.g. "09:00 AM"
+  endTime         String         // e.g. "10:00 AM"
+  status          BookingStatus  @default(PENDING)
+  totalAmount     Float
+  address         String
+  latitude        Float?
+  longitude       Float?
+  description     String?
+  issueImage      String?
+  arrivedAt       DateTime?
+  
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  reviews         Review[]
+}
+
+model Review {
+  id              String         @id @default(uuid())
+  
+  // Relations
+  reviewerId      String
+  reviewer        User           @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  revieweeId      String
+  reviewee        User           @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+  
+  bookingId       String?
+  booking         Booking?       @relation(fields: [bookingId], references: [id])
+  
+  rating          Int            // 1-5
+  comment         String?
+  reply           String?        // Provider response
+  images          String[]       @default([])
+  likes           Int            @default(0)
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([revieweeId])
+  @@index([reviewerId])
 }

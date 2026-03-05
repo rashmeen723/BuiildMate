@@ -91,6 +91,7 @@ export class AuthService {
                                 category: professionalDetails?.categories?.[0] || 'Other',
                                 yearsOfExperience: professionalDetails?.yearsOfExperience?.toString(),
                                 skills: professionalDetails?.skills || [],
+                                hourlyRate: professionalDetails?.hourlyRate ? Number(professionalDetails.hourlyRate) : null,
                                 latitude: location?.latitude,
                                 longitude: location?.longitude,
                                 formattedAddress: serviceArea?.address || location?.address,

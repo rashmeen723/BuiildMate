@@ -21,8 +21,8 @@ const BottomNavBar = () => {
             return [
                 { name: 'Home', label: 'Home', icon: 'home', route: 'ServiceProviderDashboard' },
                 { name: 'Activity', label: 'Bookings', icon: 'reader', route: 'Activity' },
-                { name: 'Schedule', label: 'Schedule', icon: 'calendar', route: 'Home' }, // Placeholder
-                { name: 'Ratings', label: 'Ratings', icon: 'star', route: 'Home' }, // Placeholder
+                { name: 'Schedule', label: 'Schedule', icon: 'calendar', route: 'ProviderSchedule' },
+                { name: 'Ratings', label: 'Ratings', icon: 'star', route: 'ProviderRatings' },
                 { name: 'Profile', label: 'Profile', icon: 'person', route: 'Profile' },
             ];
         }

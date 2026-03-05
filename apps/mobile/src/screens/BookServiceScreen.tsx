@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Alert, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Alert, Platform, ActivityIndicator } from 'react-native';
+import BottomNavBar from '../components/BottomNavBar';
+import { useAuth } from '../context/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -8,6 +10,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
+import { authApi } from '../services/api';
 
 type BookServiceScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'BookService'>;
 type BookServiceScreenRouteProp = RouteProp<RootStackParamList, 'BookService'>;
@@ -15,28 +18,54 @@ type BookServiceScreenRouteProp = RouteProp<RootStackParamList, 'BookService'>;
 const BookServiceScreen = () => {
     const navigation = useNavigation<BookServiceScreenNavigationProp>();
     const route = useRoute<BookServiceScreenRouteProp>();
-
+    const { user } = useAuth();
     const {
+        providerId,
         providerName = 'John Perera',
         providerImage = 'https://randomuser.me/api/portraits/men/32.jpg',
         providerRating = 4.8,
         providerReviews = 120,
         providerPhone = '+9477-7863456',
         providerEmail = 'johnperera@gmail.com',
+        role = 'Electrician',
+        selectedDate: initialDateStr,
+        selectedTime: initialTimeStr,
+        address: initialAddress
     } = route.params || {};
 
-    const [selectedDate, setSelectedDate] = useState(new Date(2025, 10, 4)); // Nov 4, 2025
-    const [selectedTime, setSelectedTime] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState(initialDateStr ? new Date(initialDateStr) : new Date());
+    const [startTime, setStartTime] = useState(initialTimeStr ? new Date(initialTimeStr) : new Date());
+    const [endTime, setEndTime] = useState(() => {
+        const date = initialTimeStr ? new Date(initialTimeStr) : new Date();
+        date.setHours(date.getHours() + 1);
+        return date;
+    });
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const [showTimePicker, setShowTimePicker] = useState(false);
+    const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+    const [showEndTimePicker, setShowEndTimePicker] = useState(false);
     const [issuePhoto, setIssuePhoto] = useState<string | null>(null);
     const [issueDescription, setIssueDescription] = useState('');
-    const [address, setAddress] = useState('216 Ananda Road, Moratuwa, Colombo');
+    const [address, setAddress] = useState(initialAddress || 'Loading address...');
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
+    const [loading, setLoading] = useState(false);
 
-    const hourlyRate = 1500;
-    const estimatedHours = 1.5;
-    const estimatedTotal = hourlyRate * estimatedHours;
+    useEffect(() => {
+        if (user?.addresses && !initialAddress) {
+            const defaultAddr = user.addresses.find((a: any) => a.isDefault) || user.addresses[0];
+            if (defaultAddr) {
+                setAddress(defaultAddr.formattedAddress || `${defaultAddr.addressLine1}, ${defaultAddr.city}`);
+            }
+        }
+    }, [user, initialAddress]);
+
+    const hourlyRate = 1200;
+    const calculateDuration = () => {
+        const diff = endTime.getTime() - startTime.getTime();
+        const hours = diff / (1000 * 60 * 60);
+        return hours > 0 ? parseFloat(hours.toFixed(1)) : 0;
+    };
+    const estimatedHours = calculateDuration();
+    const estimatedTotal = Math.max(0, hourlyRate * estimatedHours);
 
     const formatDate = (date: Date) => {
         return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -46,28 +75,31 @@ const BookServiceScreen = () => {
         return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     };
 
-    const formatTimeRange = (date: Date) => {
-        const start = formatTime(date);
-        const endDate = new Date(date.getTime() + estimatedHours * 60 * 60 * 1000);
-        const end = formatTime(endDate);
-        return `${start} - ${end}`;
-    };
-
     const handleDateChange = (event: any, date?: Date) => {
-        if (Platform.OS === 'android') {
-            setShowDatePicker(false);
-        }
-        if (date) {
-            setSelectedDate(date);
+        if (Platform.OS === 'android') setShowDatePicker(false);
+        if (date) setSelectedDate(date);
+    };
+
+    const handleStartTimeChange = (event: any, time?: Date) => {
+        if (Platform.OS === 'android') setShowStartTimePicker(false);
+        if (time) {
+            setStartTime(time);
+            // Auto-adjust end time if it's before start time
+            if (endTime <= time) {
+                const newEnd = new Date(time.getTime() + 60 * 60 * 1000);
+                setEndTime(newEnd);
+            }
         }
     };
 
-    const handleTimeChange = (event: any, time?: Date) => {
-        if (Platform.OS === 'android') {
-            setShowTimePicker(false);
-        }
+    const handleEndTimeChange = (event: any, time?: Date) => {
+        if (Platform.OS === 'android') setShowEndTimePicker(false);
         if (time) {
-            setSelectedTime(time);
+            if (time <= startTime) {
+                Alert.alert('Invalid Time', 'End time must be after start time');
+                return;
+            }
+            setEndTime(time);
         }
     };
 
@@ -90,22 +122,51 @@ const BookServiceScreen = () => {
         }
     };
 
-    const handleConfirmBooking = () => {
+    const handleConfirmBooking = async () => {
         if (!issueDescription.trim()) {
             Alert.alert('Missing Information', 'Please describe the issue');
             return;
         }
 
-        // TODO: Send booking request to API
-        // Navigate to confirmation screen with booking details
-        navigation.navigate('BookingConfirmed', {
-            providerName,
-            serviceType: 'Electrician', // You can pass this from route params or determine from context
-            date: formatDate(selectedDate),
-            time: formatTimeRange(selectedTime),
-            address,
-            estimatedTotal: `LKR ${estimatedTotal}`,
-        });
+        if (!user) {
+            Alert.alert('Authentication', 'Please log in to book a service');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const defaultAddr = user?.addresses?.find((a: any) => a.isDefault) || user?.addresses?.[0];
+            const bookingData = {
+                customerId: user.id,
+                providerId,
+                serviceType: role,
+                bookingDate: selectedDate.toISOString(),
+                startTime: formatTime(startTime),
+                endTime: formatTime(endTime),
+                address,
+                latitude: defaultAddr?.latitude,
+                longitude: defaultAddr?.longitude,
+                totalAmount: estimatedTotal,
+                description: issueDescription,
+                issueImage: issuePhoto || undefined
+            };
+
+            await authApi.createBooking(bookingData);
+
+            navigation.navigate('BookingConfirmed', {
+                providerName,
+                serviceType: role,
+                date: formatDate(selectedDate),
+                time: `${formatTime(startTime)} - ${formatTime(endTime)}`,
+                address,
+                estimatedTotal: `LKR ${estimatedTotal.toLocaleString()}`,
+            });
+        } catch (error: any) {
+            console.error('Booking Error:', error);
+            Alert.alert('Booking Failed', error.message || 'Please try again later');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const renderStars = (rating: number) => {
@@ -177,17 +238,37 @@ const BookServiceScreen = () => {
 
                 {/* Time Selection */}
                 <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionLabel}>TIME</Text>
-                        <TouchableOpacity onPress={() => setShowTimePicker(true)}>
-                            <Text style={styles.editText}>Edit</Text>
-                        </TouchableOpacity>
-                    </View>
-                    <View style={styles.inputCard}>
-                        <Ionicons name="time-outline" size={20} color={COLORS.orange} />
-                        <View style={styles.inputInfo}>
-                            <Text style={styles.inputLabel}>Time</Text>
-                            <Text style={styles.inputValue}>{formatTimeRange(selectedTime)}</Text>
+                    <View style={styles.row}>
+                        <View style={[styles.section, { flex: 1, marginRight: 10, marginBottom: 0 }]}>
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionLabel}>START TIME</Text>
+                                <TouchableOpacity onPress={() => setShowStartTimePicker(true)}>
+                                    <Text style={styles.editText}>Edit</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <View style={styles.inputCard}>
+                                <Ionicons name="time-outline" size={20} color={COLORS.orange} />
+                                <View style={styles.inputInfo}>
+                                    <Text style={styles.inputLabel}>From</Text>
+                                    <Text style={styles.inputValue}>{formatTime(startTime)}</Text>
+                                </View>
+                            </View>
+                        </View>
+
+                        <View style={[styles.section, { flex: 1, marginBottom: 0 }]}>
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionLabel}>END TIME</Text>
+                                <TouchableOpacity onPress={() => setShowEndTimePicker(true)}>
+                                    <Text style={styles.editText}>Edit</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <View style={styles.inputCard}>
+                                <Ionicons name="time-outline" size={20} color={COLORS.orange} />
+                                <View style={styles.inputInfo}>
+                                    <Text style={styles.inputLabel}>To</Text>
+                                    <Text style={styles.inputValue}>{formatTime(endTime)}</Text>
+                                </View>
+                            </View>
                         </View>
                     </View>
                 </View>
@@ -229,7 +310,21 @@ const BookServiceScreen = () => {
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionLabel}>SERVICE ADDRESS</Text>
-                        <TouchableOpacity>
+                        <TouchableOpacity onPress={() => {
+                            if (!user?.addresses || user.addresses.length <= 1) {
+                                Alert.alert('Address', 'You only have one saved address. You can add more in your profile.');
+                                return;
+                            }
+
+                            const options = user.addresses.map((addr: any) => ({
+                                text: addr.formattedAddress || `${addr.addressLine1}, ${addr.city}`,
+                                onPress: () => setAddress(addr.formattedAddress || `${addr.addressLine1}, ${addr.city}`)
+                            }));
+
+                            options.push({ text: 'Cancel', style: 'cancel' } as any);
+
+                            Alert.alert('Select Address', 'Choose a service location:', options);
+                        }}>
                             <Text style={styles.editText}>Edit</Text>
                         </TouchableOpacity>
                     </View>
@@ -283,8 +378,16 @@ const BookServiceScreen = () => {
                 </View>
 
                 {/* Confirm Button */}
-                <TouchableOpacity style={styles.confirmButton} onPress={handleConfirmBooking}>
-                    <Text style={styles.confirmButtonText}>Confirm Booking</Text>
+                <TouchableOpacity
+                    style={[styles.confirmButton, loading && { opacity: 0.7 }]}
+                    onPress={handleConfirmBooking}
+                    disabled={loading}
+                >
+                    {loading ? (
+                        <ActivityIndicator color={COLORS.white} />
+                    ) : (
+                        <Text style={styles.confirmButtonText}>Confirm Booking</Text>
+                    )}
                 </TouchableOpacity>
 
                 <View style={{ height: 100 }} />
@@ -301,35 +404,27 @@ const BookServiceScreen = () => {
                 />
             )}
 
-            {/* Time Picker */}
-            {showTimePicker && (
+            {/* Time Pickers */}
+            {showStartTimePicker && (
                 <DateTimePicker
-                    value={selectedTime}
+                    value={startTime}
                     mode="time"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={handleTimeChange}
+                    onChange={handleStartTimeChange}
+                />
+            )}
+
+            {showEndTimePicker && (
+                <DateTimePicker
+                    value={endTime}
+                    mode="time"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={handleEndTimeChange}
                 />
             )}
 
             {/* Bottom Navigation */}
-            <View style={styles.bottomNav}>
-                <TouchableOpacity style={styles.navItem}>
-                    <Ionicons name="home" size={24} color={COLORS.secondary} />
-                    <Text style={[styles.navText, { color: COLORS.secondary }]}>Active</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem}>
-                    <Ionicons name="document-text-outline" size={24} color={COLORS.gray} />
-                    <Text style={styles.navText}>Activity</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem}>
-                    <Ionicons name="notifications-outline" size={24} color={COLORS.gray} />
-                    <Text style={styles.navText}>Notification</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem}>
-                    <Ionicons name="person-outline" size={24} color={COLORS.gray} />
-                    <Text style={styles.navText}>Account</Text>
-                </TouchableOpacity>
-            </View>
+            <BottomNavBar />
         </SafeAreaView>
     );
 };
@@ -423,6 +518,10 @@ const styles = StyleSheet.create({
     },
     section: {
         marginBottom: 24,
+    },
+    row: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     sectionHeader: {
         flexDirection: 'row',

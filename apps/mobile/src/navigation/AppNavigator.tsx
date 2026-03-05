@@ -43,6 +43,11 @@ import EditProfileScreen from '../screens/EditProfileScreen';
 import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
 import OrderHistoryScreen from '../screens/OrderHistoryScreen';
 import WriteReviewScreen from '../screens/WriteReviewScreen';
+import ServiceProviderMapScreen from '../screens/ServiceProviderMapScreen';
+import FinalizeJobScreen from '../screens/FinalizeJobScreen';
+import BookingRequestScreen from '../screens/BookingRequestScreen';
+import ProviderScheduleScreen from '../screens/ProviderScheduleScreen';
+import ProviderRatingsScreen from '../screens/ProviderRatingsScreen';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -98,6 +103,11 @@ const AppNavigator = () => {
                 <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
                 <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
                 <Stack.Screen name="WriteReview" component={WriteReviewScreen} />
+                <Stack.Screen name="ServiceProviderMap" component={ServiceProviderMapScreen} />
+                <Stack.Screen name="FinalizeJob" component={FinalizeJobScreen} />
+                <Stack.Screen name="BookingRequest" component={BookingRequestScreen} />
+                <Stack.Screen name="ProviderSchedule" component={ProviderScheduleScreen} />
+                <Stack.Screen name="ProviderRatings" component={ProviderRatingsScreen} />
                 {/* Add more screens here later */}
             </Stack.Navigator>
         </NavigationContainer>

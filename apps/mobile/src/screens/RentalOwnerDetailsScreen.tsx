@@ -11,7 +11,7 @@ type RentalOwnerDetailsNavigationProp = NativeStackNavigationProp<RootStackParam
 type RentalOwnerDetailsRouteProp = RouteProp<RootStackParamList, 'RentalOwnerDetails'>;
 
 const TOOL_CATEGORIES = [
-    'Power Tools', 'Hand Tools', 'Heavy Machinery', 'Scaffolding', 'Ladders', 'Painting Equipment', 'Cleaning Equipment', 'Other'
+    'Power Tools', 'Ladders', 'Painting Equipment', 'Plumbing Equipment', 'Cleaning Equipment', 'Safety Gear', 'Gardening Tools', 'Scaffolding', 'Other'
 ];
 
 const RentalOwnerDetailsScreen = () => {
@@ -20,7 +20,7 @@ const RentalOwnerDetailsScreen = () => {
     const { email, fullName, phone, role, currentDetails } = route.params;
 
     const [businessName, setBusinessName] = useState(currentDetails?.businessName || '');
-    const [selectedCategories, setSelectedCategories] = useState<string[]>(currentDetails?.categories || []);
+    const [selectedCategories, setSelectedCategories] = useState<string[]>(currentDetails?.toolCategories || []);
     const [yearsInBusiness, setYearsInBusiness] = useState(currentDetails?.yearsInBusiness || '');
 
     const toggleCategory = (category: string) => {
@@ -48,7 +48,7 @@ const RentalOwnerDetailsScreen = () => {
             role,
             rentalDetails: {
                 businessName,
-                categories: selectedCategories,
+                toolCategories: selectedCategories,
                 yearsInBusiness
             }
         });

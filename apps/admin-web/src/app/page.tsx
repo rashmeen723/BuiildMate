@@ -1,65 +1,106 @@
-import Image from "next/image";
+import Link from "next/link";
+import { adminApi } from "@/services/api";
 
-export default function Home() {
+export default async function DashboardPage() {
+  let pendingVerifications = [];
+  try {
+    pendingVerifications = await adminApi.getPendingVerifications();
+  } catch (error) {
+    console.error("Failed to load verifications:", error);
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-extrabold tracking-tight">System Overview</h1>
+        <p className="text-slate-400 mt-1">Snapshot of your marketplace activity.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard title="Pending Review" value={pendingVerifications.length.toString()} change="+2 today" color="text-amber-400" />
+        <StatCard title="Active Providers" value="142" change="+5% this week" color="text-sky-400" />
+        <StatCard title="Live Rentals" value="86" change="+12% this month" color="text-emerald-400" />
+        <StatCard title="Total Revenue" value="Rs. 45.2k" change="+8% this week" color="text-indigo-400" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 glass-card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold">New Verifications</h2>
+            <button className="text-sky-400 text-sm font-medium hover:underline">View All</button>
+          </div>
+
+          <div className="space-y-4">
+            {pendingVerifications.length > 0 ? (
+              pendingVerifications.map((v: any) => (
+                <VerificationRow
+                  key={v.id}
+                  id={v.id}
+                  name={v.fullName}
+                  role={v.role}
+                  status={v.status}
+                  time={new Date(v.createdAt).toLocaleDateString()}
+                />
+              ))
+            ) : (
+              <p className="text-slate-500 text-center py-8">No pending verifications found.</p>
+            )}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold mb-6">Quick Stats</h2>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-400">KYC Approval Rate</span>
+              <span className="font-bold">92%</span>
+            </div>
+            <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div className="bg-emerald-500 h-full w-[92%]"></div>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-slate-400">Response Time</span>
+              <span className="font-bold">1.2 hrs</span>
+            </div>
+            <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div className="bg-sky-500 h-full w-[75%]"></div>
+            </div>
+          </div>
         </div>
-      </main>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ title, value, change, color }: { title: string, value: string, change: string, color: string }) {
+  return (
+    <div className="glass-card p-6 space-y-2 hover:border-slate-700 transition-colors">
+      <span className="text-sm font-medium text-slate-400">{title}</span>
+      <div className={`text-2xl font-bold ${color}`}>{value}</div>
+      <div className="text-xs text-slate-500">{change}</div>
+    </div>
+  );
+}
+
+function VerificationRow({ id, name, role, status, time }: { id: string, name: string, role: string, status: string, time: string }) {
+  return (
+    <div className="flex items-center justify-between p-4 rounded-xl border border-slate-800 hover:bg-slate-800/30 transition-all cursor-pointer group">
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold text-slate-300">
+          {name.charAt(0)}
+        </div>
+        <div>
+          <div className="font-bold">{name}</div>
+          <div className="text-xs text-slate-500">{role} • {time}</div>
+        </div>
+      </div>
+      <div className="flex items-center gap-4">
+        <span className="text-xs px-2 py-1 rounded-md bg-amber-500/10 text-amber-500 font-medium">{status}</span>
+        <Link href={`/verifications/${id}`} className="bg-white text-black px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-sky-400 hover:text-white transition-all transform group-hover:scale-105">
+          Verify
+        </Link>
+      </div>
     </div>
   );
 }
