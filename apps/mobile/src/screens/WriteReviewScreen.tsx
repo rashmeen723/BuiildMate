@@ -24,11 +24,12 @@ const WriteReviewScreen = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const {
-        serviceId,
-        providerId,
-        serviceName = 'Plumbing Service',
-        providerName = 'Nimal Fernando',
-        serviceImage = 'https://via.placeholder.com/150'
+        reviewType = 'SERVICE',
+        id,
+        targetId,
+        title = 'Building Service',
+        subtitle = 'Professional Worker',
+        image = 'https://via.placeholder.com/150'
     } = route.params || {};
 
     const pickImage = async () => {
@@ -56,8 +57,8 @@ const WriteReviewScreen = () => {
             return;
         }
 
-        if (!user || !providerId) {
-            Alert.alert('Error', 'Unable to submit review. missing user/provider info.');
+        if (!user || !targetId) {
+            Alert.alert('Error', 'Unable to submit review. missing user/target info.');
             return;
         }
 
@@ -70,8 +71,9 @@ const WriteReviewScreen = () => {
 
             await authApi.createReview({
                 reviewerId: user.id,
-                revieweeId: providerId, // This is the target user's ID
-                bookingId: serviceId.toString(),
+                revieweeId: targetId,
+                bookingId: reviewType === 'SERVICE' ? id.toString() : undefined,
+                rentalId: reviewType === 'RENTAL' ? id.toString() : undefined,
                 rating,
                 comment: review,
                 images: uploadedUrls
@@ -119,10 +121,10 @@ const WriteReviewScreen = () => {
 
                 {/* Service/Provider Card */}
                 <View style={styles.serviceCard}>
-                    <Image source={{ uri: serviceImage }} style={styles.serviceImage} />
+                    <Image source={{ uri: image }} style={styles.serviceImage} />
                     <View style={styles.serviceInfo}>
-                        <Text style={styles.serviceName}>{serviceName}</Text>
-                        <Text style={styles.providerName}>by {providerName}</Text>
+                        <Text style={styles.serviceName}>{title}</Text>
+                        <Text style={styles.providerName}>by {subtitle}</Text>
                         <View style={styles.statusBadge}>
                             <Text style={styles.statusText}>Completed</Text>
                         </View>

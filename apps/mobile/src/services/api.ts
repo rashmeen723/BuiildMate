@@ -415,3 +415,141 @@ export const authApi = {
         }
     }
 };
+
+export const rentalsApi = {
+    getOwnerTools: async (userId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/rentals/owner/${userId}/tools`);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch tools');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Tools Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    addTool: async (userId: string, data: any) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/rentals/owner/${userId}/tools`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to add tool');
+            return result;
+        } catch (error: any) {
+            console.error('Add Tool Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    getOwnerStats: async (userId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/rentals/owner/${userId}/stats`);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch stats');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Stats Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    getOwnerRentals: async (userId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/rentals/owner/${userId}/rentals`);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch rentals');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Rentals Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    getToolsByCategory: async (category: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/rentals/category/${category}`);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch tools');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Category Tools Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    getNearbyTools: async (lat: number, lng: number, radius?: number) => {
+        try {
+            let url = `${API_BASE_URL}/rentals/nearby?lat=${lat}&lng=${lng}`;
+            if (radius) url += `&radius=${radius}`;
+            const response = await fetch(url);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch nearby tools');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Nearby Tools Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    getToolById: async (id: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/rentals/${id}`);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch tool details');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Tool Details Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    createRental: async (data: any) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/rentals`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to create rental');
+            return result;
+        } catch (error: any) {
+            console.error('Create Rental Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    updateRentalStatus: async (id: string, status: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/rentals/${id}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to update status');
+            return result;
+        } catch (error: any) {
+            console.error('Update Rental Status Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    getUserRentals: async (userId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/rentals/user/${userId}/rentals`);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch user rentals');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch User Rentals Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    getToolReviews: async (toolId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/rentals/tool/${toolId}/reviews`);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch reviews');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Tool Reviews Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+};

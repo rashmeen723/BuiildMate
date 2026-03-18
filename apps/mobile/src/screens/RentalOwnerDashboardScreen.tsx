@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -9,14 +9,19 @@ import {
     Dimensions,
     SafeAreaView,
     StatusBar,
-    Platform
+    Platform,
+    ActivityIndicator,
+    RefreshControl
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import { rentalsApi } from '../services/api';
 import BottomNavBar from '../components/BottomNavBar';
 
 const { width } = Dimensions.get('window');
@@ -26,10 +31,106 @@ type DashboardNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Re
 const RentalOwnerDashboardScreen = () => {
     const { user } = useAuth();
     const navigation = useNavigation<DashboardNavigationProp>();
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [toolsCount, setToolsCount] = useState(0);
+    const [rentals, setRentals] = useState<any[]>([]);
+    const [stats, setStats] = useState({
+        earnings: 0,
+        pendingPickups: 0,
+        activeRentals: 0
+    });
 
-    const firstName = user?.fullName?.split(' ')[0] || 'John';
-    const storeName = user?.rentalOwner?.businessName || 'My Tool Store';
+    const firstName = user?.fullName?.split(' ')[0] || 'Store Owner';
     const isPending = user?.rentalOwner?.status === 'PENDING';
+
+    const fetchData = async () => {
+        if (!user?.id) return;
+        try {
+            const [toolsData, statsData, rentalsData] = await Promise.all([
+                rentalsApi.getOwnerTools(user.id),
+                rentalsApi.getOwnerStats(user.id),
+                rentalsApi.getOwnerRentals(user.id)
+            ]);
+            setToolsCount(toolsData.length);
+            setStats(statsData);
+            setRentals(rentalsData);
+        } catch (error) {
+            console.error('Error fetching dashboard data:', error);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    };
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchData();
+        }, [user?.id])
+    );
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        fetchData();
+    };
+
+    if (loading && !refreshing) {
+        return (
+            <View style={[styles.container, styles.centered]}>
+                <ActivityIndicator size="large" color={COLORS.darkBlue} />
+            </View>
+        );
+    }
+
+    const renderRequestCard = (item: any) => (
+        <TouchableOpacity
+            key={item.id}
+            style={styles.requestCard}
+            onPress={() => navigation.navigate('RentalRequestDetails', {
+                rentalId: item.id,
+                toolName: item.tool.name,
+                customerName: item.customer.fullName,
+                customerPhone: item.customer.phone || 'N/A',
+                startDate: item.startDate,
+                endDate: item.endDate,
+                totalAmount: item.totalAmount,
+                status: item.status,
+                toolImage: item.tool.images?.[0],
+                customerImage: item.customer.profileImage,
+                pickupLocation: item.pickupLocation,
+                paymentMethod: item.paymentMethod,
+                isPaid: item.isPaid
+            })}
+        >
+            <View style={styles.requestHeader}>
+                <Image
+                    source={{ uri: item.customer.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.customer.fullName)}&background=random` }}
+                    style={styles.requestAvatar}
+                />
+                <View style={styles.requestInfo}>
+                    <Text style={styles.requestCustomerName}>{item.customer.fullName}</Text>
+                    <Text style={styles.requestDate}>
+                        {new Date(item.startDate).toLocaleDateString()}
+                    </Text>
+                </View>
+                <View style={[styles.statusBadge, {
+                    backgroundColor: item.status === 'PENDING' ? '#FEF3C7' :
+                        item.status === 'IN_PROGRESS' ? '#EDE9FE' : '#DCFCE7'
+                }]}>
+                    <Text style={[styles.statusBadgeText, {
+                        color: item.status === 'PENDING' ? '#92400E' :
+                            item.status === 'IN_PROGRESS' ? '#7C3AED' : '#15803D'
+                    }]}>
+                        {item.status}
+                    </Text>
+                </View>
+            </View>
+            <View style={styles.requestFooter}>
+                <Text style={styles.requestToolName} numberOfLines={1}>{item.tool.name}</Text>
+                <Text style={styles.requestAmount}>LKR {item.totalAmount.toLocaleString()}</Text>
+            </View>
+        </TouchableOpacity>
+    );
 
     return (
         <SafeAreaView style={styles.container}>
@@ -43,7 +144,7 @@ const RentalOwnerDashboardScreen = () => {
                             <Image source={{ uri: user.profileImage }} style={styles.avatar} />
                         ) : (
                             <View style={styles.avatarPlaceholder}>
-                                <Text style={styles.avatarInitial}>{user?.fullName?.[0] || 'J'}</Text>
+                                <Text style={styles.avatarInitial}>{user?.fullName?.[0] || 'U'}</Text>
                             </View>
                         )}
                     </TouchableOpacity>
@@ -54,28 +155,31 @@ const RentalOwnerDashboardScreen = () => {
                         <Text style={styles.subGreeting}>{isPending ? 'Almost ready to rent tools' : "Your store is active"}</Text>
                     </View>
                 </View>
+                <TouchableOpacity style={styles.notificationButton} onPress={() => navigation.navigate('Notification')}>
+                    <Ionicons name="notifications-outline" size={24} color={COLORS.darkBlue} />
+                </TouchableOpacity>
             </View>
 
-            {/* Verification Pending Banner */}
-            {isPending && (
-                <View style={styles.pendingBanner}>
-                    <Ionicons name="shield-checkmark-outline" size={20} color="#854d0e" />
-                    <Text style={styles.pendingBannerText}>
-                        Store under review. Verification usually takes 24-48 hours.
-                    </Text>
-                </View>
-            )}
-
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.darkBlue]} />
+                }
+            >
                 {/* Earnings Card */}
-                <View style={styles.earningsCard}>
+                <LinearGradient
+                    colors={['#1e1b4b', '#312e81', '#1e1b4b']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.earningsCard}
+                >
                     <View style={styles.earningsMainRow}>
                         <View>
-                            <Text style={styles.earningsLabel}>TOTAL RENTALS (TODAY)</Text>
-                            <Text style={styles.earningsAmount}>{isPending ? 'LKR 0.00' : 'LKR 12400.00'}</Text>
+                            <Text style={styles.earningsLabel}>TOTAL EARNINGS</Text>
+                            <Text style={styles.earningsAmount}>LKR {stats.earnings.toLocaleString()}</Text>
                         </View>
-                        <MaterialCommunityIcons name="tools" size={48} color="rgba(255,255,255,0.3)" />
+                        <MaterialCommunityIcons name="currency-usd" size={48} color="rgba(255,255,255,0.2)" />
                     </View>
 
                     <View style={styles.divider} />
@@ -83,15 +187,65 @@ const RentalOwnerDashboardScreen = () => {
                     <View style={styles.statsRow}>
                         <View style={styles.statItem}>
                             <Text style={styles.statLabel}>PENDING PICKUPS</Text>
-                            <Text style={styles.statValue}>{isPending ? '0' : '3'}</Text>
+                            <Text style={styles.statValue}>{stats.pendingPickups}</Text>
                         </View>
                         <View style={styles.verticalDivider} />
                         <View style={styles.statItem}>
                             <Text style={styles.statLabel}>ACTIVE RENTALS</Text>
-                            <Text style={styles.statValue}>{isPending ? '0' : '8'}</Text>
+                            <Text style={styles.statValue}>{stats.activeRentals}</Text>
                         </View>
                     </View>
-                </View>
+                </LinearGradient>
+
+                {!isPending && (
+                    <>
+                        {/* New Simple Inventory Card */}
+                        <TouchableOpacity
+                            style={styles.inventoryCard}
+                            onPress={() => navigation.navigate('RentalInventory')}
+                        >
+                            <View style={styles.inventoryCardLeft}>
+                                <View style={styles.inventoryIconBg}>
+                                    <MaterialCommunityIcons name="toolbox" size={28} color={COLORS.white} />
+                                </View>
+                                <View style={styles.inventoryInfo}>
+                                    <Text style={styles.inventoryTitle}>My Tools</Text>
+                                    <Text style={styles.inventorySubtitle}>Manage your equipment catalog</Text>
+                                </View>
+                            </View>
+                            <View style={styles.inventoryCardRight}>
+                                <View style={styles.countBadge}>
+                                    <Text style={styles.countBadgeText}>{toolsCount}</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+                            </View>
+                        </TouchableOpacity>
+
+                        {/* Rental Overview Card */}
+                        <TouchableOpacity
+                            style={[styles.inventoryCard, { marginTop: 16 }]}
+                            onPress={() => navigation.navigate('RentalOwnerSchedule')}
+                        >
+                            <View style={styles.inventoryCardLeft}>
+                                <View style={[styles.inventoryIconBg, { backgroundColor: COLORS.orange }]}>
+                                    <MaterialCommunityIcons name="calendar-clock" size={28} color={COLORS.darkBlue} />
+                                </View>
+                                <View style={styles.inventoryInfo}>
+                                    <Text style={styles.inventoryTitle}>Rental Request</Text>
+                                    <Text style={styles.inventorySubtitle}>Check pickups & returns</Text>
+                                </View>
+                            </View>
+                            <View style={styles.inventoryCardRight}>
+                                <View style={[styles.countBadge, { backgroundColor: '#FFF7ED' }]}>
+                                    <Text style={[styles.countBadgeText, { color: COLORS.orange }]}>{stats.pendingPickups + stats.activeRentals}</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+                            </View>
+                        </TouchableOpacity>
+
+
+                    </>
+                )}
 
                 {isPending && (
                     <View style={styles.verificationProgress}>
@@ -104,81 +258,11 @@ const RentalOwnerDashboardScreen = () => {
                             <Ionicons name="time-outline" size={24} color="#F59E0B" />
                             <Text style={styles.progressText}>Store Profile Review in Progress</Text>
                         </View>
-                        <View style={styles.progressItem}>
+                        <TouchableOpacity style={styles.progressItem} onPress={() => navigation.navigate('RentalInventory')}>
                             <Ionicons name="ellipse-outline" size={24} color="#CBD5E1" />
                             <Text style={styles.progressText}>List Your First Equipment</Text>
-                        </View>
+                        </TouchableOpacity>
                     </View>
-                )}
-
-                {!isPending && (
-                    <>
-                        <View style={styles.actionRow}>
-                            <Text style={styles.sectionTitle}>Manage Inventory</Text>
-                            <TouchableOpacity style={styles.addButton}>
-                                <Ionicons name="add" size={20} color={COLORS.white} />
-                                <Text style={styles.addButtonText}>Add Tool</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Inventory Card 1 */}
-                        <TouchableOpacity style={styles.toolCard}>
-                            <View style={styles.toolTopSection}>
-                                <View style={[styles.iconContainer, { backgroundColor: '#EBF2FF' }]}>
-                                    <MaterialCommunityIcons name="toolbox" size={24} color="#3B82F6" />
-                                </View>
-                                <View style={styles.toolInfo}>
-                                    <View style={styles.toolTitleRow}>
-                                        <Text style={styles.toolTitleText}>Bosch Hammer Drill</Text>
-                                        <View style={styles.statusBadge}>
-                                            <Text style={styles.statusBadgeText}>ACTIVE</Text>
-                                        </View>
-                                    </View>
-                                    <Text style={styles.toolSubText}>Available for rent</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
-                            </View>
-                            <View style={styles.toolBottomSection}>
-                                <View style={styles.priceContainer}>
-                                    <Text style={styles.priceLabel}>Daily Rate</Text>
-                                    <Text style={styles.priceValue}>LKR 1,200</Text>
-                                </View>
-                                <View style={styles.statsContainer}>
-                                    <Ionicons name="repeat" size={14} color="#94A3B8" />
-                                    <Text style={styles.rentalCount}>15 times rented</Text>
-                                </View>
-                            </View>
-                        </TouchableOpacity>
-
-                        {/* Inventory Card 2 */}
-                        <TouchableOpacity style={styles.toolCard}>
-                            <View style={styles.toolTopSection}>
-                                <View style={[styles.iconContainer, { backgroundColor: '#FFF7ED' }]}>
-                                    <MaterialCommunityIcons name="hammer" size={24} color="#F97316" />
-                                </View>
-                                <View style={styles.toolInfo}>
-                                    <View style={styles.toolTitleRow}>
-                                        <Text style={styles.toolTitleText}>Aluminum Ext. Ladder</Text>
-                                        <View style={[styles.statusBadge, { backgroundColor: '#FEF3C7' }]}>
-                                            <Text style={[styles.statusBadgeText, { color: '#D97706' }]}>RENTED</Text>
-                                        </View>
-                                    </View>
-                                    <Text style={styles.toolSubText}>Expected back: Tomorrow</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
-                            </View>
-                            <View style={styles.toolBottomSection}>
-                                <View style={styles.priceContainer}>
-                                    <Text style={styles.priceLabel}>Daily Rate</Text>
-                                    <Text style={styles.priceValue}>LKR 800</Text>
-                                </View>
-                                <View style={styles.statsContainer}>
-                                    <Ionicons name="repeat" size={14} color="#94A3B8" />
-                                    <Text style={styles.rentalCount}>28 times rented</Text>
-                                </View>
-                            </View>
-                        </TouchableOpacity>
-                    </>
                 )}
 
                 <View style={{ height: 100 }} />
@@ -192,12 +276,20 @@ const RentalOwnerDashboardScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.white,
+        backgroundColor: '#F8FAFC',
+    },
+    centered: {
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         paddingHorizontal: 24,
         paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 16,
         paddingBottom: 16,
+        backgroundColor: COLORS.white,
         borderBottomWidth: 1,
         borderBottomColor: '#F1F5F9',
     },
@@ -239,32 +331,23 @@ const styles = StyleSheet.create({
         color: '#94A3B8',
         marginTop: 2,
     },
-    pendingBanner: {
-        flexDirection: 'row',
+    notificationButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#F8FAFC',
+        justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#FFF7ED',
-        paddingVertical: 14,
-        paddingHorizontal: 24,
-        borderBottomWidth: 1,
-        borderBottomColor: '#FFEDD5',
-        borderTopWidth: 1,
-        borderTopColor: '#FFEDD5',
-    },
-    pendingBannerText: {
-        fontSize: 13,
-        color: '#854d0e',
-        fontWeight: '500',
-        marginLeft: 8,
-        flex: 1,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
     },
     scrollContent: {
         padding: 24,
     },
     earningsCard: {
-        backgroundColor: '#1E293B', // Slightly different dark color
         borderRadius: 24,
         padding: 24,
-        marginBottom: 32,
+        marginBottom: 24,
     },
     earningsMainRow: {
         flexDirection: 'row',
@@ -305,7 +388,7 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     statValue: {
-        fontSize: 24,
+        fontSize: 22,
         fontWeight: 'bold',
         color: COLORS.white,
     },
@@ -314,18 +397,165 @@ const styles = StyleSheet.create({
         height: '100%',
         backgroundColor: 'rgba(255,255,255,0.1)',
     },
-    verificationProgress: {
+    inventoryCard: {
+        flexDirection: 'row',
         backgroundColor: COLORS.white,
         borderRadius: 20,
         padding: 20,
-        marginBottom: 32,
+        alignItems: 'center',
+        justifyContent: 'space-between',
         borderWidth: 1,
-        borderColor: '#E2E8F0',
+        borderColor: '#F1F5F9',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    inventoryCardLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    inventoryIconBg: {
+        width: 54,
+        height: 54,
+        borderRadius: 16,
+        backgroundColor: COLORS.darkBlue,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    inventoryInfo: {
+        marginLeft: 16,
+    },
+    inventoryTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: COLORS.black,
+    },
+    inventorySubtitle: {
+        fontSize: 13,
+        color: '#64748B',
+        marginTop: 2,
+    },
+    inventoryCardRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    countBadge: {
+        backgroundColor: '#EFF6FF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 10,
+        marginRight: 10,
+    },
+    countBadgeText: {
+        color: COLORS.darkBlue,
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
     },
     sectionTitle: {
         fontSize: 20,
         fontWeight: 'bold',
         color: COLORS.black,
+    },
+    seeAllText: {
+        fontSize: 14,
+        color: COLORS.darkBlue,
+        fontWeight: '600',
+    },
+    requestsScroll: {
+        marginHorizontal: -24,
+        paddingHorizontal: 24,
+    },
+    requestCard: {
+        width: width * 0.7,
+        backgroundColor: COLORS.white,
+        borderRadius: 20,
+        padding: 16,
+        marginRight: 16,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+        elevation: 1,
+    },
+    requestHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    requestAvatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+    },
+    requestInfo: {
+        flex: 1,
+        marginLeft: 12,
+    },
+    requestCustomerName: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: COLORS.black,
+    },
+    requestDate: {
+        fontSize: 11,
+        color: '#64748B',
+        marginTop: 2,
+    },
+    statusBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    statusBadgeText: {
+        fontSize: 9,
+        fontWeight: 'bold',
+    },
+    requestFooter: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    requestToolName: {
+        fontSize: 13,
+        color: '#475569',
+        fontWeight: '500',
+        flex: 1,
+        marginRight: 8,
+    },
+    requestAmount: {
+        fontSize: 13,
+        fontWeight: 'bold',
+        color: COLORS.darkBlue,
+    },
+    emptyRequests: {
+        padding: 30,
+        backgroundColor: COLORS.white,
+        borderRadius: 20,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+        borderStyle: 'dashed',
+    },
+    emptyRequestsText: {
+        color: '#94A3B8',
+        fontSize: 14,
+    },
+    verificationProgress: {
+        backgroundColor: COLORS.white,
+        borderRadius: 20,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
     },
     progressItem: {
         flexDirection: 'row',
@@ -337,108 +567,6 @@ const styles = StyleSheet.create({
         color: '#475569',
         marginLeft: 12,
         fontWeight: '500',
-    },
-    actionRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    addButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: COLORS.darkBlue,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 12,
-    },
-    addButtonText: {
-        color: COLORS.white,
-        fontWeight: 'bold',
-        fontSize: 14,
-        marginLeft: 4,
-    },
-    toolCard: {
-        backgroundColor: COLORS.white,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        marginBottom: 16,
-        overflow: 'hidden',
-    },
-    toolTopSection: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-    },
-    iconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    toolInfo: {
-        flex: 1,
-        marginLeft: 16,
-    },
-    toolTitleRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 4,
-    },
-    toolTitleText: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: COLORS.black,
-    },
-    statusBadge: {
-        backgroundColor: '#DCFCE7',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 4,
-    },
-    statusBadgeText: {
-        fontSize: 10,
-        fontWeight: '800',
-        color: '#166534',
-    },
-    toolSubText: {
-        fontSize: 13,
-        color: '#94A3B8',
-    },
-    toolBottomSection: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: '#FCFCFC',
-        borderTopWidth: 1,
-        borderTopColor: '#F1F5F9',
-    },
-    priceContainer: {
-        flexDirection: 'column',
-    },
-    priceLabel: {
-        fontSize: 11,
-        color: '#94A3B8',
-        fontWeight: '600',
-    },
-    priceValue: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: COLORS.black,
-    },
-    statsContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    rentalCount: {
-        fontSize: 12,
-        color: '#64748B',
-        marginLeft: 4,
     },
 });
 

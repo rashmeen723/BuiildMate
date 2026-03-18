@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, FlatList, Dimensions, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, FlatList, Dimensions, Platform, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -7,85 +7,71 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
+import { rentalsApi } from '../services/api';
 import BottomNavBar from '../components/BottomNavBar';
+import { useAuth } from '../context/AuthContext';
 
 type ToolCategoryScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ToolCategory'>;
 type ToolCategoryScreenRouteProp = RouteProp<RootStackParamList, 'ToolCategory'>;
 
 const { width } = Dimensions.get('window');
 
+// Haversine formula to calculate distance between two lat/lng coordinates in km
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return parseFloat((R * c).toFixed(1));
+};
+
 const ToolCategoryScreen = () => {
     const navigation = useNavigation<ToolCategoryScreenNavigationProp>();
     const route = useRoute<ToolCategoryScreenRouteProp>();
-    const { categoryName = 'Power Tools' } = route.params || {};
+    const { categoryName = 'Power Tools', selectedLocation, selectedAddress } = route.params || {};
+
+    const { user } = useAuth();
+
+    // Attempt to parse out default user address
+    const defaultAddr = user?.addresses?.find((a: any) => a.isDefault) || user?.addresses?.[0];
+    const displayAddress = selectedAddress || (defaultAddr && defaultAddr.addressLine1
+        ? `${defaultAddr.addressLine1}, ${defaultAddr.city}`
+        : 'Select Delivery Address');
+
+    const activeLatitude = selectedLocation?.latitude || defaultAddr?.latitude;
+    const activeLongitude = selectedLocation?.longitude || defaultAddr?.longitude;
 
     const [fromDate, setFromDate] = useState(new Date());
-    const [toDate, setToDate] = useState(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)); // Default +2 days
+    const [toDate, setToDate] = useState(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
     const [showFromPicker, setShowFromPicker] = useState(false);
     const [showToPicker, setShowToPicker] = useState(false);
+    const [tools, setTools] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
-    const tools = [
-        {
-            id: 1,
-            name: 'Circular Power Saw',
-            rating: 4.8,
-            price: 800,
-            image: 'https://images.unsplash.com/photo-1572981779307-38b8cabb2407?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-            voltage: '18V',
-            weight: '3.4 lbs',
-            chuckSize: '1/2"'
-        },
-        {
-            id: 2,
-            name: 'DeWalt Impact Drill',
-            rating: 4.8,
-            price: 800,
-            image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-            voltage: '18V',
-            weight: '2.4 lbs',
-            chuckSize: '1/4"'
-        },
-        {
-            id: 3,
-            name: 'Angle Grinder',
-            rating: 4.8,
-            price: 900,
-            image: 'https://images.unsplash.com/photo-1581147036324-c17ac41dfa6c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-            voltage: '20V',
-            weight: '4.0 lbs',
-            chuckSize: 'N/A'
-        },
-        {
-            id: 4,
-            name: 'Jig Saw',
-            rating: 4.8,
-            price: 800,
-            image: 'https://images.unsplash.com/photo-1540539234-c14a205bf96e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-            voltage: '12V',
-            weight: '3.2 lbs',
-            chuckSize: 'N/A'
-        },
-        {
-            id: 5,
-            name: 'Cordless Drill',
-            rating: 4.8,
-            price: 800,
-            image: 'https://images.unsplash.com/photo-1622037022824-0c71d511ef3c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-            voltage: '18V',
-            weight: '3.4 lbs',
-            chuckSize: '1/2"'
-        },
-        {
-            id: 6,
-            name: 'Sander',
-            rating: 4.5,
-            price: 700,
-            image: 'https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-            voltage: '120V',
-            weight: '2.5 lbs',
-            chuckSize: 'N/A'
+    const fetchTools = async () => {
+        try {
+            const data = await rentalsApi.getToolsByCategory(categoryName);
+            setTools(data);
+        } catch (error) {
+            console.error('Error fetching tools:', error);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
         }
-    ];
+    };
+
+    useEffect(() => {
+        fetchTools();
+    }, [categoryName]);
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        fetchTools();
+    };
 
     const formatDate = (date: Date) => {
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -101,6 +87,44 @@ const ToolCategoryScreen = () => {
         if (date) setToDate(date);
     };
 
+    const derivedTools = tools.map((tool) => {
+        let distance = null;
+        if (activeLatitude && activeLongitude && tool.owner?.latitude && tool.owner?.longitude) {
+            distance = calculateDistance(
+                activeLatitude,
+                activeLongitude,
+                tool.owner.latitude,
+                tool.owner.longitude
+            );
+        }
+        return { ...tool, distance };
+    }).filter((tool) => {
+        // Active filter based on date overlap
+        if (!tool.rentals || tool.rentals.length === 0) return true;
+
+        const reqStart = fromDate.getTime();
+        const reqEnd = toDate.getTime();
+
+        for (const rental of tool.rentals) {
+            // Include anything that is NOT rejected or cancelled. 
+            if (rental.status === 'CANCELLED' || rental.status === 'REJECTED' || rental.status === 'COMPLETED') continue;
+
+            const rentStart = new Date(rental.startDate).getTime();
+            const rentEnd = new Date(rental.endDate).getTime();
+
+            // Overlap check
+            if (reqStart < rentEnd && reqEnd > rentStart) {
+                return false;
+            }
+        }
+        return true;
+    }).sort((a, b) => {
+        if (a.distance != null && b.distance != null) return a.distance - b.distance;
+        if (a.distance != null) return -1;
+        if (b.distance != null) return 1;
+        return 0;
+    });
+
     const renderToolCard = ({ item }: { item: any }) => (
         <TouchableOpacity
             style={styles.card}
@@ -111,17 +135,31 @@ const ToolCategoryScreen = () => {
             })}
         >
             <View style={styles.imageContainer}>
-                <Image source={{ uri: item.image }} style={styles.image} resizeMode="contain" />
+                {item.images && item.images.length > 0 ? (
+                    <Image source={{ uri: item.images[0] }} style={styles.image} resizeMode="contain" />
+                ) : (
+                    <View style={styles.imagePlaceholder}>
+                        <Ionicons name="image-outline" size={40} color="#CBD5E1" />
+                    </View>
+                )}
             </View>
             <View style={styles.cardContent}>
                 <Text style={styles.toolName} numberOfLines={2}>{item.name}</Text>
                 <View style={styles.ratingContainer}>
                     <Ionicons name="star" size={14} color={COLORS.orange} />
-                    <Text style={styles.ratingText}>{item.rating}</Text>
+                    <Text style={styles.ratingText}>{Number(item.rating || 5.0).toFixed(1)}</Text>
+                    {item.reviewCount > 0 && <Text style={{ fontSize: 10, color: COLORS.gray, marginLeft: 2 }}>({item.reviewCount})</Text>}
+
+                    {item.distance && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8 }}>
+                            <Ionicons name="location-outline" size={12} color={COLORS.gray} />
+                            <Text style={{ fontSize: 10, color: COLORS.gray, marginLeft: 2 }}>{item.distance} km</Text>
+                        </View>
+                    )}
                 </View>
                 <View style={styles.footer}>
                     <View style={styles.priceTag}>
-                        <Text style={styles.priceText}>LKR {item.price}/d</Text>
+                        <Text style={styles.priceText}>LKR {item.dailyRate}/d</Text>
                     </View>
                     <TouchableOpacity style={styles.addButton}>
                         <Ionicons name="add" size={20} color={COLORS.white} />
@@ -133,7 +171,6 @@ const ToolCategoryScreen = () => {
 
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="chevron-back" size={24} color={COLORS.black} />
@@ -144,20 +181,30 @@ const ToolCategoryScreen = () => {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                {/* Delivery Address Card */}
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.darkBlue]} />
+                }
+            >
                 <View style={styles.addressCard}>
                     <View style={styles.addressHeader}>
                         <Ionicons name="location-outline" size={20} color={COLORS.orange} />
-                        <Text style={styles.addressLabel}>DELEVERY ADDRESS</Text>
+                        <Text style={styles.addressLabel}>DELIVERY ADDRESS</Text>
                     </View>
-                    <Text style={styles.addressText}>216 Ananda Road, Moratuwa, Colombo</Text>
-                    <TouchableOpacity style={styles.editIcon}>
+                    <Text style={styles.addressText}>{displayAddress}</Text>
+                    <TouchableOpacity
+                        style={styles.editIcon}
+                        onPress={() => navigation.navigate('MapSelection', {
+                            returnScreen: 'ToolCategory',
+                            categoryName: categoryName
+                        } as any)}
+                    >
                         <Ionicons name="pencil-outline" size={20} color={COLORS.orange} />
                     </TouchableOpacity>
                 </View>
 
-                {/* Date Selection */}
                 <Text style={styles.sectionLabel}>When do you need the Tool?</Text>
                 <View style={styles.dateRow}>
                     <View style={styles.dateColumn}>
@@ -184,20 +231,24 @@ const ToolCategoryScreen = () => {
                 </View>
 
                 <View style={styles.listHeader}>
-                    <Text style={styles.sectionTitle}>Avaliable tool list</Text>
-                    <TouchableOpacity>
-                        <Text style={styles.viewAllText}>view all</Text>
-                    </TouchableOpacity>
+                    <Text style={styles.sectionTitle}>Available tool list</Text>
                 </View>
 
-                {/* Tool Grid */}
-                <View style={styles.gridContainer}>
-                    {tools.map(item => (
-                        <View key={item.id} style={styles.gridItemWrapper}>
-                            {renderToolCard({ item })}
-                        </View>
-                    ))}
-                </View>
+                {loading ? (
+                    <ActivityIndicator size="large" color={COLORS.darkBlue} style={{ marginTop: 20 }} />
+                ) : derivedTools.length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                        <Text style={styles.emptyText}>No available tools for these dates.</Text>
+                    </View>
+                ) : (
+                    <View style={styles.gridContainer}>
+                        {derivedTools.map(item => (
+                            <View key={item.id} style={styles.gridItemWrapper}>
+                                {renderToolCard({ item })}
+                            </View>
+                        ))}
+                    </View>
+                )}
 
                 <View style={{ height: 80 }} />
             </ScrollView>
@@ -209,7 +260,6 @@ const ToolCategoryScreen = () => {
                 <DateTimePicker value={toDate} mode="date" display="default" onChange={handleToDateChange} minimumDate={fromDate} />
             )}
 
-            {/* Bottom Navigation */}
             <BottomNavBar />
         </SafeAreaView>
     );
@@ -329,10 +379,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: COLORS.black,
     },
-    viewAllText: {
-        fontSize: 14,
-        color: COLORS.gray,
-    },
     gridContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -346,7 +392,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.white,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: '#F3F4F6', // Lighter border
+        borderColor: '#F3F4F6',
         padding: 12,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
@@ -360,10 +406,18 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: '#F8FAFC',
+        borderRadius: 12,
     },
     image: {
         width: '100%',
         height: '100%',
+    },
+    imagePlaceholder: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     cardContent: {
         flex: 1,
@@ -410,26 +464,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    bottomNav: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        backgroundColor: COLORS.white,
-        paddingVertical: 12,
-        borderTopWidth: 1,
-        borderTopColor: COLORS.lightGray,
-    },
-    navItem: {
+    emptyContainer: {
+        padding: 40,
         alignItems: 'center',
     },
-    navText: {
-        fontSize: 10,
-        marginTop: 4,
+    emptyText: {
         color: COLORS.gray,
-    },
+        fontSize: 14,
+    }
 });
 
 export default ToolCategoryScreen;

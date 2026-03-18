@@ -8,7 +8,7 @@ import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
 import BottomNavBar from '../components/BottomNavBar';
 import { useAuth } from '../context/AuthContext';
-import { authApi } from '../services/api';
+import { authApi, rentalsApi } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -20,6 +20,7 @@ const HomeScreen = () => {
     const [activeTab, setActiveTab] = useState<'Services' | 'Tools'>('Services');
     const [hasUnread, setHasUnread] = useState(false);
     const [nearbyProviders, setNearbyProviders] = useState<any[]>([]);
+    const [nearbyTools, setNearbyTools] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -29,10 +30,14 @@ const HomeScreen = () => {
             const defaultAddr = user.addresses.find((a: any) => a.isDefault) || user.addresses[0];
             if (defaultAddr) {
                 setLoading(true);
-                authApi.getNearbyProviders(defaultAddr.latitude, defaultAddr.longitude)
-                    .then(setNearbyProviders)
-                    .catch((err: any) => console.error('Error fetching nearby:', err))
-                    .finally(() => setLoading(false));
+                Promise.all([
+                    authApi.getNearbyProviders(defaultAddr.latitude, defaultAddr.longitude)
+                        .then(setNearbyProviders)
+                        .catch((err: any) => console.error('Error fetching nearby providers:', err)),
+                    rentalsApi.getNearbyTools(defaultAddr.latitude, defaultAddr.longitude)
+                        .then(setNearbyTools)
+                        .catch((err: any) => console.error('Error fetching nearby tools:', err))
+                ]).finally(() => setLoading(false));
             }
         }
     }, [user]);
@@ -174,6 +179,78 @@ const HomeScreen = () => {
                     ))}
                     {filteredToolCategories.length === 0 && (
                         <Text style={styles.emptyText}>No tool categories match your search.</Text>
+                    )}
+                </View>
+
+                <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+                    <Text style={styles.sectionTitle}>Top Rated Tools Near You</Text>
+                    <TouchableOpacity onPress={() => {
+                        if (user?.addresses) {
+                            const defaultAddr = user.addresses.find((a: any) => a.isDefault) || user.addresses[0];
+                            if (defaultAddr) {
+                                navigation.navigate('ToolMap', {
+                                    tools: nearbyTools,
+                                    initialRegion: {
+                                        latitude: defaultAddr.latitude,
+                                        longitude: defaultAddr.longitude,
+                                        latitudeDelta: 0.05,
+                                        longitudeDelta: 0.05,
+                                    }
+                                });
+                            }
+                        }
+                    }}>
+                        <Text style={styles.viewAllText}>View Map</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.suggestionsContainer}>
+                    {loading ? (
+                        <ActivityIndicator size="large" color={COLORS.orange} style={{ marginVertical: 20 }} />
+                    ) : (
+                        nearbyTools.slice(0, 3).map((tool) => (
+                            <TouchableOpacity
+                                key={tool.id}
+                                style={styles.proCard}
+                                activeOpacity={0.9}
+                                onPress={() => navigation.navigate('ToolDetails', { tool })}
+                            >
+                                <View style={[styles.proImage, { backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' }]}>
+                                    {tool.images && tool.images.length > 0 ? (
+                                        <Image
+                                            source={{ uri: tool.images[0] }}
+                                            style={{ width: '100%', height: '100%', borderRadius: 30 }}
+                                            resizeMode="cover"
+                                        />
+                                    ) : (
+                                        <Ionicons name="hammer-outline" size={24} color={COLORS.gray} />
+                                    )}
+                                </View>
+                                <View style={styles.proInfo}>
+                                    <View style={styles.proHeader}>
+                                        <Text style={styles.proName} numberOfLines={1}>{tool.name}</Text>
+                                    </View>
+                                    <Text style={styles.proRole}>{tool.category} • LKR {tool.dailyRate}/day</Text>
+                                    <View style={styles.proStats}>
+                                        <View style={styles.proStatItem}>
+                                            <Ionicons name="star" size={14} color={COLORS.orange} />
+                                            <Text style={styles.proStatText}>{Number(tool.rating || 5.0).toFixed(1)}</Text>
+                                        </View>
+                                        <View style={styles.proDivider} />
+                                        <View style={styles.proStatItem}>
+                                            <Ionicons name="location-outline" size={14} color={COLORS.gray} />
+                                            <Text style={styles.proStatText}>{tool.distance} km</Text>
+                                        </View>
+                                    </View>
+                                </View>
+                                <TouchableOpacity style={styles.bookBtn} onPress={() => navigation.navigate('ToolDetails', { tool })}>
+                                    <Text style={styles.bookBtnText}>Rent</Text>
+                                </TouchableOpacity>
+                            </TouchableOpacity>
+                        ))
+                    )}
+                    {!loading && nearbyTools.length === 0 && (
+                        <Text style={styles.emptyText}>No nearby tools found.</Text>
                     )}
                 </View>
             </>

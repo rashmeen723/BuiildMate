@@ -26,6 +26,12 @@ import RentalOwnerDocumentsScreen from '../screens/RentalOwnerDocumentsScreen';
 import RentalOwnerServiceAreaScreen from '../screens/RentalOwnerServiceAreaScreen';
 import RentalOwnerReviewScreen from '../screens/RentalOwnerReviewScreen';
 import RentalOwnerDashboardScreen from '../screens/RentalOwnerDashboardScreen';
+import RentalOwnerScheduleScreen from '../screens/RentalOwnerScheduleScreen';
+import RentalOwnerRatingsScreen from '../screens/RentalOwnerRatingsScreen';
+import AddToolScreen from '../screens/AddToolScreen';
+import RentalInventoryScreen from '../screens/RentalInventoryScreen';
+import RentalRequestsScreen from '../screens/RentalRequestsScreen';
+import RentalRequestDetailsScreen from '../screens/RentalRequestDetailsScreen';
 import ServiceCategoryScreen from '../screens/ServiceCategoryScreen';
 import ProviderProfileScreen from '../screens/ProviderProfileScreen';
 import BookServiceScreen from '../screens/BookServiceScreen';
@@ -48,6 +54,8 @@ import FinalizeJobScreen from '../screens/FinalizeJobScreen';
 import BookingRequestScreen from '../screens/BookingRequestScreen';
 import ProviderScheduleScreen from '../screens/ProviderScheduleScreen';
 import ProviderRatingsScreen from '../screens/ProviderRatingsScreen';
+import ToolRatingsScreen from '../screens/ToolRatingsScreen';
+import ToolMapScreen from '../screens/ToolMapScreen';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -85,6 +93,12 @@ const AppNavigator = () => {
                 <Stack.Screen name="RentalOwnerServiceArea" component={RentalOwnerServiceAreaScreen} />
                 <Stack.Screen name="RentalOwnerReview" component={RentalOwnerReviewScreen} />
                 <Stack.Screen name="RentalOwnerDashboard" component={RentalOwnerDashboardScreen} />
+                <Stack.Screen name="RentalOwnerSchedule" component={RentalOwnerScheduleScreen} />
+                <Stack.Screen name="RentalOwnerRatings" component={RentalOwnerRatingsScreen} />
+                <Stack.Screen name="AddTool" component={AddToolScreen} />
+                <Stack.Screen name="RentalInventory" component={RentalInventoryScreen} />
+                <Stack.Screen name="RentalRequests" component={RentalRequestsScreen} />
+                <Stack.Screen name="RentalRequestDetails" component={RentalRequestDetailsScreen} />
                 <Stack.Screen name="Home" component={HomeScreen} />
                 <Stack.Screen name="ServiceCategory" component={ServiceCategoryScreen} />
                 <Stack.Screen name="ProviderProfile" component={ProviderProfileScreen} />
@@ -108,6 +122,8 @@ const AppNavigator = () => {
                 <Stack.Screen name="BookingRequest" component={BookingRequestScreen} />
                 <Stack.Screen name="ProviderSchedule" component={ProviderScheduleScreen} />
                 <Stack.Screen name="ProviderRatings" component={ProviderRatingsScreen} />
+                <Stack.Screen name="ToolRatings" component={ToolRatingsScreen} />
+                <Stack.Screen name="ToolMap" component={ToolMapScreen} />
                 {/* Add more screens here later */}
             </Stack.Navigator>
         </NavigationContainer>

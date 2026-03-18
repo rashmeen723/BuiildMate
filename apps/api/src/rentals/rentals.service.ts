@@ -1,0 +1,399 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+
+@Injectable()
+export class RentalsService {
+    constructor(private prisma: PrismaService) { }
+
+    async getToolsByOwner(userId: string) {
+        const owner = await this.prisma.rentalOwnerProfile.findUnique({
+            where: { userId },
+        });
+
+        if (!owner) return [];
+
+        return this.prisma.tool.findMany({
+            where: { ownerId: owner.id },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    async addTool(userId: string, data: {
+        name: string;
+        description: string;
+        category: string;
+        dailyRate: number;
+        images?: string[];
+    }) {
+        const owner = await this.prisma.rentalOwnerProfile.findUnique({
+            where: { userId },
+        });
+
+        if (!owner) throw new Error('Rental owner profile not found');
+
+        return this.prisma.tool.create({
+            data: {
+                ...data,
+                ownerId: owner.id,
+            },
+        });
+    }
+
+    async updateTool(toolId: string, data: any) {
+        return this.prisma.tool.update({
+            where: { id: toolId },
+            data,
+        });
+    }
+
+    async getStats(userId: string) {
+        const owner = await this.prisma.rentalOwnerProfile.findUnique({
+            where: { userId },
+        });
+
+        if (!owner) return { earnings: 0, pendingPickups: 0, activeRentals: 0 };
+
+        const tools = await this.prisma.tool.findMany({
+            where: { ownerId: owner.id },
+            include: { rentals: true },
+        });
+
+        const activeRentals = tools.filter(t => t.status === 'RENTED').length;
+
+        const rentals = await this.prisma.toolRental.findMany({
+            where: { tool: { ownerId: owner.id }, status: 'PAID' },
+        });
+
+        const earnings = rentals.reduce((sum, r) => sum + r.totalAmount, 0);
+
+        const pendingPickups = await this.prisma.toolRental.count({
+            where: { tool: { ownerId: owner.id }, status: 'CONFIRMED' },
+        });
+
+        return {
+            earnings,
+            pendingPickups,
+            activeRentals,
+        };
+    }
+
+    async getOwnerRentals(userId: string) {
+        const owner = await this.prisma.rentalOwnerProfile.findUnique({
+            where: { userId },
+        });
+
+        if (!owner) return [];
+
+        return this.prisma.toolRental.findMany({
+            where: {
+                tool: {
+                    ownerId: owner.id,
+                },
+            },
+            include: {
+                tool: true,
+                customer: {
+                    select: {
+                        fullName: true,
+                        profileImage: true,
+                        phone: true,
+                    },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    async getToolsByCategory(category: string) {
+        const tools = await (this.prisma.tool as any).findMany({
+            where: {
+                category,
+                status: 'AVAILABLE'
+            },
+            include: {
+                owner: {
+                    include: {
+                        user: {
+                            select: {
+                                fullName: true,
+                                profileImage: true,
+                                phone: true
+                            }
+                        }
+                    }
+                },
+                rentals: {
+                    include: {
+                        reviews: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        return tools.map((tool: any) => {
+            const allReviews = tool.rentals.flatMap((r: any) => r.reviews || []);
+            const averageRating = allReviews.length > 0
+                ? (allReviews.reduce((acc: number, r: any) => acc + r.rating, 0) / allReviews.length)
+                : 5.0; // Default to 5.0 for new tools or similar to what UI expects
+            return {
+                ...tool,
+                rating: averageRating,
+                reviewCount: allReviews.length
+            };
+        });
+    }
+
+    async getToolById(id: string) {
+        const tool = await (this.prisma.tool as any).findUnique({
+            where: { id },
+            include: {
+                owner: {
+                    include: {
+                        user: {
+                            select: {
+                                fullName: true,
+                                profileImage: true,
+                                phone: true
+                            }
+                        }
+                    }
+                },
+                rentals: {
+                    include: {
+                        reviews: true
+                    }
+                }
+            }
+        });
+
+        if (!tool) return null;
+
+        const allReviews = tool.rentals.flatMap((r: any) => r.reviews || []);
+        const averageRating = allReviews.length > 0
+            ? (allReviews.reduce((acc: number, r: any) => acc + r.rating, 0) / allReviews.length)
+            : 5.0;
+
+        return {
+            ...tool,
+            rating: averageRating,
+            reviewCount: allReviews.length
+        };
+    }
+
+    async createRental(data: {
+        toolId: string;
+        customerId: string;
+        startDate: string;
+        endDate: string;
+        totalAmount: number;
+        pickupLocation?: string;
+        paymentMethod?: string;
+        isPaid?: boolean;
+    }) {
+        const tool = await this.prisma.tool.findUnique({
+            where: { id: data.toolId },
+            include: { owner: true }
+        });
+
+        const rental = await this.prisma.toolRental.create({
+            data: {
+                toolId: data.toolId,
+                customerId: data.customerId,
+                startDate: new Date(data.startDate),
+                endDate: new Date(data.endDate),
+                totalAmount: data.totalAmount,
+                status: 'PENDING',
+                pickupLocation: data.pickupLocation,
+                paymentMethod: data.paymentMethod || 'CASH',
+                isPaid: data.isPaid || false,
+            },
+        });
+
+        if (tool && tool.owner) {
+            try {
+                await (this.prisma as any).notification.create({
+                    data: {
+                        userId: tool.owner.userId,
+                        title: 'New Rental Request',
+                        message: `You have a new rental request for ${tool.name}.`,
+                        type: 'RENTAL_REQUEST',
+                        linkId: rental.id,
+                        data: {}
+                    }
+                });
+            } catch (error) {
+                console.error('Error creating notification:', error);
+            }
+        }
+
+        return rental;
+    }
+
+    async updateRentalStatus(rentalId: string, status: string) {
+        const updateData: any = { status: status as any };
+        if (status === 'PAID') {
+            updateData.isPaid = true;
+        }
+
+        const rental = await this.prisma.toolRental.update({
+            where: { id: rentalId },
+            data: updateData,
+            include: { tool: true }
+        });
+
+        // If marked as CONFIRMED or PAID and it's currently active, update tool status
+        if (status === 'CONFIRMED' || status === 'ON_THE_WAY' || status === 'IN_PROGRESS' || status === 'PAID') {
+            await this.prisma.tool.update({
+                where: { id: rental.toolId },
+                data: { status: 'RENTED' }
+            });
+        }
+
+        // If COMPLETED or CANCELLED, mark tool as AVAILABLE
+        if (status === 'COMPLETED' || status === 'CANCELLED' || status === 'REJECTED') {
+            await this.prisma.tool.update({
+                where: { id: rental.toolId },
+                data: { status: 'AVAILABLE' }
+            });
+        }
+
+        try {
+            await (this.prisma as any).notification.create({
+                data: {
+                    userId: rental.customerId,
+                    title: 'Rental Status Updated',
+                    message: `Your rental for ${rental.tool?.name} is now ${status}.`,
+                    type: 'RENTAL_UPDATE',
+                    linkId: rental.id,
+                    data: {}
+                }
+            });
+        } catch (error) {
+            console.error('Error creating notification:', error);
+        }
+
+        return rental;
+    }
+
+    async getUserRentals(userId: string) {
+        return (this.prisma.toolRental as any).findMany({
+            where: { customerId: userId },
+            include: {
+                tool: {
+                    include: {
+                        owner: {
+                            include: {
+                                user: {
+                                    select: {
+                                        fullName: true,
+                                        profileImage: true,
+                                        phone: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                reviews: true
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    async getToolReviews(toolId: string) {
+        return (this.prisma.review as any).findMany({
+            where: {
+                rental: {
+                    toolId: toolId
+                }
+            },
+            include: {
+                reviewer: {
+                    select: {
+                        fullName: true,
+                        profileImage: true
+                    }
+                },
+                rental: {
+                    include: {
+                        tool: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+
+    async getNearbyTools(lat: number, lng: number, radius: number = 50) {
+        const tools = await (this.prisma.tool as any).findMany({
+            where: {
+                status: 'AVAILABLE',
+                owner: {
+                    status: 'APPROVED'
+                }
+            },
+            include: {
+                owner: {
+                    include: {
+                        user: {
+                            select: {
+                                fullName: true,
+                                profileImage: true,
+                            }
+                        }
+                    }
+                },
+                rentals: {
+                    include: {
+                        reviews: true
+                    }
+                }
+            }
+        });
+
+        const toolsWithMetrics = tools.map((tool: any) => {
+            const allReviews = tool.rentals.flatMap((r: any) => r.reviews || []);
+            const averageRating = allReviews.length > 0
+                ? (allReviews.reduce((acc: number, r: any) => acc + r.rating, 0) / allReviews.length)
+                : 5.0;
+
+            const distance = this.calculateDistance(
+                lat,
+                lng,
+                tool.owner.latitude || 0,
+                tool.owner.longitude || 0
+            );
+
+            return {
+                ...tool,
+                rating: averageRating,
+                reviewCount: allReviews.length,
+                distance: parseFloat(distance.toFixed(1))
+            };
+        });
+
+        return toolsWithMetrics
+            .filter(t => t.distance <= radius)
+            .sort((a, b) => {
+                if (b.rating !== a.rating) return b.rating - a.rating;
+                return a.distance - b.distance;
+            });
+    }
+
+    private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+        const R = 6371;
+        const dLat = this.deg2rad(lat2 - lat1);
+        const dLon = this.deg2rad(lon2 - lon1);
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(this.deg2rad(lat1)) * Math.cos(this.deg2rad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    private deg2rad(deg: number) {
+        return deg * (Math.PI / 180);
+    }
+}

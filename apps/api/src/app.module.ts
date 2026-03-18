@@ -9,6 +9,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { EjsAdapter } from '@nestjs-modules/mailer/dist/adapters/ejs.adapter';
 import { ConfigModule } from '@nestjs/config';
+import { RentalsModule } from './rentals/rentals.module';
 
 @Module({
   imports: [
@@ -37,7 +38,8 @@ import { ConfigModule } from '@nestjs/config';
     AuthModule,
     AdminModule,
     ServicesModule,
-    CloudinaryModule
+    CloudinaryModule,
+    RentalsModule
   ],
   controllers: [AppController],
   providers: [AppService],
