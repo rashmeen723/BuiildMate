@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useAuth } from '../context/AuthContext';
 
 type RentalStatusScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'RentalStatus'>;
 type RentalStatusScreenRouteProp = RouteProp<RootStackParamList, 'RentalStatus'>;
@@ -16,12 +17,22 @@ const { width } = Dimensions.get('window');
 const RentalStatusScreen = () => {
     const navigation = useNavigation<RentalStatusScreenNavigationProp>();
     const route = useRoute<RentalStatusScreenRouteProp>();
-    const { rentalId, toolName, dueDate, image } = route.params || {
-        rentalId: 1,
-        toolName: 'Makita LXT Power Drill',
-        dueDate: 'November 24, 2025',
-        image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'
-    };
+    const {
+        rentalId,
+        toolName,
+        dueDate,
+        startDate,
+        image,
+        status = 'PENDING',
+        ownerName,
+        ownerId,
+        ownerAddress,
+        paymentMethod,
+        isPaid,
+        totalAmount,
+        reviews = []
+    } = route.params;
+    const { user } = useAuth();
 
     const [extendDays, setExtendDays] = useState(0);
     const [extraCost, setExtraCost] = useState(0);
@@ -33,9 +44,26 @@ const RentalStatusScreen = () => {
     };
 
     const confirmExtension = () => {
-        // Logic to request extension (verified by tool owner)
         alert(`Extension request sent! The owner will verify your request for ${extendDays} additional days.`);
-        navigation.navigate('Activity', { updatedRentalId: rentalId, newStatus: 'EXTENSION PENDING' });
+        navigation.navigate('Activity', { updatedRentalId: Number(rentalId), newStatus: 'EXTENSION PENDING' });
+    };
+
+    // Timeline mapping
+    const isStepActive = (stepStatus: string) => {
+        const statusOrder = ['PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED'];
+        const currentIdx = statusOrder.indexOf(status);
+        const stepIdx = statusOrder.indexOf(stepStatus);
+        return currentIdx >= stepIdx;
+    };
+
+    const getStatusHeader = () => {
+        switch (status) {
+            case 'PENDING': return 'WAITING FOR OWNER';
+            case 'CONFIRMED': return 'READY FOR PICKUP';
+            case 'IN_PROGRESS': return 'GENUINELY ACTIVE';
+            case 'COMPLETED': return 'RENTAL COMPLETED';
+            default: return status;
+        }
     };
 
     return (
@@ -55,58 +83,154 @@ const RentalStatusScreen = () => {
 
                 {/* Tool Card */}
                 <View style={styles.toolCard}>
-                    <Image source={{ uri: image }} style={styles.toolImage} />
+                    <Image source={{ uri: image || 'https://via.placeholder.com/150' }} style={styles.toolImage} />
                     <View style={styles.toolInfo}>
                         <Text style={styles.toolName}>{toolName}</Text>
-                        <Text style={styles.rentalId}>Rental ID: #{rentalId}</Text>
-                        <View style={styles.statusBadge}>
-                            <View style={styles.statusDot} />
-                            <Text style={styles.statusText}>ACTIVE</Text>
+                        <Text style={styles.rentalId}>Rental ID: #{rentalId.slice(0, 8)}</Text>
+                        <View style={[styles.statusBadge, isStepActive('COMPLETED') ? { backgroundColor: '#ECFDF5' } : { backgroundColor: '#FFFBEB' }]}>
+                            <View style={[styles.statusDot, isStepActive('COMPLETED') ? { backgroundColor: '#10B981' } : { backgroundColor: COLORS.orange }]} />
+                            <Text style={[styles.statusText, isStepActive('COMPLETED') ? { color: '#10B981' } : { color: COLORS.orange }]}>
+                                {getStatusHeader()}
+                            </Text>
                         </View>
                     </View>
                 </View>
+
+                {/* Owner/Pickup Info */}
+                {(ownerName || ownerAddress) && (
+                    <View style={styles.infoSection}>
+                        <Text style={styles.sectionTitle}>COLLECTION DETAILS</Text>
+                        <View style={styles.infoCardContent}>
+                            <Ionicons name="person-outline" size={20} color={COLORS.darkBlue} />
+                            <View style={{ marginLeft: 12 }}>
+                                <Text style={styles.infoLabel}>OWNER</Text>
+                                <Text style={styles.infoValue}>{ownerName}</Text>
+                            </View>
+                        </View>
+                        <View style={[styles.infoCardContent, { marginTop: 12 }]}>
+                            <Ionicons name="map-outline" size={20} color={COLORS.darkBlue} />
+                            <View style={{ marginLeft: 12 }}>
+                                <Text style={styles.infoLabel}>PICKUP LOCATION</Text>
+                                <Text style={styles.infoValue}>{ownerAddress}</Text>
+                            </View>
+                        </View>
+                    </View>
+                )}
 
                 {/* Status Timeline */}
                 <View style={styles.statusSection}>
                     <Text style={styles.sectionTitle}>RENTAL TIMELINE</Text>
                     <View style={styles.timelineCard}>
-                        {/* Start */}
+                        {/* Step 1: Requested */}
                         <View style={styles.timelineItem}>
-                            <View style={[styles.timelineIcon, styles.iconActive]}>
+                            <View style={[styles.timelineIcon, isStepActive('PENDING') && styles.iconActive]}>
+                                <Ionicons name="send" size={14} color={COLORS.white} />
+                            </View>
+                            <View style={styles.timelineContent}>
+                                <Text style={styles.timelineTitle}>Requested</Text>
+                                <Text style={styles.timelineDate}>{startDate}</Text>
+                            </View>
+                        </View>
+                        <View style={[styles.timelineLine, isStepActive('CONFIRMED') && styles.lineActive]} />
+
+                        {/* Step 2: Confirmed */}
+                        <View style={styles.timelineItem}>
+                            <View style={[styles.timelineIcon, isStepActive('CONFIRMED') && styles.iconActive]}>
                                 <Ionicons name="checkmark" size={16} color={COLORS.white} />
                             </View>
                             <View style={styles.timelineContent}>
+                                <Text style={styles.timelineTitle}>Confirmed</Text>
+                                <Text style={styles.timelineDesc}>{isStepActive('CONFIRMED') ? 'Owner has accepted' : 'Awaiting owner'}</Text>
+                            </View>
+                        </View>
+                        <View style={[styles.timelineLine, isStepActive('IN_PROGRESS') && styles.lineActive]} />
+
+                        {/* Step 3: Picked Up */}
+                        <View style={styles.timelineItem}>
+                            <View style={[styles.timelineIcon, isStepActive('IN_PROGRESS') && styles.iconActive]}>
+                                <MaterialCommunityIcons name="handshake" size={16} color={COLORS.white} />
+                            </View>
+                            <View style={styles.timelineContent}>
                                 <Text style={styles.timelineTitle}>Picked Up</Text>
-                                <Text style={styles.timelineDate}>Nov 21, 2025</Text>
+                                <Text style={styles.timelineDesc}>{isStepActive('IN_PROGRESS') ? 'Tool is with you' : 'Ready for collection'}</Text>
                             </View>
                         </View>
-                        {/* Line */}
-                        <View style={[styles.timelineLine, styles.lineActive]} />
+                        <View style={[styles.timelineLine, isStepActive('COMPLETED') && styles.lineActive]} />
 
-                        {/* Current */}
+                        {/* Step 4: Returned */}
                         <View style={styles.timelineItem}>
-                            <View style={[styles.timelineIcon, styles.iconActive]}>
-                                <Ionicons name="time" size={16} color={COLORS.white} />
+                            <View style={[styles.timelineIcon, isStepActive('COMPLETED') && styles.iconActive]}>
+                                <Ionicons name="calendar" size={16} color={isStepActive('COMPLETED') ? COLORS.white : COLORS.gray} />
                             </View>
                             <View style={styles.timelineContent}>
-                                <Text style={styles.timelineTitle}>In Use</Text>
-                                <Text style={styles.timelineDesc}>Currently active</Text>
-                            </View>
-                        </View>
-                        {/* Line */}
-                        <View style={styles.timelineLine} />
-
-                        {/* End */}
-                        <View style={styles.timelineItem}>
-                            <View style={styles.timelineIcon}>
-                                <Ionicons name="calendar" size={16} color={COLORS.gray} />
-                            </View>
-                            <View style={styles.timelineContent}>
-                                <Text style={styles.timelineTitle}>Due Return</Text>
+                                <Text style={styles.timelineTitle}>Return Due</Text>
                                 <Text style={styles.timelineDate}>{dueDate}</Text>
                             </View>
+
+                            {/* Review Section */}
+                            {status === 'COMPLETED' && (
+                                <View style={styles.infoSection}>
+                                    <Text style={styles.sectionTitle}>FEEDBACK</Text>
+                                    {reviews.some((r: any) => r.reviewerId === user?.id) ? (
+                                        <View style={styles.reviewDoneBox}>
+                                            <Ionicons name="star" size={20} color={COLORS.orange} />
+                                            <Text style={styles.reviewDoneText}>You have already rated this rental.</Text>
+                                        </View>
+                                    ) : (
+                                        <TouchableOpacity
+                                            style={styles.rateButton}
+                                            onPress={() => navigation.navigate('WriteReview', {
+                                                reviewType: 'RENTAL',
+                                                id: rentalId,
+                                                targetId: ownerId || '',
+                                                title: toolName,
+                                                subtitle: ownerName || 'Rental Owner',
+                                                image: image || 'https://via.placeholder.com/150'
+                                            })}
+                                        >
+                                            <Ionicons name="star-outline" size={20} color={COLORS.white} />
+                                            <Text style={styles.rateButtonText}>Rate this tool</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            )}
                         </View>
                     </View>
+                </View>
+
+                {/* Payment Info Section */}
+                <View style={styles.infoSection}>
+                    <Text style={styles.sectionTitle}>PAYMENT INFORMATION</Text>
+                    <View style={styles.infoCardContent}>
+                        <Ionicons
+                            name={paymentMethod === 'CARD' ? "card-outline" : "cash-outline"}
+                            size={20}
+                            color={COLORS.darkBlue}
+                        />
+                        <View style={{ marginLeft: 12, flex: 1 }}>
+                            <Text style={styles.infoLabel}>METHOD</Text>
+                            <Text style={styles.infoValue}>{paymentMethod || 'CASH'}</Text>
+                        </View>
+                        <View style={[styles.statusBadge, { backgroundColor: isPaid ? '#DCFCE7' : '#FEE2E2', marginLeft: 'auto' }]}>
+                            <Text style={[styles.statusText, { color: isPaid ? '#15803D' : '#B91C1C' }]}>
+                                {isPaid ? 'PAID' : 'UNPAID'}
+                            </Text>
+                        </View>
+                    </View>
+
+                    {!isPaid && paymentMethod === 'CARD' && status !== 'PENDING' && (
+                        <TouchableOpacity
+                            style={styles.payNowButton}
+                            onPress={() => navigation.navigate('Payment', {
+                                id: rentalId,
+                                title: `Rent: ${toolName}`,
+                                amount: totalAmount || 0,
+                                type: 'RENTAL'
+                            })}
+                        >
+                            <Text style={styles.payNowButtonText}>Pay Now LKR {totalAmount?.toLocaleString()}</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
 
                 {/* Extend Options */}
@@ -270,6 +394,45 @@ const styles = StyleSheet.create({
     statusSection: {
         marginBottom: 24,
     },
+    infoSection: {
+        backgroundColor: COLORS.white,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 24,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    infoCardContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    infoLabel: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: COLORS.gray,
+        letterSpacing: 0.5,
+    },
+    payNowButton: {
+        backgroundColor: COLORS.darkBlue,
+        borderRadius: 12,
+        padding: 14,
+        alignItems: 'center',
+        marginTop: 16,
+    },
+    payNowButtonText: {
+        color: COLORS.white,
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    infoValue: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: COLORS.black,
+        marginTop: 2,
+    },
     timelineCard: {
         backgroundColor: COLORS.white,
         borderRadius: 16,
@@ -429,6 +592,33 @@ const styles = StyleSheet.create({
         color: COLORS.white,
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    rateButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: COLORS.orange,
+        borderRadius: 12,
+        paddingVertical: 12,
+        gap: 8,
+    },
+    rateButtonText: {
+        color: COLORS.white,
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    reviewDoneBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F3F4F6',
+        borderRadius: 12,
+        padding: 12,
+        gap: 8,
+    },
+    reviewDoneText: {
+        fontSize: 14,
+        color: COLORS.gray,
+        fontWeight: '500',
     },
 });
 

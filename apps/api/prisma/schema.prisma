@@ -29,6 +29,7 @@ enum BookingStatus {
   CONFIRMED
   ON_THE_WAY
   ARRIVED
+  IN_PROGRESS
   COMPLETED
   PAID
   CANCELLED
@@ -57,6 +58,7 @@ model User {
   // Booking Relations
   customerBookings  Booking[]    @relation("CustomerBookings")
   providerBookings  Booking[]    @relation("ProviderBookings")
+  customerRentals   ToolRental[] @relation("CustomerRentals")
 
   // Review Relations
   reviewsGiven      Review[]     @relation("ReviewsGiven")
@@ -130,6 +132,7 @@ model RentalOwnerProfile {
 
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
+  tools             Tool[]
 }
 
 // 5. Verification Documents
@@ -211,6 +214,9 @@ model Review {
   bookingId       String?
   booking         Booking?       @relation(fields: [bookingId], references: [id])
   
+  rentalId        String?
+  rental          ToolRental?    @relation(fields: [rentalId], references: [id])
+  
   rating          Int            // 1-5
   comment         String?
   reply           String?        // Provider response
@@ -222,4 +228,44 @@ model Review {
 
   @@index([revieweeId])
   @@index([reviewerId])
+}
+
+model Tool {
+  id              String             @id @default(uuid())
+  ownerId         String
+  owner           RentalOwnerProfile @relation(fields: [ownerId], references: [id])
+  name            String
+  description     String
+  category        String
+  dailyRate       Float
+  images          String[]           @default([])
+  available       Boolean            @default(true)
+  status          String             @default("AVAILABLE") // AVAILABLE, RENTED, MAINTENANCE
+
+  rentals         ToolRental[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
+
+model ToolRental {
+  id              String         @id @default(uuid())
+  toolId          String
+  tool            Tool           @relation(fields: [toolId], references: [id])
+  customerId      String
+  customer        User           @relation("CustomerRentals", fields: [customerId], references: [id])
+  
+  startDate       DateTime
+  endDate         DateTime
+  status          BookingStatus  @default(PENDING)
+  totalAmount     Float
+  pickupLocation  String?
+  pickupLatitude  Float?
+  pickupLongitude Float?
+  paymentMethod   String?        @default("CASH")
+  isPaid          Boolean        @default(false)
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  reviews         Review[]
 }

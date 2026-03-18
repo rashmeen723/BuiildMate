@@ -30,8 +30,9 @@ const BottomNavBar = () => {
         if (user?.role === 'RENTAL_OWNER') {
             return [
                 { name: 'Home', label: 'Home', icon: 'home', route: 'RentalOwnerDashboard' },
-                { name: 'Inventory', label: 'Inventory', icon: 'cube', route: 'RentalOwnerDashboard' }, // Placeholder
-                { name: 'Activity', label: 'Rentals', icon: 'swap-horizontal', route: 'Activity' },
+                { name: 'Rentals', label: 'Rentals', icon: 'swap-horizontal', route: 'RentalRequests' },
+                { name: 'Schedule', label: 'Schedule', icon: 'calendar', route: 'RentalOwnerSchedule' },
+                { name: 'Ratings', label: 'Ratings', icon: 'star', route: 'RentalOwnerRatings' },
                 { name: 'Profile', label: 'Profile', icon: 'person', route: 'Profile' },
             ];
         }

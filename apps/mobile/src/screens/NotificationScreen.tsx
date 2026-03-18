@@ -64,8 +64,10 @@ const NotificationScreen = () => {
     const getIconInfo = (type: string) => {
         switch (type) {
             case 'BOOKING_REQUEST':
+            case 'RENTAL_REQUEST':
                 return { icon: 'calendar', color: '#F59E0B', bg: '#FFF7ED', category: 'Bookings' };
             case 'STATUS_UPDATE':
+            case 'RENTAL_UPDATE':
                 return { icon: 'notifications', color: '#3B82F6', bg: '#EFF6FF', category: 'Bookings' };
             case 'REVIEW_RECEIVED':
             case 'REVIEW_REPLY':
@@ -89,6 +91,10 @@ const NotificationScreen = () => {
         // Navigation logic based on type
         if (item.type === 'BOOKING_REQUEST' || item.type === 'STATUS_UPDATE') {
             navigation.navigate('Activity'); // Should ideally go to specific booking, but Activity is safe
+        } else if (item.type === 'RENTAL_REQUEST') {
+            navigation.navigate('RentalRequests');
+        } else if (item.type === 'RENTAL_UPDATE') {
+            navigation.navigate('Activity');
         } else if (item.type === 'REVIEW_RECEIVED' || item.type === 'REVIEW_REPLY') {
             if (user?.role === 'SERVICE_PROVIDER') {
                 navigation.navigate('ProviderRatings');

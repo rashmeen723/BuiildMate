@@ -6,7 +6,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
-import { authApi } from '../services/api';
+import { authApi, rentalsApi } from '../services/api';
 
 type PaymentScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Payment'>;
 type PaymentScreenRouteProp = RouteProp<RootStackParamList, 'Payment'>;
@@ -65,10 +65,18 @@ const PaymentScreen = () => {
                         ]
                     );
                 }
-            } else {
-                // Rental logic
-                Alert.alert('Payment Successful', `Payment for ${title} processed.`);
-                navigation.navigate('Activity', { updatedRentalId: Number(id), newStatus: 'PAID' });
+            } else if (type === 'RENTAL') {
+                if (paymentMethod === 'CARD') {
+                    await rentalsApi.updateRentalStatus(id.toString(), 'PAID');
+                    Alert.alert('Payment Successful', `Payment for ${title} processed via Card.`);
+                    navigation.navigate('Activity', { updatedRentalId: Number(id), newStatus: 'PAID' });
+                } else {
+                    Alert.alert(
+                        'Cash Payment Selected',
+                        `Please pay LKR ${amount.toLocaleString()} in cash directly to the rental owner.`,
+                        [{ text: 'OK', onPress: () => navigation.goBack() }]
+                    );
+                }
             }
         } catch (error) {
             Alert.alert('Payment Failed', 'Failed to process payment. Try again.');

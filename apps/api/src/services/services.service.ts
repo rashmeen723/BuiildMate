@@ -350,6 +350,7 @@ export class ServicesService {
         reviewerId: string;
         revieweeId: string;
         bookingId?: string;
+        rentalId?: string;
         rating: number;
         comment: string;
         images?: string[];
@@ -449,6 +450,11 @@ export class ServicesService {
                     select: {
                         totalAmount: true,
                         serviceType: true
+                    }
+                },
+                rental: {
+                    include: {
+                        tool: true
                     }
                 }
             },

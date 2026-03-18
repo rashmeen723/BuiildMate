@@ -130,10 +130,31 @@ export type RootStackParamList = {
         password?: string;
     };
     RentalOwnerDashboard: undefined;
+    RentalOwnerSchedule: undefined;
+    RentalOwnerRatings: { ownerId?: string; ownerName?: string } | undefined;
+    AddTool: undefined;
+    RentalInventory: undefined;
+    RentalRequests: undefined;
+    RentalRequestDetails: {
+        rentalId: string;
+        toolName: string;
+        customerName: string;
+        startDate: string;
+        endDate: string;
+        totalAmount: number;
+        pickupLocation?: string;
+        customerPhone: string;
+        toolImage?: string;
+        customerImage?: string;
+        status: string;
+        paymentMethod?: string;
+        isPaid?: boolean;
+    };
 
     // Tool Rental Screens
-    ToolCategory: { categoryName: string };
+    ToolCategory: { categoryName: string; selectedLocation?: any; selectedAddress?: string };
     ToolDetails: { tool: any; fromDate?: string; toDate?: string };
+    ToolRatings: { toolId: string; toolName: string };
     RentTool: { tool: any; startDate: string; endDate: string; totalDays: number; totalPrice: number };
     Activity: { updatedRentalId?: number; newStatus?: string } | undefined;
     TrackService: {
@@ -145,7 +166,21 @@ export type RootStackParamList = {
         arrivedAt?: string;
         serviceImage?: string;
     };
-    RentalStatus: { rentalId: number; toolName: string; dueDate: string; image: string };
+    RentalStatus: {
+        rentalId: string;
+        toolName: string;
+        dueDate: string;
+        image: string;
+        status?: string;
+        startDate?: string;
+        ownerName?: string;
+        ownerId?: string;
+        ownerAddress?: string;
+        paymentMethod?: string;
+        isPaid?: boolean;
+        totalAmount?: number;
+        reviews?: any[];
+    };
     Payment: {
         id: string | number;
         title: string;
@@ -183,11 +218,12 @@ export type RootStackParamList = {
     OrderHistory: undefined;
     NotificationSettings: undefined;
     WriteReview: {
-        serviceId: string;
-        providerId: string;
-        serviceName: string;
-        providerName: string;
-        serviceImage: string;
+        reviewType: 'SERVICE' | 'RENTAL';
+        id: string; // bookingId or rentalId
+        targetId: string; // providerId or ownerId
+        title: string; // serviceName or toolName
+        subtitle: string; // providerName or ownerName
+        image: string;
     };
     ServiceProviderMap: {
         providers: any[];
@@ -197,6 +233,21 @@ export type RootStackParamList = {
             latitudeDelta: number;
             longitudeDelta: number;
         };
+    };
+    ToolMap: {
+        tools: any[];
+        initialRegion: {
+            latitude: number;
+            longitude: number;
+            latitudeDelta: number;
+            longitudeDelta: number;
+        };
+        userLocation?: {
+            latitude: number;
+            longitude: number;
+            address?: string;
+        };
+        singleToolMode?: boolean;
     };
     ProviderSchedule: undefined;
     ProviderRatings: { providerId?: string; providerName?: string } | undefined;
