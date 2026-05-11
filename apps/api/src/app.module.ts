@@ -10,6 +10,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { EjsAdapter } from '@nestjs-modules/mailer/dist/adapters/ejs.adapter';
 import { ConfigModule } from '@nestjs/config';
 import { RentalsModule } from './rentals/rentals.module';
+import { AiVerificationModule } from './ai-verification/ai-verification.module';
 
 @Module({
   imports: [
@@ -39,7 +40,8 @@ import { RentalsModule } from './rentals/rentals.module';
     AdminModule,
     ServicesModule,
     CloudinaryModule,
-    RentalsModule
+    RentalsModule,
+    AiVerificationModule
   ],
   controllers: [AppController],
   providers: [AppService],

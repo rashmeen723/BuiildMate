@@ -210,7 +210,7 @@ const RentalOwnerDashboardScreen = () => {
                                 </View>
                                 <View style={styles.inventoryInfo}>
                                     <Text style={styles.inventoryTitle}>My Tools</Text>
-                                    <Text style={styles.inventorySubtitle}>Manage your equipment catalog</Text>
+                                    <Text style={styles.inventorySubtitle} numberOfLines={1}>Manage your equipment catalog</Text>
                                 </View>
                             </View>
                             <View style={styles.inventoryCardRight}>
@@ -232,7 +232,7 @@ const RentalOwnerDashboardScreen = () => {
                                 </View>
                                 <View style={styles.inventoryInfo}>
                                     <Text style={styles.inventoryTitle}>Rental Request</Text>
-                                    <Text style={styles.inventorySubtitle}>Check pickups & returns</Text>
+                                    <Text style={styles.inventorySubtitle} numberOfLines={1}>Check pickups & returns</Text>
                                 </View>
                             </View>
                             <View style={styles.inventoryCardRight}>
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         borderWidth: 1,
-        borderColor: '#F1F5F9',
+        borderColor: '#E2E8F0',
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
@@ -415,6 +415,7 @@ const styles = StyleSheet.create({
     inventoryCardLeft: {
         flexDirection: 'row',
         alignItems: 'center',
+        flex: 1,
     },
     inventoryIconBg: {
         width: 54,
@@ -426,6 +427,7 @@ const styles = StyleSheet.create({
     },
     inventoryInfo: {
         marginLeft: 16,
+        flex: 1,
     },
     inventoryTitle: {
         fontSize: 18,
@@ -440,6 +442,7 @@ const styles = StyleSheet.create({
     inventoryCardRight: {
         flexDirection: 'row',
         alignItems: 'center',
+        paddingLeft: 12,
     },
     countBadge: {
         backgroundColor: '#EFF6FF',

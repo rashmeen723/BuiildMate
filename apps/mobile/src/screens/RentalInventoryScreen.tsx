@@ -262,12 +262,15 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         color: '#1E293B',
+        flex: 1,
+        marginRight: 10,
     },
     statusBadgeActive: {
         backgroundColor: '#DCFCE7',
-        paddingHorizontal: 8,
+        paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 8,
+        flexShrink: 0,
     },
     statusBadgeTextActive: {
         fontSize: 9,
@@ -276,9 +279,10 @@ const styles = StyleSheet.create({
     },
     statusBadgeRented: {
         backgroundColor: '#FEE2E2',
-        paddingHorizontal: 8,
+        paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 8,
+        flexShrink: 0,
     },
     statusBadgeTextRented: {
         fontSize: 9,

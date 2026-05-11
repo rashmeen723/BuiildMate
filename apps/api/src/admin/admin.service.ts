@@ -17,6 +17,7 @@ export class AdminService {
             include: {
                 serviceProvider: true,
                 rentalOwner: true,
+                documents: true,
             }
         });
 
@@ -26,6 +27,8 @@ export class AdminService {
             email: user.email,
             role: user.role,
             status: user.serviceProvider?.status || user.rentalOwner?.status,
+            aiStatus: user.documents.some(d => d.status === 'AI_FLAGGED') ? 'AI_FLAGGED' : 
+                     (user.documents.every(d => d.status === 'AI_PASSED') ? 'AI_PASSED' : 'PENDING'),
             createdAt: user.createdAt
         }));
     }

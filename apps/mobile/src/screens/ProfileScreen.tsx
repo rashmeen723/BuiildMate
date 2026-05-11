@@ -116,6 +116,24 @@ const ProfileScreen = () => {
                                 {user?.addresses?.[0]?.addressLine1 || 'No address set'}
                             </Text>
                         </View>
+
+                        {/* Badges Section */}
+                        {(user?.badges && user.badges.length > 0) && (
+                            <View style={styles.badgeRow}>
+                                {user.badges.includes('IDENTITY_VERIFIED') && (
+                                    <View style={[styles.badge, { backgroundColor: '#10B981' }]}>
+                                        <Ionicons name="checkmark-circle" size={12} color={COLORS.white} />
+                                        <Text style={styles.badgeText}>Identity Verified</Text>
+                                    </View>
+                                )}
+                                {user.badges.includes('CERTIFIED_PRO') && (
+                                    <View style={[styles.badge, { backgroundColor: COLORS.orange }]}>
+                                        <Ionicons name="ribbon" size={12} color={COLORS.white} />
+                                        <Text style={styles.badgeText}>Certified Pro</Text>
+                                    </View>
+                                )}
+                            </View>
+                        )}
                     </View>
                 </SafeAreaView>
             </View>
@@ -237,6 +255,24 @@ const styles = StyleSheet.create({
     userLocation: {
         fontSize: 14,
         color: '#9CA3AF', // lighter gray
+        marginLeft: 4,
+    },
+    badgeRow: {
+        flexDirection: 'row',
+        marginTop: 12,
+        gap: 8,
+    },
+    badge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    badgeText: {
+        color: COLORS.white,
+        fontSize: 10,
+        fontWeight: 'bold',
         marginLeft: 4,
     },
     lowerSection: {

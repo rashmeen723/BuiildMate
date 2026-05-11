@@ -71,6 +71,9 @@ const ServiceProviderReviewScreen = () => {
             // Upload Profile Photo
             const profileImageUrl = await authApi.uploadPublicFile(documents.profileImage);
 
+            // Upload Selfie Image
+            const selfieImageUrl = await authApi.uploadPublicFile(documents.selfieImage);
+
             // Upload Certificate Images
             const certImageUrls = await Promise.all(
                 documents.certificateImages.map((uri: string) => authApi.uploadPublicFile(uri))
@@ -87,6 +90,7 @@ const ServiceProviderReviewScreen = () => {
                 professionalDetails,
                 documents: {
                     idImage: idImageUrl,
+                    selfieImage: selfieImageUrl,
                     certificateImages: certImageUrls,
                     businessRegNum: documents.businessRegNum
                 },
@@ -174,6 +178,7 @@ const ServiceProviderReviewScreen = () => {
                 <Section title="Verification Documents" onEdit={handleEditDocuments}>
                     <Row label="Profile Photo" value={documents.profileImage ? "Attached" : "Missing"} />
                     <Row label="ID Proof" value={documents.idImage ? "Attached" : "Missing"} />
+                    <Row label="Live Selfie" value={documents.selfieImage ? "Attached" : "Missing"} />
                     <Row label="Certificates" value={`${documents.certificateImages.length} uploaded`} />
                     <Row label="Business Reg. No" value={documents.businessRegNum || "N/A"} />
                 </Section>

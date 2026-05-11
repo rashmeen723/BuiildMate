@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { MailerService } from '@nestjs-modules/mailer';
 import { JwtService } from '@nestjs/jwt';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { AiVerificationService } from '../ai-verification/ai-verification.service';
 
 @Injectable()
 export class AuthService {
@@ -11,7 +12,8 @@ export class AuthService {
         private prisma: PrismaService,
         private mailerService: MailerService,
         private jwtService: JwtService,
-        private cloudinaryService: CloudinaryService
+        private cloudinaryService: CloudinaryService,
+        private aiVerificationService: AiVerificationService
     ) { }
 
     async uploadFilePublic(file: Express.Multer.File) {
@@ -72,7 +74,8 @@ export class AuthService {
                         create: [
                             ...(documents?.idImage ? [{
                                 documentType: 'ID_CARD',
-                                documentUrl: documents.idImage
+                                documentUrl: documents.idImage,
+                                selfieUrl: documents.selfieImage // Store the live selfie here
                             }] : []),
                             ...(role === 'SERVICE_PROVIDER' ? (documents?.certificateImages || []).map((url: string) => ({
                                 documentType: 'CERTIFICATE',
@@ -133,6 +136,13 @@ export class AuthService {
                     documents: true,
                     addresses: true
                 }
+            });
+
+            // 3. Trigger AI Verification for uploaded documents (asynchronously)
+            user.documents.forEach(doc => {
+                this.aiVerificationService.verifyDocument(doc.id).catch(err => {
+                    console.error(`Background AI verification failed for document ${doc.id}:`, err);
+                });
             });
 
             // Remove password from response

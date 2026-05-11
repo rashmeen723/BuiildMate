@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-interface User {
+export interface User {
     id: string;
     email: string;
     fullName: string;
@@ -10,6 +10,7 @@ interface User {
     phone?: string;
     profileImage?: string | null;
     addresses?: any[];
+    badges?: string[];
     serviceProvider?: {
         id: string;
         category: string;

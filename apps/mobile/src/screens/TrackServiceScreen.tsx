@@ -396,11 +396,12 @@ const TrackServiceScreen = () => {
                                     <TouchableOpacity
                                         style={[styles.arrivedButton, { backgroundColor: COLORS.orange, marginTop: 15 }]}
                                         onPress={() => navigation.navigate('WriteReview', {
-                                            serviceId: serviceId.toString(),
-                                            providerId: providerId || currentServiceData?.providerId || '',
-                                            serviceName: serviceType,
-                                            providerName: providerName,
-                                            serviceImage: serviceImage
+                                            reviewType: 'SERVICE',
+                                            id: serviceId.toString(),
+                                            targetId: providerId || currentServiceData?.providerId || '',
+                                            title: serviceType,
+                                            subtitle: providerName,
+                                            image: serviceImage
                                         })}
                                     >
                                         <Text style={styles.arrivedButtonText}>

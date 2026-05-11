@@ -75,11 +75,12 @@ const OrderHistoryScreen = () => {
                     <TouchableOpacity
                         style={styles.reviewButton}
                         onPress={() => navigation.navigate('WriteReview', {
-                            serviceId: item.id.toString(),
-                            providerId: item.providerId,
-                            serviceName: item.title,
-                            providerName: item.provider,
-                            serviceImage: item.image,
+                            reviewType: item.type as 'SERVICE' | 'RENTAL',
+                            id: item.id.toString(),
+                            targetId: item.providerId,
+                            title: item.title,
+                            subtitle: item.provider,
+                            image: item.image,
                         })}
                     >
                         <Text style={styles.reviewButtonText}>Write Review</Text>

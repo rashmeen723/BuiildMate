@@ -39,6 +39,7 @@ export default async function DashboardPage() {
                   name={v.fullName}
                   role={v.role}
                   status={v.status}
+                  aiStatus={v.aiStatus}
                   time={new Date(v.createdAt).toLocaleDateString()}
                 />
               ))
@@ -83,7 +84,7 @@ function StatCard({ title, value, change, color }: { title: string, value: strin
   );
 }
 
-function VerificationRow({ id, name, role, status, time }: { id: string, name: string, role: string, status: string, time: string }) {
+function VerificationRow({ id, name, role, status, aiStatus, time }: { id: string, name: string, role: string, status: string, aiStatus?: string, time: string }) {
   return (
     <div className="flex items-center justify-between p-4 rounded-xl border border-slate-800 hover:bg-slate-800/30 transition-all cursor-pointer group">
       <div className="flex items-center gap-4">
@@ -96,6 +97,12 @@ function VerificationRow({ id, name, role, status, time }: { id: string, name: s
         </div>
       </div>
       <div className="flex items-center gap-4">
+        {aiStatus === 'AI_PASSED' && (
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-bold uppercase tracking-wider">AI Verified</span>
+        )}
+        {aiStatus === 'AI_FLAGGED' && (
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 border border-red-500/20 font-bold uppercase tracking-wider">AI Flagged</span>
+        )}
         <span className="text-xs px-2 py-1 rounded-md bg-amber-500/10 text-amber-500 font-medium">{status}</span>
         <Link href={`/verifications/${id}`} className="bg-white text-black px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-sky-400 hover:text-white transition-all transform group-hover:scale-105">
           Verify

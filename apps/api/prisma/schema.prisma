@@ -20,8 +20,18 @@ enum Role {
 
 enum VerificationStatus {
   PENDING
+  AI_PASSED
+  AI_FLAGGED
   APPROVED
   REJECTED
+}
+
+enum Badge {
+  IDENTITY_VERIFIED
+  CERTIFIED_PRO
+  POLICE_CLEARED
+  BUSINESS_VERIFIED
+  EXPERIENCED
 }
 
 enum BookingStatus {
@@ -66,6 +76,10 @@ model User {
 
   // Notifications
   notifications     Notification[]
+
+  // Trust & Badges
+  badges            Badge[]      @default([])
+  trustScore        Float        @default(5.0)
 }
 
 model Notification {
@@ -111,6 +125,10 @@ model ServiceProviderProfile {
 
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
+
+  // Certification Details
+  nvqLevel          String?
+  isCertified       Boolean            @default(false)
 }
 
 // 4. Rental Owner Specifics
@@ -133,6 +151,10 @@ model RentalOwnerProfile {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   tools             Tool[]
+
+  // Business Details
+  brNumber          String?
+  isBusinessVerified Boolean           @default(false)
 }
 
 // 5. Verification Documents
@@ -144,7 +166,18 @@ model Document {
   userId            String
   user              User               @relation(fields: [userId], references: [id])
 
-  createdAt         DateTime           @default(now())
+  createdAt         DateTime             @default(now())
+
+  // AI Verification Data
+  status            VerificationStatus   @default(PENDING)
+  aiConfidence      Float?
+  aiResult          Json?                // Detailed results from Gemini
+  ocrData           Json?                // Extracted text from document
+  
+  // Selfie Face Matching
+  selfieUrl         String?              // Live photo taken by user
+  selfieConfidence  Float?
+  faceMatchScore    Float?               // Score comparing ID photo with Selfie
 }
 
 model Otp {
@@ -198,6 +231,12 @@ model Booking {
   
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+
+  // Trust & Condition Monitoring
+  pickupPhotos    String[]       @default([])
+  returnPhotos    String[]       @default([])
+  disputeReason   String?
+  isDisputed      Boolean        @default(false)
 
   reviews         Review[]
 }

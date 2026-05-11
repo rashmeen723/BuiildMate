@@ -279,7 +279,12 @@ const ToolDetailsScreen = () => {
             <View style={styles.ownerCard}>
                 <Image source={{ uri: ownerImage }} style={styles.ownerImage} />
                 <View style={styles.ownerInfo}>
-                    <Text style={styles.ownerName}>{ownerName}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={styles.ownerName}>{ownerName}</Text>
+                        {currentTool.owner?.user?.badges?.includes('IDENTITY_VERIFIED') && (
+                            <Ionicons name="checkmark-circle" size={14} color="#10B981" style={{ marginLeft: 4 }} />
+                        )}
+                    </View>
                     <Text style={styles.ownerPhone}>{ownerPhone}</Text>
                 </View>
                 <View style={styles.ownerRating}>
