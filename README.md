@@ -158,7 +158,7 @@ Traditional methods of hiring local handymen and renting tools are often fragmen
 ```
 
 ## Contributors
-* Rashmeen: [Individual Project Developer - Full-stack Monorepo Architecture, Mobile UI, Backend API, Database Seeding, Admin Web Portal, Safe Area Adjustments]
+* J.G.J.M Rashmeen Kavindya Bandara
 
 ## Acknowledgments
 * Supervised by: Prof. Thanuja Sandanayake, Faculty of Information Technology, University of Moratuwa.
