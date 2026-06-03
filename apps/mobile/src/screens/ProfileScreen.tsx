@@ -45,6 +45,10 @@ const ProfileScreen = () => {
         { id: 5, title: 'Notification Settings', icon: 'notifications', route: 'NotificationSettings' },
     ];
 
+    if (user?.role === 'RENTAL_OWNER') {
+        menuItems.push({ id: 6, title: 'My Store Ratings & Reviews', icon: 'star', route: 'RentalOwnerRatings' as any });
+    }
+
     const renderMenuItem = (item: any) => (
         <TouchableOpacity
             key={item.id}

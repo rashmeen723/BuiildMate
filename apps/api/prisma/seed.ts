@@ -124,12 +124,12 @@ async function main() {
     const toolsPool = [
         { name: 'DeWalt Impact Drill', category: 'Power Tools', rate: 1500, img: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?q=80&w=800' },
         { name: 'Makita Angle Grinder', category: 'Power Tools', rate: 1200, img: 'https://images.unsplash.com/photo-1572981779307-38b8cabb2407?q=80&w=800' },
-        { name: 'Bosch Circular Saw', category: 'Power Tools', rate: 2000, img: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?q=80&w=800' },
-        { name: '10ft Aluminum Ladder', category: 'Ladders', rate: 800, img: 'https://images.unsplash.com/photo-1510423146430-1c0022416f40?q=80&w=800' },
-        { name: '20ft Extension Ladder', category: 'Ladders', rate: 1500, img: 'https://images.unsplash.com/photo-1498871302302-181cb2fdcecb?q=80&w=800' },
-        { name: 'Electric Cement Mixer', category: 'Construction', rate: 4500, img: 'https://images.unsplash.com/photo-1534224039826-c7a0eda0e6b3?q=80&w=800' },
-        { name: 'Honda Lawnmower', category: 'Gardening', rate: 2500, img: 'https://images.unsplash.com/photo-1610486851557-4584e0c3d9ef?q=80&w=800' },
-        { name: 'Stihl Chainsaw', category: 'Gardening', rate: 3000, img: 'https://images.unsplash.com/photo-1590453303102-39c8c9735d4b?q=80&w=800' },
+        { name: 'Bosch Circular Saw', category: 'Power Tools', rate: 2000, img: 'https://images.unsplash.com/photo-1546948630-1149ea60dc86?q=80&w=800' },
+        { name: '10ft Aluminum Ladder', category: 'Ladders', rate: 800, img: 'https://images.unsplash.com/photo-1601058268499-e52658b8bb88?q=80&w=800' },
+        { name: '20ft Extension Ladder', category: 'Ladders', rate: 1500, img: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?q=80&w=800' },
+        { name: 'Electric Cement Mixer', category: 'Construction', rate: 4500, img: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=800' },
+        { name: 'Honda Lawnmower', category: 'Gardening', rate: 2500, img: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?q=80&w=800' },
+        { name: 'Stihl Chainsaw', category: 'Gardening', rate: 3000, img: 'https://images.unsplash.com/photo-1608613304899-ea8098577e38?q=80&w=800' },
         { name: 'High Pressure Washer', category: 'Cleaning', rate: 2000, img: 'https://images.unsplash.com/photo-1621905251918-48416bd8575a?q=80&w=800' },
         { name: 'Scaffolding Set (5 Frames)', category: 'Scaffolding', rate: 3500, img: 'https://images.unsplash.com/photo-1627989396347-1af6bf6ebac9?q=80&w=800' },
     ];

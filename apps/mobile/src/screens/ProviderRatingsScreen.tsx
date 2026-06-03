@@ -24,6 +24,7 @@ const ProviderRatingsScreen = () => {
     const [selectedReview, setSelectedReview] = useState<any>(null);
     const [replyText, setReplyText] = useState('');
     const [submittingReply, setSubmittingReply] = useState(false);
+    const [likedReviews, setLikedReviews] = useState<string[]>([]);
 
     const targetId = providerId || user?.id;
 
@@ -49,12 +50,19 @@ const ProviderRatingsScreen = () => {
     }, [targetId]);
 
     const handleLike = async (reviewId: string) => {
+        const isAlreadyLiked = likedReviews.includes(reviewId);
         try {
-            await authApi.likeReview(reviewId);
-            // Optimistic update
-            setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, likes: (r.likes || 0) + 1 } : r));
+            if (isAlreadyLiked) {
+                await authApi.unlikeReview(reviewId);
+                setLikedReviews(prev => prev.filter(id => id !== reviewId));
+                setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, likes: Math.max(0, (r.likes || 0) - 1) } : r));
+            } else {
+                await authApi.likeReview(reviewId);
+                setLikedReviews(prev => [...prev, reviewId]);
+                setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, likes: (r.likes || 0) + 1 } : r));
+            }
         } catch (error) {
-            console.error('Like error:', error);
+            console.error('Like toggle error:', error);
         }
     };
 
@@ -167,8 +175,17 @@ const ProviderRatingsScreen = () => {
             <View style={styles.reviewFooter}>
                 <View style={styles.interactionRow}>
                     <TouchableOpacity style={styles.interactionBtn} onPress={() => handleLike(item.id)}>
-                        <Ionicons name="thumbs-up-outline" size={16} color={COLORS.gray} />
-                        <Text style={styles.interactionText}>{item.likes || 0}</Text>
+                        <Ionicons 
+                            name={likedReviews.includes(item.id) ? "thumbs-up" : "thumbs-up-outline"} 
+                            size={16} 
+                            color={likedReviews.includes(item.id) ? COLORS.darkBlue : COLORS.gray} 
+                        />
+                        <Text style={[
+                            styles.interactionText,
+                            likedReviews.includes(item.id) && { color: COLORS.darkBlue }
+                        ]}>
+                            {item.likes || 0}
+                        </Text>
                     </TouchableOpacity>
                     {user?.id === item.revieweeId && (
                         <TouchableOpacity

@@ -32,6 +32,7 @@ enum Badge {
   POLICE_CLEARED
   BUSINESS_VERIFIED
   EXPERIENCED
+  ADDRESS_VERIFIED
 }
 
 enum BookingStatus {
@@ -44,6 +45,13 @@ enum BookingStatus {
   PAID
   CANCELLED
   REJECTED
+}
+
+enum DisputeStatus {
+  PENDING
+  REVIEWING
+  RESOLVED
+  DISMISSED
 }
 
 // 2. Core User Table
@@ -80,6 +88,12 @@ model User {
   // Trust & Badges
   badges            Badge[]      @default([])
   trustScore        Float        @default(5.0)
+  isSuspended       Boolean      @default(false)
+  suspensionReason  String?
+
+  // Disputes
+  disputesReported  Dispute[]    @relation("DisputesReported")
+  disputesReceived  Dispute[]    @relation("DisputesReceived")
 }
 
 model Notification {
@@ -131,12 +145,18 @@ model ServiceProviderProfile {
   isCertified       Boolean            @default(false)
 }
 
+enum OwnerType {
+  INDIVIDUAL
+  BUSINESS
+}
+
 // 4. Rental Owner Specifics
 model RentalOwnerProfile {
   id                String             @id @default(uuid())
   userId            String             @unique
   user              User               @relation(fields: [userId], references: [id])
   
+  ownerType         OwnerType          @default(INDIVIDUAL)
   businessName      String
   toolCategories    String[]
   yearsInBusiness   String?            // Keeping as string to match your frontend "e.g. 3"
@@ -173,11 +193,6 @@ model Document {
   aiConfidence      Float?
   aiResult          Json?                // Detailed results from Gemini
   ocrData           Json?                // Extracted text from document
-  
-  // Selfie Face Matching
-  selfieUrl         String?              // Live photo taken by user
-  selfieConfidence  Float?
-  faceMatchScore    Float?               // Score comparing ID photo with Selfie
 }
 
 model Otp {
@@ -239,6 +254,7 @@ model Booking {
   isDisputed      Boolean        @default(false)
 
   reviews         Review[]
+  disputes        Dispute[]
 }
 
 model Review {
@@ -303,8 +319,45 @@ model ToolRental {
   paymentMethod   String?        @default("CASH")
   isPaid          Boolean        @default(false)
   
+  extensionDays   Int?
+  extensionStatus String?
+  extensionCost   Float?
+
+  pickupPhotos    String[]       @default([])
+  returnPhotos    String[]       @default([])
+
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
   reviews         Review[]
+  disputes        Dispute[]
+}
+
+model Dispute {
+  id              String         @id @default(uuid())
+  
+  reporterId      String
+  reporter        User           @relation("DisputesReported", fields: [reporterId], references: [id])
+  
+  reportedId      String
+  reported        User           @relation("DisputesReceived", fields: [reportedId], references: [id])
+  
+  bookingId       String?
+  booking         Booking?       @relation(fields: [bookingId], references: [id])
+  
+  rentalId        String?
+  rental          ToolRental?    @relation(fields: [rentalId], references: [id])
+  
+  reason          String
+  description     String
+  evidenceImages  String[]       @default([])
+  
+  status          DisputeStatus  @default(PENDING)
+  resolution      String?        // Notes from admin on how it was resolved
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([reporterId])
+  @@index([reportedId])
 }

@@ -32,9 +32,18 @@ const RentalOwnerReviewScreen = () => {
             // 1. Upload Documents to Cloudinary
             console.log('Uploading rental owner documents to Cloudinary...');
 
-            const idImageUrl = await authApi.uploadPublicFile(documents.idImage);
+            const idFrontUrl = await authApi.uploadPublicFile(documents.idImageFront);
+            const idBackUrl = await authApi.uploadPublicFile(documents.idImageBack);
             const profileImageUrl = await authApi.uploadPublicFile(documents.profileImage);
-            const businessDocUrl = await authApi.uploadPublicFile(documents.businessDoc);
+            
+            const isIndividual = rentalDetails?.ownerType === 'INDIVIDUAL';
+            let businessDocUrl = null;
+            let utilityBillUrl = null;
+            if (isIndividual) {
+                utilityBillUrl = await authApi.uploadPublicFile(documents.utilityBill);
+            } else {
+                businessDocUrl = await authApi.uploadPublicFile(documents.businessDoc);
+            }
 
             // 2. Prepare final registration data
             const registrationData = {
@@ -46,8 +55,9 @@ const RentalOwnerReviewScreen = () => {
                 profileImage: profileImageUrl,
                 rentalDetails,
                 documents: {
-                    idImage: idImageUrl,
-                    businessDoc: businessDocUrl
+                    idImageFront: idFrontUrl,
+                    idImageBack: idBackUrl,
+                    ...(isIndividual ? { utilityBill: utilityBillUrl } : { businessDoc: businessDocUrl })
                 },
                 location: {
                     latitude: serviceArea?.location?.latitude,
@@ -60,7 +70,7 @@ const RentalOwnerReviewScreen = () => {
 
             Alert.alert(
                 "Success",
-                "Your store profile has been submitted!",
+                isIndividual ? "Your profile has been submitted!" : "Your store profile has been submitted!",
                 [{
                     text: "OK",
                     onPress: () => navigation.reset({
@@ -99,6 +109,8 @@ const RentalOwnerReviewScreen = () => {
         </View>
     );
 
+    const isIndividual = rentalDetails?.ownerType === 'INDIVIDUAL';
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
@@ -111,22 +123,23 @@ const RentalOwnerReviewScreen = () => {
 
             <ScrollView contentContainerStyle={styles.content}>
                 <Text style={styles.title}>Final Check</Text>
-                <Text style={styles.subtitle}>Review your store profile before submitting.</Text>
+                <Text style={styles.subtitle}>Review your rental profile before submitting.</Text>
 
-                <Section title="Store Information" onEdit={handleEditDetails}>
-                    <Row label="Store Name" value={rentalDetails.businessName} />
+                <Section title={isIndividual ? "Profile Information" : "Store Information"} onEdit={handleEditDetails}>
+                    <Row label={isIndividual ? "Shed/Display Name" : "Store Name"} value={rentalDetails.businessName} />
                     <Row label="Categories" value={rentalDetails.toolCategories.join(', ')} />
-                    <Row label="Experience" value={rentalDetails.yearsInBusiness ? `${rentalDetails.yearsInBusiness} years` : 'N/A'} />
+                    {!isIndividual && <Row label="Experience" value={rentalDetails.yearsInBusiness ? `${rentalDetails.yearsInBusiness} years` : 'N/A'} />}
                 </Section>
 
                 <Section title="Verification Documents" onEdit={handleEditDocuments}>
                     <Row label="Profile Photo" value="Attached" />
-                    <Row label="ID Proof" value="Attached" />
-                    <Row label="Business Permit" value="Attached" />
+                    <Row label="ID Front" value="Attached" />
+                    <Row label="ID Back" value="Attached" />
+                    <Row label={isIndividual ? "Address Proof" : "Business Permit"} value="Attached" />
                 </Section>
 
                 <Section title="Logistics" onEdit={handleEditLocation}>
-                    <Row label="Store Address" value={serviceArea.address} />
+                    <Row label="Home Address" value={serviceArea.address} />
                     <Row label="Site Delivery" value={serviceArea.offersDelivery ? 'Yes' : 'No'} />
                 </Section>
 

@@ -19,40 +19,28 @@ const ServiceProviderDocumentsScreen = () => {
 
     const [idImage, setIdImage] = useState<string | null>(currentDocuments?.idImage || null);
     const [profileImage, setProfileImage] = useState<string | null>(currentDocuments?.profileImage || null);
-    const [selfieImage, setSelfieImage] = useState<string | null>(currentDocuments?.selfieImage || null);
     const [certificateImages, setCertificateImages] = useState<string[]>(currentDocuments?.certificateImages || []);
-    const [businessRegNum, setBusinessRegNum] = useState(currentDocuments?.businessRegNum || '');
 
-    const pickImage = async (type: 'id' | 'profile' | 'selfie') => {
+    const pickImage = async (type: 'id' | 'profile') => {
         // Request permissions
-        const permissionResult = type === 'selfie' 
-            ? await ImagePicker.requestCameraPermissionsAsync()
-            : await ImagePicker.requestMediaLibraryPermissionsAsync();
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
         if (permissionResult.granted === false) {
-            Alert.alert("Permission Required", `You've refused to allow this app to access your ${type === 'selfie' ? 'camera' : 'photos'}!`);
+            Alert.alert("Permission Required", `You've refused to allow this app to access your photos!`);
             return;
         }
 
-        const result = type === 'selfie'
-            ? await ImagePicker.launchCameraAsync({
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.5,
-            })
-            : await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: false,
-                quality: 0.5,
-            });
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: false,
+            quality: 0.5,
+        });
 
         if (!result.canceled) {
             if (type === 'id') {
                 setIdImage(result.assets[0].uri);
             } else if (type === 'profile') {
                 setProfileImage(result.assets[0].uri);
-            } else if (type === 'selfie') {
-                setSelfieImage(result.assets[0].uri);
             }
         }
     };
@@ -85,10 +73,7 @@ const ServiceProviderDocumentsScreen = () => {
             Alert.alert("Required", "Please upload a professional profile photo.");
             return;
         }
-        if (!selfieImage) {
-            Alert.alert("Required", "Please take a live selfie for identity verification.");
-            return;
-        }
+
         if (!idImage) {
             Alert.alert("Required", "Please upload your ID Card / Passport.");
             return;
@@ -102,10 +87,8 @@ const ServiceProviderDocumentsScreen = () => {
             professionalDetails,
             documents: {
                 idImage,
-                selfieImage,
                 profileImage,
-                certificateImages,
-                businessRegNum
+                certificateImages
             }
         });
     };
@@ -168,35 +151,12 @@ const ServiceProviderDocumentsScreen = () => {
                     )}
                 </View>
 
-                {/* Live Selfie Verification */}
-                <View style={styles.section}>
-                    <Text style={styles.label}>Live Selfie Verification <Text style={styles.required}>*</Text></Text>
-                    <Text style={styles.helperText}>Hold your phone at eye level and take a clear photo of your face. This is used to match with your ID.</Text>
 
-                    {!selfieImage ? (
-                        <TouchableOpacity style={[styles.uploadBox, { backgroundColor: '#F0F9FF', borderColor: '#BAE6FD' }]} onPress={() => pickImage('selfie')}>
-                            <Ionicons name="camera" size={40} color="#0369A1" />
-                            <Text style={[styles.uploadText, { color: '#0369A1' }]}>Take Live Selfie</Text>
-                            <Text style={styles.uploadSubtext}>Camera will open automatically</Text>
-                        </TouchableOpacity>
-                    ) : (
-                        <View style={styles.previewContainer}>
-                            <Image source={{ uri: selfieImage }} style={styles.previewImage} resizeMode="cover" />
-                            <TouchableOpacity style={styles.removeButton} onPress={() => setSelfieImage(null)}>
-                                <Ionicons name="close-circle" size={24} color={COLORS.error} />
-                            </TouchableOpacity>
-                            <View style={styles.successBadge}>
-                                <Ionicons name="flash" size={16} color="white" />
-                                <Text style={styles.successText}>Verified Live</Text>
-                            </View>
-                        </View>
-                    )}
-                </View>
 
                 {/* Certificates */}
                 <View style={styles.section}>
-                    <Text style={styles.label}>Professional Certificates (Optional)</Text>
-                    <Text style={styles.helperText}>Upload your NVQ, training or degree certificates (PDF/Images).</Text>
+                    <Text style={styles.label}>Professional Certificates (Optional) - Get Certified Badge</Text>
+                    <Text style={styles.helperText}>Upload your NVQ, training or degree certificates (PDF/Images) to receive a "Certified Pro" badge on your profile once approved.</Text>
                     <TouchableOpacity style={styles.miniUploadButton} onPress={pickCertificates}>
                         <Ionicons name="add" size={20} color={COLORS.white} />
                         <Text style={styles.miniUploadText}>Add Certificates</Text>
@@ -223,18 +183,7 @@ const ServiceProviderDocumentsScreen = () => {
                     )}
                 </View>
 
-                {/* Business Registration */}
-                <View style={styles.section}>
-                    <Text style={styles.label}>Business Registration Number (Optional)</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="e.g. BR-12345678"
-                        placeholderTextColor={COLORS.gray}
-                        value={businessRegNum}
-                        onChangeText={setBusinessRegNum}
-                        autoCapitalize="characters"
-                    />
-                </View>
+
 
             </ScrollView>
 

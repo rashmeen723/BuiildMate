@@ -99,7 +99,12 @@ const RentalOwnerDashboardScreen = () => {
                 customerImage: item.customer.profileImage,
                 pickupLocation: item.pickupLocation,
                 paymentMethod: item.paymentMethod,
-                isPaid: item.isPaid
+                isPaid: item.isPaid,
+                extensionDays: item.extensionDays,
+                extensionStatus: item.extensionStatus,
+                extensionCost: item.extensionCost,
+                pickupPhotos: item.pickupPhotos,
+                returnPhotos: item.returnPhotos
             })}
         >
             <View style={styles.requestHeader}>
@@ -224,7 +229,7 @@ const RentalOwnerDashboardScreen = () => {
                         {/* Rental Overview Card */}
                         <TouchableOpacity
                             style={[styles.inventoryCard, { marginTop: 16 }]}
-                            onPress={() => navigation.navigate('RentalOwnerSchedule')}
+                            onPress={() => navigation.navigate('RentalRequests')}
                         >
                             <View style={styles.inventoryCardLeft}>
                                 <View style={[styles.inventoryIconBg, { backgroundColor: COLORS.orange }]}>
@@ -243,7 +248,43 @@ const RentalOwnerDashboardScreen = () => {
                             </View>
                         </TouchableOpacity>
 
+                        {/* New Rental Requests */}
+                        <View style={{ marginTop: 24 }}>
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionTitle}>New Requests</Text>
+                                <TouchableOpacity onPress={() => navigation.navigate('RentalRequests')}>
+                                    <Text style={styles.seeAllText}>View All</Text>
+                                </TouchableOpacity>
+                            </View>
+                            {rentals.filter(r => r.status === 'PENDING').length > 0 ? (
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.requestsScroll}>
+                                    {rentals.filter(r => r.status === 'PENDING').map(renderRequestCard)}
+                                </ScrollView>
+                            ) : (
+                                <View style={styles.emptyRequests}>
+                                    <Text style={styles.emptyRequestsText}>No new requests pending.</Text>
+                                </View>
+                            )}
+                        </View>
 
+                        {/* Active Rentals */}
+                        <View style={{ marginTop: 24 }}>
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionTitle}>Active Pickups & Rentals</Text>
+                                <TouchableOpacity onPress={() => navigation.navigate('RentalRequests')}>
+                                    <Text style={styles.seeAllText}>View All</Text>
+                                </TouchableOpacity>
+                            </View>
+                            {rentals.filter(r => r.status === 'CONFIRMED' || r.status === 'IN_PROGRESS').length > 0 ? (
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.requestsScroll}>
+                                    {rentals.filter(r => r.status === 'CONFIRMED' || r.status === 'IN_PROGRESS').map(renderRequestCard)}
+                                </ScrollView>
+                            ) : (
+                                <View style={styles.emptyRequests}>
+                                    <Text style={styles.emptyRequestsText}>No active rentals currently.</Text>
+                                </View>
+                            )}
+                        </View>
                     </>
                 )}
 

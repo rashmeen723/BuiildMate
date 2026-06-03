@@ -64,6 +64,7 @@ export type RootStackParamList = {
         currentAddress?: string;
     };
     Welcome: undefined;
+    Suspended: undefined;
 
     // Service Provider Screens
     ServiceProviderDetails: {
@@ -132,7 +133,7 @@ export type RootStackParamList = {
     RentalOwnerDashboard: undefined;
     RentalOwnerSchedule: undefined;
     RentalOwnerRatings: { ownerId?: string; ownerName?: string } | undefined;
-    AddTool: undefined;
+    AddTool: { tool?: any } | undefined;
     RentalInventory: undefined;
     RentalRequests: undefined;
     RentalRequestDetails: {
@@ -149,6 +150,11 @@ export type RootStackParamList = {
         status: string;
         paymentMethod?: string;
         isPaid?: boolean;
+        extensionDays?: number | null;
+        extensionStatus?: string | null;
+        extensionCost?: number | null;
+        pickupPhotos?: string[];
+        returnPhotos?: string[];
     };
 
     // Tool Rental Screens
@@ -175,11 +181,15 @@ export type RootStackParamList = {
         startDate?: string;
         ownerName?: string;
         ownerId?: string;
+        ownerPhone?: string | null;
         ownerAddress?: string;
         paymentMethod?: string;
         isPaid?: boolean;
         totalAmount?: number;
         reviews?: any[];
+        extensionDays?: number | null;
+        extensionStatus?: string | null;
+        extensionCost?: number | null;
     };
     Payment: {
         id: string | number;
@@ -224,6 +234,14 @@ export type RootStackParamList = {
         title: string; // serviceName or toolName
         subtitle: string; // providerName or ownerName
         image: string;
+    };
+    ReportIssue: {
+        reportType: 'SERVICE' | 'RENTAL';
+        id: string; // bookingId or rentalId
+        targetId: string; // providerId or ownerId
+        title: string; // serviceName or toolName
+        subtitle: string; // providerName or ownerName
+        image?: string;
     };
     ServiceProviderMap: {
         providers: any[];

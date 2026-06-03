@@ -19,6 +19,8 @@ const RentalOwnerScheduleScreen = () => {
     const [rentals, setRentals] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [overdueRentals, setOverdueRentals] = useState<any[]>([]);
+    const [showAllCompleted, setShowAllCompleted] = useState(false);
 
     const generateDates = () => {
         const dates = [];
@@ -34,11 +36,25 @@ const RentalOwnerScheduleScreen = () => {
 
     const weekDates = generateDates();
 
+    const isRentalOverdue = (rental: any) => {
+        if (rental.status === 'COMPLETED' || rental.status === 'CANCELLED' || rental.status === 'REJECTED' || rental.status === 'RETURNED') {
+            return false;
+        }
+        const end = new Date(rental.endDate);
+        end.setHours(23, 59, 59, 999);
+        return end < new Date();
+    };
+
     const fetchSchedule = async () => {
         if (!user?.id) return;
         setLoading(true);
         try {
             const data = await rentalsApi.getOwnerRentals(user.id);
+            
+            // Find overdue rentals
+            const overdue = data.filter(isRentalOverdue);
+            setOverdueRentals(overdue);
+
             // Filter rentals for the selected date
             const filtered = data.filter((rental: any) => {
                 const start = new Date(rental.startDate);
@@ -78,41 +94,48 @@ const RentalOwnerScheduleScreen = () => {
         d1.getMonth() === d2.getMonth() &&
         d1.getDate() === d2.getDate();
 
-    const renderRentalCard = (item: any) => (
-        <View key={item.id} style={styles.rentalCard}>
-            <View style={styles.timeLine}>
-                <View style={styles.timeDot} />
-                <View style={styles.timeLineBar} />
-            </View>
-            <TouchableOpacity
-                style={styles.rentalContent}
-                onPress={() => navigation.navigate('RentalRequestDetails', {
-                    rentalId: item.id,
-                    toolName: item.tool.name,
-                    customerName: item.customer.fullName,
-                    customerPhone: item.customer.phone || 'N/A',
-                    startDate: item.startDate,
-                    endDate: item.endDate,
-                    totalAmount: item.totalAmount,
-                    status: item.status,
-                    toolImage: item.tool.images?.[0],
-                    customerImage: item.customer.profileImage,
-                    pickupLocation: item.pickupLocation
-                })}
-            >
-                <View style={[styles.statusBadge, {
-                    backgroundColor: item.status === 'PENDING' ? '#FEF3C7' :
-                        item.status === 'CONFIRMED' ? '#DBEAFE' :
-                            item.status === 'IN_PROGRESS' ? '#EDE9FE' :
-                                item.status === 'COMPLETED' ? '#DCFCE7' : '#F1F5F9'
-                }]}>
-                    <Text style={[styles.statusBadgeText, {
-                        color: item.status === 'PENDING' ? '#92400E' :
-                            item.status === 'CONFIRMED' ? '#1E40AF' :
-                                item.status === 'IN_PROGRESS' ? '#7C3AED' :
-                                    item.status === 'COMPLETED' ? '#15803D' : '#64748B'
-                    }]}>{item.status}</Text>
+    const renderRentalCard = (item: any) => {
+        const overdue = isRentalOverdue(item);
+        return (
+            <View key={item.id} style={styles.rentalCard}>
+                <View style={styles.timeLine}>
+                    <View style={[styles.timeDot, overdue && { backgroundColor: '#EF4444' }]} />
+                    <View style={styles.timeLineBar} />
                 </View>
+                <TouchableOpacity
+                    style={[styles.rentalContent, overdue && styles.overdueCard]}
+                    onPress={() => navigation.navigate('RentalRequestDetails', {
+                        rentalId: item.id,
+                        toolName: item.tool.name,
+                        customerName: item.customer.fullName,
+                        customerPhone: item.customer.phone || 'N/A',
+                        startDate: item.startDate,
+                        endDate: item.endDate,
+                        totalAmount: item.totalAmount,
+                        status: item.status,
+                        toolImage: item.tool.images?.[0],
+                        customerImage: item.customer.profileImage,
+                        pickupLocation: item.pickupLocation,
+                        extensionDays: item.extensionDays,
+                        extensionStatus: item.extensionStatus,
+                        extensionCost: item.extensionCost
+                    })}
+                >
+                    <View style={[styles.statusBadge, {
+                        backgroundColor: overdue ? '#FEF2F2' :
+                            item.status === 'PENDING' ? '#FEF3C7' :
+                            item.status === 'CONFIRMED' ? '#DBEAFE' :
+                                item.status === 'IN_PROGRESS' ? '#EDE9FE' :
+                                    item.status === 'COMPLETED' ? '#DCFCE7' : '#F1F5F9'
+                    }]}>
+                        <Text style={[styles.statusBadgeText, {
+                            color: overdue ? '#EF4444' :
+                                item.status === 'PENDING' ? '#92400E' :
+                                item.status === 'CONFIRMED' ? '#1E40AF' :
+                                    item.status === 'IN_PROGRESS' ? '#7C3AED' :
+                                        item.status === 'COMPLETED' ? '#15803D' : '#64748B'
+                        }]}>{overdue ? 'OVERDUE' : item.status}</Text>
+                    </View>
 
                 <View style={styles.customerRow}>
                     <Image
@@ -142,16 +165,26 @@ const RentalOwnerScheduleScreen = () => {
                     <View style={styles.actionButtons}>
                         <TouchableOpacity
                             style={styles.acceptButton}
-                            onPress={async () => {
-                                try {
-                                    await rentalsApi.updateRentalStatus(item.id, 'IN_PROGRESS');
-                                    fetchSchedule();
-                                } catch (error) {
-                                    console.error(error);
-                                }
-                            }}
+                            onPress={() => navigation.navigate('RentalRequestDetails', {
+                                rentalId: item.id,
+                                toolName: item.tool.name,
+                                customerName: item.customer.fullName,
+                                customerPhone: item.customer.phone || 'N/A',
+                                startDate: item.startDate,
+                                endDate: item.endDate,
+                                totalAmount: item.totalAmount,
+                                status: item.status,
+                                toolImage: item.tool.images?.[0],
+                                customerImage: item.customer.profileImage,
+                                pickupLocation: item.pickupLocation,
+                                extensionDays: item.extensionDays,
+                                extensionStatus: item.extensionStatus,
+                                extensionCost: item.extensionCost,
+                                pickupPhotos: item.pickupPhotos,
+                                returnPhotos: item.returnPhotos
+                            })}
                         >
-                            <Text style={styles.acceptText}>Mark Picked Up</Text>
+                            <Text style={styles.acceptText}>Confirm Pickup</Text>
                         </TouchableOpacity>
                     </View>
                 )}
@@ -160,22 +193,65 @@ const RentalOwnerScheduleScreen = () => {
                     <View style={styles.actionButtons}>
                         <TouchableOpacity
                             style={[styles.acceptButton, { backgroundColor: '#10B981' }]}
-                            onPress={async () => {
-                                try {
-                                    await rentalsApi.updateRentalStatus(item.id, 'COMPLETED');
-                                    fetchSchedule();
-                                } catch (error) {
-                                    console.error(error);
-                                }
-                            }}
+                            onPress={() => navigation.navigate('RentalRequestDetails', {
+                                rentalId: item.id,
+                                toolName: item.tool.name,
+                                customerName: item.customer.fullName,
+                                customerPhone: item.customer.phone || 'N/A',
+                                startDate: item.startDate,
+                                endDate: item.endDate,
+                                totalAmount: item.totalAmount,
+                                status: item.status,
+                                toolImage: item.tool.images?.[0],
+                                customerImage: item.customer.profileImage,
+                                pickupLocation: item.pickupLocation,
+                                extensionDays: item.extensionDays,
+                                extensionStatus: item.extensionStatus,
+                                extensionCost: item.extensionCost,
+                                pickupPhotos: item.pickupPhotos,
+                                returnPhotos: item.returnPhotos
+                            })}
                         >
-                            <Text style={styles.acceptText}>Mark Returned</Text>
+                            <Text style={styles.acceptText}>Confirm Return</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.reportCustomerButton}
+                            onPress={() => navigation.navigate('ReportIssue', {
+                                reportType: 'RENTAL',
+                                id: item.id.toString(),
+                                targetId: item.customerId,
+                                title: item.tool.name,
+                                subtitle: item.customer.fullName,
+                                image: item.tool.images?.[0] || 'https://images.unsplash.com/photo-1540539234-c14a205bf96e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
+                            })}
+                        >
+                            <Text style={styles.reportCustomerText}>Report Client</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {item.status === 'COMPLETED' && (
+                    <View style={styles.actionButtons}>
+                        <TouchableOpacity
+                            style={styles.reportCustomerButton}
+                            onPress={() => navigation.navigate('ReportIssue', {
+                                reportType: 'RENTAL',
+                                id: item.id.toString(),
+                                targetId: item.customerId,
+                                title: item.tool.name,
+                                subtitle: item.customer.fullName,
+                                image: item.tool.images?.[0] || 'https://images.unsplash.com/photo-1540539234-c14a205bf96e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
+                            })}
+                        >
+                            <Text style={styles.reportCustomerText}>Report Customer</Text>
+                            <Ionicons name="alert-circle-outline" size={14} color="#EF4444" style={{ marginLeft: 4 }} />
                         </TouchableOpacity>
                     </View>
                 )}
             </TouchableOpacity>
         </View>
     );
+};
 
     return (
         <SafeAreaView style={styles.container}>
@@ -191,6 +267,7 @@ const RentalOwnerScheduleScreen = () => {
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);
                         const isPast = date < today;
+                        const hasOverdueOnDate = overdueRentals.some(ob => isSameDay(new Date(ob.endDate), date));
 
                         return (
                             <TouchableOpacity
@@ -198,25 +275,25 @@ const RentalOwnerScheduleScreen = () => {
                                 style={[
                                     styles.dateCell,
                                     isSelected && styles.dateCellActive,
-                                    isPast && { opacity: 0.4 }
+                                    isPast && !isSelected && { backgroundColor: '#F1F5F9' }
                                 ]}
-                                onPress={() => !isPast && setSelectedDate(date)}
-                                disabled={isPast}
+                                onPress={() => setSelectedDate(date)}
                             >
                                 <Text style={[
                                     styles.dayName,
                                     isSelected && styles.dayNameActive,
-                                    isPast && { color: COLORS.gray }
+                                    isPast && !isSelected && { color: '#94A3B8' }
                                 ]}>
                                     {getDayName(date)}
                                 </Text>
                                 <Text style={[
                                     styles.dayNumber,
                                     isSelected && styles.dayNumberActive,
-                                    isPast && { color: COLORS.gray }
+                                    isPast && !isSelected && { color: '#64748B' }
                                 ]}>
                                     {getDayNumber(date)}
                                 </Text>
+                                {hasOverdueOnDate && <View style={styles.overdueDot} />}
                             </TouchableOpacity>
                         );
                     })}
@@ -229,6 +306,24 @@ const RentalOwnerScheduleScreen = () => {
                     <Text style={styles.summaryText}>{rentals.length} Bookings</Text>
                 </View>
             </View>
+
+            {overdueRentals.length > 0 && (
+                <View style={styles.overdueBanner}>
+                    <Ionicons name="alert-circle" size={20} color="#EF4444" />
+                    <Text style={styles.overdueBannerText}>
+                        You have {overdueRentals.length} overdue rental{overdueRentals.length > 1 ? 's' : ''} from past days.
+                    </Text>
+                    <TouchableOpacity 
+                        style={styles.viewOverdueBtn}
+                        onPress={() => {
+                            const firstOverdue = overdueRentals[0];
+                            setSelectedDate(new Date(firstOverdue.endDate));
+                        }}
+                    >
+                        <Text style={styles.viewOverdueBtnText}>View</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
@@ -245,11 +340,46 @@ const RentalOwnerScheduleScreen = () => {
                         <Text style={styles.emptyStateText}>No tool pickups or returns scheduled.</Text>
                         <Text style={styles.emptyStateSubtext}>When customers book your tools, they will appear here.</Text>
                     </View>
-                ) : (
-                    <View style={styles.timelineContainer}>
-                        {rentals.map(renderRentalCard)}
-                    </View>
-                )}
+                ) : (() => {
+                    const ongoingRentals = rentals.filter(r => 
+                        r.status !== 'COMPLETED' && 
+                        r.status !== 'CANCELLED' && 
+                        r.status !== 'REJECTED' && 
+                        r.status !== 'RETURNED'
+                    );
+                    const completedRentals = rentals.filter(r => 
+                        r.status === 'COMPLETED' || 
+                        r.status === 'CANCELLED' || 
+                        r.status === 'REJECTED' || 
+                        r.status === 'RETURNED'
+                    );
+                    const displayedCompleted = showAllCompleted ? completedRentals : completedRentals.slice(0, 2);
+
+                    return (
+                        <View style={styles.timelineContainer}>
+                            {ongoingRentals.length > 0 && (
+                                <>
+                                    <Text style={styles.sectionHeaderTitle}>Ongoing Pickups & Rentals ({ongoingRentals.length})</Text>
+                                    {ongoingRentals.map(renderRentalCard)}
+                                </>
+                            )}
+
+                            {completedRentals.length > 0 && (
+                                <>
+                                    <View style={styles.sectionHeaderRow}>
+                                        <Text style={styles.sectionHeaderTitle}>Completed Pickups & Rentals ({completedRentals.length})</Text>
+                                        {completedRentals.length > 2 && (
+                                            <TouchableOpacity onPress={() => setShowAllCompleted(!showAllCompleted)}>
+                                                <Text style={styles.toggleBtnText}>{showAllCompleted ? 'Show Less' : 'View All'}</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                    {displayedCompleted.map(renderRentalCard)}
+                                </>
+                            )}
+                        </View>
+                    );
+                })()}
                 <View style={{ height: 100 }} />
             </ScrollView>
 
@@ -470,6 +600,85 @@ const styles = StyleSheet.create({
         color: COLORS.white,
         fontWeight: '600',
     },
+    reportCustomerButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#FEF2F2',
+        paddingVertical: 8,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#FEE2E2',
+    },
+    reportCustomerText: {
+        fontSize: 12,
+        color: '#EF4444',
+        fontWeight: 'bold',
+    },
+    overdueCard: {
+        borderLeftWidth: 4,
+        borderLeftColor: '#EF4444',
+        shadowColor: '#EF4444',
+        shadowOpacity: 0.08,
+    },
+    overdueBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FEF2F2',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        marginHorizontal: 20,
+        marginBottom: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#FEE2E2',
+    },
+    overdueBannerText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#991B1B',
+        marginLeft: 8,
+        flex: 1,
+    },
+    viewOverdueBtn: {
+        backgroundColor: '#EF4444',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+    },
+    viewOverdueBtnText: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: COLORS.white,
+    },
+    overdueDot: {
+        position: 'absolute',
+        bottom: 6,
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#EF4444',
+    },
+    sectionHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    sectionHeaderTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#475569',
+        marginTop: 14,
+        marginBottom: 10,
+    },
+    toggleBtnText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: COLORS.orange,
+    }
 });
 
 export default RentalOwnerScheduleScreen;

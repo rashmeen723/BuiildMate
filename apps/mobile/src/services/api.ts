@@ -343,11 +343,17 @@ export const authApi = {
             throw new Error(error.message || 'Connection error');
         }
     },
-    updateBookingStatus: async (bookingId: string, status: string, additionalCharges?: number) => {
+    updateBookingStatus: async (bookingId: string, status: string, additionalCharges?: number, reason?: string, cancelledBy?: string) => {
         try {
             const bodyData: any = { bookingId, status };
             if (additionalCharges !== undefined) {
                 bodyData.additionalCharges = additionalCharges;
+            }
+            if (reason !== undefined) {
+                bodyData.reason = reason;
+            }
+            if (cancelledBy !== undefined) {
+                bodyData.cancelledBy = cancelledBy;
             }
             const response = await fetch(`${API_BASE_URL}/services/booking/status`, {
                 method: 'POST',
@@ -390,6 +396,19 @@ export const authApi = {
             throw new Error(error.message || 'Connection error');
         }
     },
+    unlikeReview: async (reviewId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/services/review/${reviewId}/unlike`, {
+                method: 'POST',
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to unlike review');
+            return result;
+        } catch (error: any) {
+            console.error('Unlike Review Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
     getNotifications: async (userId: string) => {
         try {
             const response = await fetch(`${API_BASE_URL}/services/user/${userId}/notifications`);
@@ -411,6 +430,53 @@ export const authApi = {
             return result;
         } catch (error: any) {
             console.error('Mark Read Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    createDispute: async (disputeData: any) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/disputes`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(disputeData),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to submit dispute');
+            return result;
+        } catch (error: any) {
+            console.error('Submit Dispute Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    suspendUser: async (userId: string, reason: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/admin/user/${userId}/suspend`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ reason }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to suspend user');
+            return result;
+        } catch (error: any) {
+            console.error('Suspend User Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    unsuspendUser: async (userId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/admin/user/${userId}/unsuspend`, {
+                method: 'POST',
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to unsuspend user');
+            return result;
+        } catch (error: any) {
+            console.error('Unsuspend User Error:', error);
             throw new Error(error.message || 'Connection error');
         }
     }
@@ -440,6 +506,34 @@ export const rentalsApi = {
             return result;
         } catch (error: any) {
             console.error('Add Tool Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    updateTool: async (toolId: string, data: any) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/rentals/tool/${toolId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to update tool');
+            return result;
+        } catch (error: any) {
+            console.error('Update Tool Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    deleteTool: async (toolId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/rentals/tool/${toolId}`, {
+                method: 'DELETE',
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to delete tool');
+            return result;
+        } catch (error: any) {
+            console.error('Delete Tool Error:', error);
             throw new Error(error.message || 'Connection error');
         }
     },
@@ -515,12 +609,12 @@ export const rentalsApi = {
             throw new Error(error.message || 'Connection error');
         }
     },
-    updateRentalStatus: async (id: string, status: string) => {
+    updateRentalStatus: async (id: string, status: string, pickupPhotos?: string[], returnPhotos?: string[]) => {
         try {
             const response = await fetch(`${API_BASE_URL}/rentals/${id}/status`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status }),
+                body: JSON.stringify({ status, pickupPhotos, returnPhotos }),
             });
             const result = await response.json();
             if (!response.ok) throw new Error(result.message || 'Failed to update status');
@@ -549,6 +643,58 @@ export const rentalsApi = {
             return result;
         } catch (error: any) {
             console.error('Fetch Tool Reviews Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    requestExtension: async (rentalId: string, extensionDays: number) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/rentals/${rentalId}/extend`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ extensionDays }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to request extension');
+            return result;
+        } catch (error: any) {
+            console.error('Request Extension Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    approveExtension: async (rentalId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/rentals/${rentalId}/extend/approve`, {
+                method: 'POST',
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to approve extension');
+            return result;
+        } catch (error: any) {
+            console.error('Approve Extension Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    rejectExtension: async (rentalId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/rentals/${rentalId}/extend/reject`, {
+                method: 'POST',
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to reject extension');
+            return result;
+        } catch (error: any) {
+            console.error('Reject Extension Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+    getRentalById: async (id: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/rentals/transaction/${id}`);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch rental details');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Rental Transaction Error:', error);
             throw new Error(error.message || 'Connection error');
         }
     },

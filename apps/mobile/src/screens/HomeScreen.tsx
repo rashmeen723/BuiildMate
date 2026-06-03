@@ -139,6 +139,12 @@ const HomeScreen = () => {
             cat.name.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
+        const filteredTools = nearbyTools.filter(t =>
+            t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            t.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (t.description && t.description.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
+
         return (
             <>
                 <Text style={styles.sectionTitle}>Featured Equipment</Text>
@@ -189,7 +195,7 @@ const HomeScreen = () => {
                             const defaultAddr = user.addresses.find((a: any) => a.isDefault) || user.addresses[0];
                             if (defaultAddr) {
                                 navigation.navigate('ToolMap', {
-                                    tools: nearbyTools,
+                                    tools: filteredTools,
                                     initialRegion: {
                                         latitude: defaultAddr.latitude,
                                         longitude: defaultAddr.longitude,
@@ -208,7 +214,7 @@ const HomeScreen = () => {
                     {loading ? (
                         <ActivityIndicator size="large" color={COLORS.orange} style={{ marginVertical: 20 }} />
                     ) : (
-                        nearbyTools.slice(0, 3).map((tool) => (
+                        filteredTools.slice(0, 5).map((tool) => (
                             <TouchableOpacity
                                 key={tool.id}
                                 style={styles.proCard}
@@ -249,8 +255,8 @@ const HomeScreen = () => {
                             </TouchableOpacity>
                         ))
                     )}
-                    {!loading && nearbyTools.length === 0 && (
-                        <Text style={styles.emptyText}>No nearby tools found.</Text>
+                    {!loading && filteredTools.length === 0 && (
+                        <Text style={styles.emptyText}>No tools match your search.</Text>
                     )}
                 </View>
             </>
@@ -275,7 +281,8 @@ const HomeScreen = () => {
 
         const filteredProviders = nearbyProviders.filter(p =>
             p.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            p.category.toLowerCase().includes(searchQuery.toLowerCase())
+            p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (p.skills && p.skills.some((s: string) => s.toLowerCase().includes(searchQuery.toLowerCase())))
         );
 
         return (
@@ -325,7 +332,7 @@ const HomeScreen = () => {
                             const defaultAddr = user.addresses.find((a: any) => a.isDefault) || user.addresses[0];
                             if (defaultAddr) {
                                 navigation.navigate('ServiceProviderMap', {
-                                    providers: nearbyProviders,
+                                    providers: filteredProviders,
                                     initialRegion: {
                                         latitude: defaultAddr.latitude,
                                         longitude: defaultAddr.longitude,

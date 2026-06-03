@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { RootStackParamList } from '../navigation/types';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '../constants/theme';
 import { rentalsApi, authApi } from '../services/api';
@@ -22,16 +23,19 @@ import { useAuth } from '../context/AuthContext';
 
 const AddToolScreen = () => {
     const navigation = useNavigation();
+    const route = useRoute<RouteProp<RootStackParamList, 'AddTool'>>();
+    const toolToEdit = route?.params?.tool;
     const { user } = useAuth();
+    
     const [loading, setLoading] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
-    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [selectedImage, setSelectedImage] = useState<string | null>(toolToEdit?.images?.[0] || null);
 
     const [formData, setFormData] = useState({
-        name: '',
-        description: '',
-        category: '',
-        dailyRate: '',
+        name: toolToEdit?.name || '',
+        description: toolToEdit?.description || '',
+        category: toolToEdit?.category || '',
+        dailyRate: toolToEdit?.dailyRate?.toString() || '',
     });
 
     const categories = ['Power Tools', 'Hand Tools', 'Ladders', 'Painting', 'Construction', 'Gardening', 'Cleaning', 'Safety Gear', 'Scaffolding', 'Other'];
@@ -55,6 +59,34 @@ const AddToolScreen = () => {
         }
     };
 
+    const handleDelete = async () => {
+        if (!toolToEdit) return;
+
+        Alert.alert(
+            "Delete Tool",
+            "Are you sure you want to remove this tool from your inventory?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        setLoading(true);
+                        try {
+                            await rentalsApi.deleteTool(toolToEdit.id);
+                            Alert.alert("Success", "Tool removed from inventory!");
+                            navigation.goBack();
+                        } catch (error: any) {
+                            Alert.alert("Error", error.message || "Failed to delete tool.");
+                        } finally {
+                            setLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const handleSave = async () => {
         if (!formData.name || !formData.dailyRate || !formData.category) {
             Alert.alert('Error', 'Please fill in all required fields');
@@ -70,31 +102,41 @@ const AddToolScreen = () => {
         try {
             let toolImages: string[] = [];
 
-            // 1. Upload image to Cloudinary if selected
             if (selectedImage) {
-                setUploadingImage(true);
-                try {
-                    const imageUrl = await authApi.uploadPublicFile(selectedImage);
-                    toolImages.push(imageUrl);
-                } catch (uploadError) {
-                    console.error('Cloudinary upload failed:', uploadError);
-                    Alert.alert('Upload Warning', 'Failed to upload image. Tool will be added without image.');
-                } finally {
-                    setUploadingImage(false);
+                if (selectedImage.startsWith('http')) {
+                    toolImages.push(selectedImage);
+                } else {
+                    setUploadingImage(true);
+                    try {
+                        const imageUrl = await authApi.uploadPublicFile(selectedImage);
+                        toolImages.push(imageUrl);
+                    } catch (uploadError) {
+                        console.error('Cloudinary upload failed:', uploadError);
+                        Alert.alert('Upload Warning', 'Failed to upload image. Saving without image.');
+                    } finally {
+                        setUploadingImage(false);
+                    }
                 }
             }
 
-            // 2. Add tool with Cloudinary URL
-            await rentalsApi.addTool(user?.id || '', {
-                ...formData,
-                dailyRate: Number(formData.dailyRate),
-                images: toolImages,
-            });
-
-            Alert.alert('Success', 'Tool added to your inventory!');
+            if (toolToEdit) {
+                await rentalsApi.updateTool(toolToEdit.id, {
+                    ...formData,
+                    dailyRate: Number(formData.dailyRate),
+                    images: toolImages,
+                });
+                Alert.alert('Success', 'Tool updated successfully!');
+            } else {
+                await rentalsApi.addTool(user?.id || '', {
+                    ...formData,
+                    dailyRate: Number(formData.dailyRate),
+                    images: toolImages,
+                });
+                Alert.alert('Success', 'Tool added to your inventory!');
+            }
             navigation.goBack();
         } catch (error: any) {
-            Alert.alert('Error', error.message || 'Failed to add tool');
+            Alert.alert('Error', error.message || 'Failed to save tool');
         } finally {
             setLoading(false);
         }
@@ -106,7 +148,7 @@ const AddToolScreen = () => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="chevron-back" size={24} color={COLORS.black} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Add New Tool</Text>
+                <Text style={styles.headerTitle}>{toolToEdit ? 'Edit Tool Details' : 'Add New Tool'}</Text>
                 <View style={{ width: 40 }} />
             </View>
 
@@ -198,9 +240,23 @@ const AddToolScreen = () => {
                         {loading ? (
                             <ActivityIndicator color={COLORS.white} />
                         ) : (
-                            <Text style={styles.saveButtonText}>Add to Inventory</Text>
+                            <Text style={styles.saveButtonText}>{toolToEdit ? 'Save Changes' : 'Add to Inventory'}</Text>
                         )}
                     </TouchableOpacity>
+
+                    {toolToEdit && (
+                        <TouchableOpacity
+                            style={[styles.deleteButton, loading && { opacity: 0.7 }]}
+                            onPress={handleDelete}
+                            disabled={loading || uploadingImage}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color="#EF4444" />
+                            ) : (
+                                <Text style={styles.deleteButtonText}>Remove Tool</Text>
+                            )}
+                        </TouchableOpacity>
+                    )}
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
@@ -319,6 +375,21 @@ const styles = StyleSheet.create({
     },
     saveButtonText: {
         color: COLORS.white,
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    deleteButton: {
+        borderWidth: 1.5,
+        borderColor: '#EF4444',
+        backgroundColor: COLORS.white,
+        borderRadius: 16,
+        padding: 18,
+        alignItems: 'center',
+        marginTop: 12,
+        marginBottom: 40,
+    },
+    deleteButtonText: {
+        color: '#EF4444',
         fontSize: 16,
         fontWeight: 'bold',
     },

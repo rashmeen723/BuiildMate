@@ -11,6 +11,8 @@ export interface User {
     profileImage?: string | null;
     addresses?: any[];
     badges?: string[];
+    isSuspended?: boolean;
+    suspensionReason?: string | null;
     serviceProvider?: {
         id: string;
         category: string;

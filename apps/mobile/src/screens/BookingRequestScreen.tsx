@@ -8,13 +8,14 @@ import {
     TouchableOpacity,
     ScrollView,
     Image,
-    SafeAreaView,
     StatusBar,
     Dimensions,
     Alert,
     ActivityIndicator,
-    Platform
+    Platform,
+    Linking
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -113,6 +114,17 @@ const BookingRequestScreen = () => {
 
     const platformFee = estimatedTotal * 0.1;
     const payout = estimatedTotal - platformFee;
+
+    const handleCall = () => {
+        if (!phone) {
+            Alert.alert("Error", "No phone number available for this customer.");
+            return;
+        }
+        Linking.openURL(`tel:${phone}`).catch((err) => {
+            console.error("Failed to open dialer:", err);
+            Alert.alert("Error", "Could not open the phone dialer.");
+        });
+    };
 
     const handleAccept = async () => {
         setLoading(true);
@@ -228,7 +240,11 @@ const BookingRequestScreen = () => {
                 </View>
 
                 {/* Contact Info Card */}
-                <View style={styles.infoCard}>
+                <TouchableOpacity 
+                    style={styles.infoCard} 
+                    onPress={handleCall}
+                    activeOpacity={0.7}
+                >
                     <View style={styles.infoIconBox}>
                         <Ionicons name="call" size={20} color="#1E293B" />
                     </View>
@@ -236,10 +252,10 @@ const BookingRequestScreen = () => {
                         <Text style={styles.infoLabel}>CONTACT INFO</Text>
                         <Text style={styles.infoValue}>{phone}</Text>
                     </View>
-                    <TouchableOpacity style={styles.callActionButton}>
+                    <View style={styles.callActionButton}>
                         <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
-                    </TouchableOpacity>
-                </View>
+                    </View>
+                </TouchableOpacity>
 
                 {/* Schedule Row */}
                 <View style={styles.scheduleRow}>
@@ -354,7 +370,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingVertical: 15,
+        paddingTop: Platform.OS === 'android' ? 24 : 16,
+        paddingBottom: 16,
         borderBottomWidth: 1,
         borderBottomColor: '#F1F5F9',
     },

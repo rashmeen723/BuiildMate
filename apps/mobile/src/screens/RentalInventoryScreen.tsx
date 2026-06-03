@@ -6,11 +6,12 @@ import {
     ScrollView,
     TouchableOpacity,
     Image,
-    SafeAreaView,
     StatusBar,
     ActivityIndicator,
-    RefreshControl
+    RefreshControl,
+    Platform
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -141,7 +142,10 @@ const RentalInventoryScreen = () => {
                                     <Text style={styles.priceValue}>LKR {tool.dailyRate.toLocaleString()}</Text>
                                 </View>
                                 <View style={styles.actionButtons}>
-                                    <TouchableOpacity style={styles.editButton}>
+                                    <TouchableOpacity 
+                                        style={styles.editButton}
+                                        onPress={() => navigation.navigate('AddTool', { tool })}
+                                    >
                                         <Text style={styles.editButtonText}>Edit</Text>
                                     </TouchableOpacity>
                                 </View>
@@ -175,7 +179,8 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 24,
-        paddingVertical: 16,
+        paddingTop: Platform.OS === 'android' ? 24 : 16,
+        paddingBottom: 16,
         backgroundColor: COLORS.white,
         borderBottomWidth: 1,
         borderBottomColor: '#F1F5F9',

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, ScrollView, ActivityIndicator, Alert, RefreshControl, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -8,6 +8,7 @@ import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../context/AuthContext';
+import { rentalsApi } from '../services/api';
 
 type RentalStatusScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'RentalStatus'>;
 type RentalStatusScreenRouteProp = RouteProp<RootStackParamList, 'RentalStatus'>;
@@ -26,43 +27,166 @@ const RentalStatusScreen = () => {
         status = 'PENDING',
         ownerName,
         ownerId,
+        ownerPhone,
         ownerAddress,
         paymentMethod,
         isPaid,
         totalAmount,
-        reviews = []
+        reviews = [],
+        extensionDays,
+        extensionStatus,
+        extensionCost
     } = route.params;
     const { user } = useAuth();
 
     const [extendDays, setExtendDays] = useState(0);
     const [extraCost, setExtraCost] = useState(0);
-    const pricePerDay = 800; // Mock price
+    const [rentalExtensionStatus, setRentalExtensionStatus] = useState<string | null>(extensionStatus || null);
+    const [rentalExtensionDays, setRentalExtensionDays] = useState<number | null>(extensionDays || null);
+    const [rentalExtensionCost, setRentalExtensionCost] = useState<number | null>(extensionCost || null);
+    const [currentStatus, setCurrentStatus] = useState<string>(status || 'PENDING');
+    const [currentDueDate, setCurrentDueDate] = useState<string>(dueDate);
+    const [currentTotalAmount, setCurrentTotalAmount] = useState<number | undefined>(totalAmount);
+    const [currentIsPaid, setCurrentIsPaid] = useState<boolean | undefined>(isPaid);
+    const [currentOwnerPhone, setCurrentOwnerPhone] = useState<string | null>(ownerPhone || null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const fetchLatestData = async (showSpinner = false) => {
+        if (showSpinner) setIsLoading(true);
+        try {
+            const data = await rentalsApi.getRentalById(rentalId);
+            if (data) {
+                setCurrentStatus(data.status);
+                if (data.endDate) {
+                    setCurrentDueDate(new Date(data.endDate).toLocaleDateString());
+                }
+                setCurrentTotalAmount(data.totalAmount);
+                setCurrentIsPaid(data.isPaid);
+                setRentalExtensionStatus(data.extensionStatus || null);
+                setRentalExtensionDays(data.extensionDays || null);
+                setRentalExtensionCost(data.extensionCost || null);
+                if (data.tool?.owner?.user?.phone) {
+                    setCurrentOwnerPhone(data.tool.owner.user.phone);
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching latest rental details:', error);
+        } finally {
+            setIsLoading(false);
+            setIsRefreshing(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchLatestData(true);
+    }, [rentalId]);
+
+    const onRefresh = () => {
+        setIsRefreshing(true);
+        fetchLatestData(false);
+    };
+
+    const handleCallOwner = () => {
+        if (!currentOwnerPhone) return;
+        Alert.alert(
+            "Call Owner",
+            `Do you want to call ${ownerName || 'the owner'} at ${currentOwnerPhone}?`,
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "Call", 
+                    onPress: () => {
+                        Linking.openURL(`tel:${currentOwnerPhone}`);
+                    } 
+                }
+            ]
+        );
+    };
+
+    const handleViewOnMap = () => {
+        if (!ownerAddress) return;
+        const query = encodeURIComponent(ownerAddress);
+        const url = Platform.select({
+            ios: `maps:0,0?q=${query}`,
+            android: `geo:0,0?q=${query}`,
+            default: `https://www.google.com/maps/search/?api=1&query=${query}`
+        });
+
+        Linking.canOpenURL(url)
+            .then((supported) => {
+                if (supported) {
+                    Linking.openURL(url);
+                } else {
+                    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`);
+                }
+            })
+            .catch((err) => console.error('An error occurred opening map:', err));
+    };
+
+    // Calculate rate dynamically from totalAmount and total days of rental
+    const getPricePerDay = () => {
+        if (!startDate || !currentDueDate || !currentTotalAmount) return 800;
+        try {
+            const start = new Date(startDate);
+            const end = new Date(currentDueDate);
+            const diffTime = Math.abs(end.getTime() - start.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+            return Math.round(currentTotalAmount / diffDays);
+        } catch (e) {
+            return 800;
+        }
+    };
+    const pricePerDay = getPricePerDay();
 
     const handleExtend = (days: number) => {
         setExtendDays(days);
         setExtraCost(days * pricePerDay);
     };
 
-    const confirmExtension = () => {
-        alert(`Extension request sent! The owner will verify your request for ${extendDays} additional days.`);
-        navigation.navigate('Activity', { updatedRentalId: Number(rentalId), newStatus: 'EXTENSION PENDING' });
+    const getProposedDueDate = () => {
+        if (!currentDueDate) return '';
+        try {
+            const currentDue = new Date(currentDueDate);
+            currentDue.setDate(currentDue.getDate() + extendDays);
+            return currentDue.toLocaleDateString();
+        } catch (e) {
+            return '';
+        }
+    };
+
+    const confirmExtension = async () => {
+        if (extendDays <= 0 || isLoading) return;
+        setIsLoading(true);
+        try {
+            await rentalsApi.requestExtension(rentalId, extendDays);
+            setRentalExtensionStatus('PENDING');
+            setRentalExtensionDays(extendDays);
+            setRentalExtensionCost(extraCost);
+            Alert.alert('Success', `Extension request sent! The owner will verify your request for ${extendDays} additional days.`);
+            navigation.navigate('Activity', { updatedRentalId: Number(rentalId), newStatus: 'EXTENSION PENDING' });
+        } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to request extension. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // Timeline mapping
     const isStepActive = (stepStatus: string) => {
         const statusOrder = ['PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED'];
-        const currentIdx = statusOrder.indexOf(status);
+        const currentIdx = statusOrder.indexOf(currentStatus);
         const stepIdx = statusOrder.indexOf(stepStatus);
         return currentIdx >= stepIdx;
     };
 
     const getStatusHeader = () => {
-        switch (status) {
+        switch (currentStatus) {
             case 'PENDING': return 'WAITING FOR OWNER';
             case 'CONFIRMED': return 'READY FOR PICKUP';
             case 'IN_PROGRESS': return 'GENUINELY ACTIVE';
             case 'COMPLETED': return 'RENTAL COMPLETED';
-            default: return status;
+            default: return currentStatus;
         }
     };
 
@@ -74,12 +198,28 @@ const RentalStatusScreen = () => {
                     <Ionicons name="chevron-back" size={24} color={COLORS.black} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Rental Status</Text>
-                <TouchableOpacity style={styles.notificationButton}>
+                <TouchableOpacity
+                    style={styles.notificationButton}
+                    onPress={() => navigation.navigate('ReportIssue', {
+                        reportType: 'RENTAL',
+                        id: rentalId,
+                        targetId: ownerId || '',
+                        title: toolName,
+                        subtitle: ownerName || 'Rental Owner',
+                        image: image || 'https://via.placeholder.com/150'
+                    })}
+                >
                     <Ionicons name="alert-circle-outline" size={24} color={COLORS.black} />
                 </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                contentContainerStyle={styles.scrollContent} 
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[COLORS.darkBlue]} />
+                }
+            >
 
                 {/* Tool Card */}
                 <View style={styles.toolCard}>
@@ -100,20 +240,59 @@ const RentalStatusScreen = () => {
                 {(ownerName || ownerAddress) && (
                     <View style={styles.infoSection}>
                         <Text style={styles.sectionTitle}>COLLECTION DETAILS</Text>
-                        <View style={styles.infoCardContent}>
-                            <Ionicons name="person-outline" size={20} color={COLORS.darkBlue} />
-                            <View style={{ marginLeft: 12 }}>
-                                <Text style={styles.infoLabel}>OWNER</Text>
-                                <Text style={styles.infoValue}>{ownerName}</Text>
+                        
+                        {/* Owner Row */}
+                        <View style={styles.infoRowContainer}>
+                            <View style={[styles.infoCardContent, { flex: 1 }]}>
+                                <Ionicons name="person-outline" size={20} color={COLORS.darkBlue} />
+                                <View style={{ marginLeft: 12, flex: 1 }}>
+                                    <Text style={styles.infoLabel}>OWNER</Text>
+                                    <Text style={styles.infoValue}>{ownerName}</Text>
+                                </View>
                             </View>
+                            
+                            {currentOwnerPhone && (
+                                <TouchableOpacity 
+                                    style={styles.callButtonContainer} 
+                                    onPress={handleCallOwner}
+                                >
+                                    <Ionicons name="call" size={14} color={COLORS.white} />
+                                    <Text style={styles.callButtonText}>Call</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
-                        <View style={[styles.infoCardContent, { marginTop: 12 }]}>
-                            <Ionicons name="map-outline" size={20} color={COLORS.darkBlue} />
-                            <View style={{ marginLeft: 12 }}>
-                                <Text style={styles.infoLabel}>PICKUP LOCATION</Text>
-                                <Text style={styles.infoValue}>{ownerAddress}</Text>
+
+                        {/* Owner Contact Row */}
+                        {currentOwnerPhone && (
+                            <View style={[styles.infoCardContent, { marginTop: 12 }]}>
+                                <Ionicons name="call-outline" size={20} color={COLORS.darkBlue} />
+                                <View style={{ marginLeft: 12 }}>
+                                    <Text style={styles.infoLabel}>OWNER CONTACT</Text>
+                                    <Text style={styles.infoValue}>{currentOwnerPhone}</Text>
+                                </View>
                             </View>
-                        </View>
+                        )}
+
+                        {/* Pickup Location Row */}
+                        {ownerAddress && (
+                            <View style={[styles.infoRowContainer, { marginTop: 12, alignItems: 'flex-end' }]}>
+                                <View style={[styles.infoCardContent, { flex: 1 }]}>
+                                    <Ionicons name="map-outline" size={20} color={COLORS.darkBlue} />
+                                    <View style={{ marginLeft: 12, flex: 1 }}>
+                                        <Text style={styles.infoLabel}>PICKUP LOCATION</Text>
+                                        <Text style={styles.infoValue} numberOfLines={2}>{ownerAddress}</Text>
+                                    </View>
+                                </View>
+
+                                <TouchableOpacity 
+                                    style={styles.mapButtonContainer} 
+                                    onPress={handleViewOnMap}
+                                >
+                                    <Ionicons name="navigate-outline" size={14} color={COLORS.darkBlue} />
+                                    <Text style={styles.mapButtonText}>Map</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
                     </View>
                 )}
 
@@ -164,11 +343,11 @@ const RentalStatusScreen = () => {
                             </View>
                             <View style={styles.timelineContent}>
                                 <Text style={styles.timelineTitle}>Return Due</Text>
-                                <Text style={styles.timelineDate}>{dueDate}</Text>
+                                <Text style={styles.timelineDate}>{currentDueDate}</Text>
                             </View>
 
                             {/* Review Section */}
-                            {status === 'COMPLETED' && (
+                            {currentStatus === 'COMPLETED' && (
                                 <View style={styles.infoSection}>
                                     <Text style={styles.sectionTitle}>FEEDBACK</Text>
                                     {reviews.some((r: any) => r.reviewerId === user?.id) ? (
@@ -211,86 +390,126 @@ const RentalStatusScreen = () => {
                             <Text style={styles.infoLabel}>METHOD</Text>
                             <Text style={styles.infoValue}>{paymentMethod || 'CASH'}</Text>
                         </View>
-                        <View style={[styles.statusBadge, { backgroundColor: isPaid ? '#DCFCE7' : '#FEE2E2', marginLeft: 'auto' }]}>
-                            <Text style={[styles.statusText, { color: isPaid ? '#15803D' : '#B91C1C' }]}>
-                                {isPaid ? 'PAID' : 'UNPAID'}
+                        <View style={[styles.statusBadge, { backgroundColor: currentIsPaid ? '#DCFCE7' : '#FEE2E2', marginLeft: 'auto' }]}>
+                            <Text style={[styles.statusText, { color: currentIsPaid ? '#15803D' : '#B91C1C' }]}>
+                                {currentIsPaid ? 'PAID' : 'UNPAID'}
                             </Text>
                         </View>
                     </View>
 
-                    {!isPaid && paymentMethod === 'CARD' && status !== 'PENDING' && (
+                    {!currentIsPaid && paymentMethod === 'CARD' && currentStatus !== 'PENDING' && (
                         <TouchableOpacity
                             style={styles.payNowButton}
                             onPress={() => navigation.navigate('Payment', {
                                 id: rentalId,
                                 title: `Rent: ${toolName}`,
-                                amount: totalAmount || 0,
+                                amount: currentTotalAmount || 0,
                                 type: 'RENTAL'
                             })}
                         >
-                            <Text style={styles.payNowButtonText}>Pay Now LKR {totalAmount?.toLocaleString()}</Text>
+                            <Text style={styles.payNowButtonText}>Pay Now LKR {currentTotalAmount?.toLocaleString()}</Text>
                         </TouchableOpacity>
                     )}
                 </View>
 
                 {/* Extend Options */}
-                <View style={styles.extendSection}>
-                    <Text style={styles.sectionTitle}>EXTEND RENTAL</Text>
-                    <Text style={styles.extendDesc}>Need the tool for longer? Select additional days below.</Text>
+                {(currentStatus === 'IN_PROGRESS' || currentStatus === 'CONFIRMED') && (
+                    <View style={styles.extendSection}>
+                        <Text style={styles.sectionTitle}>EXTEND RENTAL</Text>
 
-                    <View style={styles.daysRow}>
-                        {[1, 2, 3, 5, 7].map((day) => (
-                            <TouchableOpacity
-                                key={day}
-                                style={[styles.dayButton, extendDays === day && styles.dayButtonActive]}
-                                onPress={() => handleExtend(day)}
-                            >
-                                <Text style={[styles.dayButtonText, extendDays === day && styles.dayButtonTextActive]}>
-                                    +{day} Day{day > 1 ? 's' : ''}
+                        {rentalExtensionStatus === 'PENDING' && (
+                            <View style={styles.bannerPending}>
+                                <Ionicons name="time-outline" size={24} color="#B27B00" />
+                                <Text style={styles.bannerPendingText}>
+                                    You have a pending extension request for +{rentalExtensionDays} day{rentalExtensionDays && rentalExtensionDays > 1 ? 's' : ''} (LKR {rentalExtensionCost}). Waiting for owner approval.
                                 </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
+                            </View>
+                        )}
 
-                    {extendDays > 0 && (
-                        <View style={styles.summaryCard}>
-                            <View style={styles.summaryRow}>
-                                <Text style={styles.summaryLabel}>Extension Period</Text>
-                                <Text style={styles.summaryValue}>{extendDays} Days</Text>
+                        {rentalExtensionStatus === 'REJECTED' && (
+                            <View style={styles.bannerRejected}>
+                                <Ionicons name="close-circle-outline" size={24} color="#DE350B" />
+                                <Text style={styles.bannerRejectedText}>
+                                    Your previous request to extend by {rentalExtensionDays} day{rentalExtensionDays && rentalExtensionDays > 1 ? 's' : ''} was declined. You can select another option below to request again.
+                                </Text>
                             </View>
-                            <View style={styles.summaryRow}>
-                                <Text style={styles.summaryLabel}>Additional Cost</Text>
-                                <Text style={[styles.summaryValue, { color: COLORS.orange }]}>LKR {extraCost}</Text>
+                        )}
+
+                        {rentalExtensionStatus === 'APPROVED' && (
+                            <View style={styles.bannerApproved}>
+                                <Ionicons name="checkmark-circle-outline" size={24} color="#2E7D32" />
+                                <Text style={styles.bannerApprovedText}>
+                                    Your extension request for +{rentalExtensionDays} day{rentalExtensionDays && rentalExtensionDays > 1 ? 's' : ''} was approved!
+                                </Text>
                             </View>
-                            <View style={styles.divider} />
-                            <View style={styles.summaryRow}>
-                                <Text style={styles.totalLabel}>Proposed Due Date</Text>
-                                <Text style={styles.totalValue}>Nov {24 + extendDays}, 2025</Text>
-                            </View>
-                        </View>
-                    )}
-                </View>
+                        )}
+
+                        {rentalExtensionStatus !== 'PENDING' && (
+                            <>
+                                <Text style={styles.extendDesc}>Need the tool for longer? Select additional days below.</Text>
+
+                                <View style={styles.daysRow}>
+                                    {[1, 2, 3, 5, 7].map((day) => (
+                                        <TouchableOpacity
+                                            key={day}
+                                            style={[styles.dayButton, extendDays === day && styles.dayButtonActive]}
+                                            onPress={() => handleExtend(day)}
+                                        >
+                                            <Text style={[styles.dayButtonText, extendDays === day && styles.dayButtonTextActive]}>
+                                                +{day} Day{day > 1 ? 's' : ''}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+
+                                {extendDays > 0 && (
+                                    <View style={styles.summaryCard}>
+                                        <View style={styles.summaryRow}>
+                                            <Text style={styles.summaryLabel}>Extension Period</Text>
+                                            <Text style={styles.summaryValue}>{extendDays} Days</Text>
+                                        </View>
+                                        <View style={styles.summaryRow}>
+                                            <Text style={styles.summaryLabel}>Additional Cost</Text>
+                                            <Text style={[styles.summaryValue, { color: COLORS.orange }]}>LKR {extraCost}</Text>
+                                        </View>
+                                        <View style={styles.divider} />
+                                        <View style={styles.summaryRow}>
+                                            <Text style={styles.totalLabel}>Proposed Due Date</Text>
+                                            <Text style={styles.totalValue}>{getProposedDueDate()}</Text>
+                                        </View>
+                                    </View>
+                                )}
+                            </>
+                        )}
+                    </View>
+                )}
 
                 <View style={{ height: 100 }} />
             </ScrollView>
 
             {/* Bottom Action */}
-            {extendDays > 0 ? (
-                <View style={styles.bottomBar}>
-                    <View>
-                        <Text style={styles.totalPriceLabel}>Est. Extra Cost</Text>
-                        <Text style={styles.totalPriceValue}>LKR {extraCost}</Text>
+            {rentalExtensionStatus !== 'PENDING' && (currentStatus === 'IN_PROGRESS' || currentStatus === 'CONFIRMED') && (
+                extendDays > 0 ? (
+                    <View style={styles.bottomBar}>
+                        <View>
+                            <Text style={styles.totalPriceLabel}>Est. Extra Cost</Text>
+                            <Text style={styles.totalPriceValue}>LKR {extraCost}</Text>
+                        </View>
+                        <TouchableOpacity style={styles.confirmButton} onPress={confirmExtension} disabled={isLoading}>
+                            {isLoading ? (
+                                <ActivityIndicator color={COLORS.white} size="small" />
+                            ) : (
+                                <Text style={styles.confirmButtonText}>Request Extension</Text>
+                            )}
+                        </TouchableOpacity>
                     </View>
-                    <TouchableOpacity style={styles.confirmButton} onPress={confirmExtension}>
-                        <Text style={styles.confirmButtonText}>Request Extension</Text>
-                    </TouchableOpacity>
-                </View>
-            ) : (
-                <View style={styles.bottomBar}>
-                    <TouchableOpacity style={[styles.confirmButton, styles.disabledButton]} disabled>
-                        <Text style={styles.confirmButtonText}>Select Days to Extend</Text>
-                    </TouchableOpacity>
-                </View>
+                ) : (
+                    <View style={styles.bottomBar}>
+                        <TouchableOpacity style={[styles.confirmButton, styles.disabledButton]} disabled>
+                            <Text style={styles.confirmButtonText}>Select Days to Extend</Text>
+                        </TouchableOpacity>
+                    </View>
+                )
             )}
 
         </SafeAreaView>
@@ -619,6 +838,91 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: COLORS.gray,
         fontWeight: '500',
+    },
+    bannerPending: {
+        backgroundColor: '#FFF9E6',
+        borderColor: '#FFEBA3',
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    bannerPendingText: {
+        color: '#B27B00',
+        fontSize: 14,
+        fontWeight: '500',
+        marginLeft: 10,
+        flex: 1,
+    },
+    bannerRejected: {
+        backgroundColor: '#FDF2F2',
+        borderColor: '#FDE8E8',
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    bannerRejectedText: {
+        color: '#DE350B',
+        fontSize: 14,
+        fontWeight: '500',
+        marginLeft: 10,
+        flex: 1,
+    },
+    bannerApproved: {
+        backgroundColor: '#E8F5E9',
+        borderColor: '#C8E6C9',
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    bannerApprovedText: {
+        color: '#2E7D32',
+        fontSize: 14,
+        fontWeight: '500',
+        marginLeft: 10,
+        flex: 1,
+    },
+    infoRowContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    callButtonContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: COLORS.darkBlue,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        gap: 4,
+    },
+    callButtonText: {
+        color: COLORS.white,
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    mapButtonContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: COLORS.darkBlue,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        gap: 4,
+    },
+    mapButtonText: {
+        color: COLORS.darkBlue,
+        fontSize: 12,
+        fontWeight: 'bold',
     },
 });
 

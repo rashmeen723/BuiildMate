@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, Query } from '@nestjs/common';
 import { RentalsService } from './rentals.service';
 
 @Controller('rentals')
@@ -18,6 +18,11 @@ export class RentalsController {
     @Put('tool/:toolId')
     async updateTool(@Param('toolId') toolId: string, @Body() data: any) {
         return this.rentalsService.updateTool(toolId, data);
+    }
+
+    @Delete('tool/:toolId')
+    async deleteTool(@Param('toolId') toolId: string) {
+        return this.rentalsService.deleteTool(toolId);
     }
 
     @Get('owner/:userId/stats')
@@ -60,12 +65,37 @@ export class RentalsController {
     }
 
     @Put(':id/status')
-    async updateRentalStatus(@Param('id') id: string, @Body('status') status: string) {
-        return this.rentalsService.updateRentalStatus(id, status);
+    async updateRentalStatus(
+        @Param('id') id: string,
+        @Body('status') status: string,
+        @Body('pickupPhotos') pickupPhotos?: string[],
+        @Body('returnPhotos') returnPhotos?: string[]
+    ) {
+        return this.rentalsService.updateRentalStatus(id, status, pickupPhotos, returnPhotos);
+    }
+
+    @Post(':id/extend')
+    async requestExtension(@Param('id') id: string, @Body('extensionDays') extensionDays: number) {
+        return this.rentalsService.requestExtension(id, Number(extensionDays));
+    }
+
+    @Post(':id/extend/approve')
+    async approveExtension(@Param('id') id: string) {
+        return this.rentalsService.approveExtension(id);
+    }
+
+    @Post(':id/extend/reject')
+    async rejectExtension(@Param('id') id: string) {
+        return this.rentalsService.rejectExtension(id);
     }
 
     @Get('user/:userId/rentals')
     async getUserRentals(@Param('userId') userId: string) {
         return this.rentalsService.getUserRentals(userId);
+    }
+
+    @Get('transaction/:id')
+    async getRentalById(@Param('id') id: string) {
+        return this.rentalsService.getRentalById(id);
     }
 }

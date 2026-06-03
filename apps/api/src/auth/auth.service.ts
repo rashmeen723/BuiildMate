@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { MailerService } from '@nestjs-modules/mailer';
@@ -74,17 +74,30 @@ export class AuthService {
                         create: [
                             ...(documents?.idImage ? [{
                                 documentType: 'ID_CARD',
-                                documentUrl: documents.idImage,
-                                selfieUrl: documents.selfieImage // Store the live selfie here
+                                documentUrl: documents.idImage
+                            }] : []),
+                            ...(documents?.idImageFront ? [{
+                                documentType: 'ID_CARD_FRONT',
+                                documentUrl: documents.idImageFront
+                            }] : []),
+                            ...(documents?.idImageBack ? [{
+                                documentType: 'ID_CARD_BACK',
+                                documentUrl: documents.idImageBack
                             }] : []),
                             ...(role === 'SERVICE_PROVIDER' ? (documents?.certificateImages || []).map((url: string) => ({
                                 documentType: 'CERTIFICATE',
                                 documentUrl: url
                             })) : []),
-                            ...(role === 'RENTAL_OWNER' && documents?.businessDoc ? [{
-                                documentType: 'BUSINESS_PERMIT',
-                                documentUrl: documents.businessDoc
-                            }] : [])
+                            ...(role === 'RENTAL_OWNER' ? [
+                                ...(documents?.businessDoc ? [{
+                                    documentType: 'BUSINESS_PERMIT',
+                                    documentUrl: documents.businessDoc
+                                }] : []),
+                                ...(documents?.utilityBill ? [{
+                                    documentType: 'UTILITY_BILL',
+                                    documentUrl: documents.utilityBill
+                                }] : [])
+                            ] : [])
                         ]
                     },
                     // Handle specific profiles based on role
@@ -108,6 +121,7 @@ export class AuthService {
                     ...(role === 'RENTAL_OWNER' && {
                         rentalOwner: {
                             create: {
+                                ownerType: rentalDetails?.ownerType || 'INDIVIDUAL',
                                 businessName: rentalDetails?.businessName || 'Business Name',
                                 toolCategories: rentalDetails?.categories || [],
                                 yearsInBusiness: rentalDetails?.yearsInBusiness?.toString(),
@@ -164,6 +178,12 @@ export class AuthService {
 
         if (!user) {
             throw new UnauthorizedException('Invalid credentials');
+        }
+
+        if (user.isSuspended) {
+            throw new ForbiddenException(
+                `Your account has been suspended: ${user.suspensionReason || 'No reason provided'}`
+            );
         }
 
         const isPasswordValid = await bcrypt.compare(password, user.password);

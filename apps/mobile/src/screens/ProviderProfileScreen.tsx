@@ -415,7 +415,7 @@ const ProviderProfileScreen = () => {
                         ))
                     ) : (
                         <View style={styles.emptyCard}>
-                            <Ionicons name="chatbox-ellipses-outline" size={40} color={COLORS.lightGray} />
+                            <Ionicons name="star-outline" size={40} color={COLORS.lightGray} />
                             <Text style={styles.emptyText}>No reviews yet</Text>
                         </View>
                     )}

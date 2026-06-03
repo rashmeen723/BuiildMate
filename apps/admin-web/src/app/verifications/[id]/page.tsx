@@ -160,30 +160,7 @@ export default function VerificationDetailPage({ params }: { params: Promise<{ i
                                                 <AiCheck label="Name Match" passed={ai.checks?.nameMatch} />
                                                 <AiCheck label="Not Expired" passed={ai.checks?.notExpired} />
                                                 <AiCheck label="Authentic" passed={ai.checks?.looksAuthentic} />
-                                                <AiCheck label="Face Match" passed={ai.checks?.faceMatch} />
                                             </div>
-
-                                            {doc.selfieUrl && (
-                                                <div className="mt-4 pt-4 border-t border-slate-800">
-                                                    <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Live Selfie Comparison</p>
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        <div className="aspect-square rounded-lg overflow-hidden border border-slate-800 bg-slate-900">
-                                                            <img src={doc.documentUrl} alt="ID Photo" className="w-full h-full object-cover" />
-                                                            <span className="absolute bottom-1 left-1 text-[8px] bg-black/50 px-1 rounded">ID PHOTO</span>
-                                                        </div>
-                                                        <div className="aspect-square rounded-lg overflow-hidden border border-sky-500/30 bg-slate-900">
-                                                            <img src={doc.selfieUrl} alt="Live Selfie" className="w-full h-full object-cover" />
-                                                            <span className="absolute bottom-1 left-1 text-[8px] bg-sky-500/50 px-1 rounded">LIVE SELFIE</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="mt-2 flex items-center justify-between">
-                                                        <span className="text-[10px] text-slate-400">Match Score</span>
-                                                        <span className={`text-xs font-bold ${doc.faceMatchScore > 0.8 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                                            {Math.round(doc.faceMatchScore * 100)}%
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
                                     );
                                 })}

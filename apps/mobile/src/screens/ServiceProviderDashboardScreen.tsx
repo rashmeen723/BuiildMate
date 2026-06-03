@@ -185,13 +185,13 @@ const ServiceProviderDashboardScreen = () => {
                         <Text style={styles.startJourneyBtnText}>Start Journey</Text>
                     </TouchableOpacity>
                 )}
-                {(job.status === 'ON_THE_WAY' || job.status === 'ARRIVED' || job.status === 'COMPLETED') && (
+                {(job.status === 'CONFIRMED' || job.status === 'ON_THE_WAY' || job.status === 'ARRIVED' || job.status === 'COMPLETED') && (
                     <TouchableOpacity
                         style={styles.onTheWayBtn}
                         onPress={() => navigation.navigate('TrackService', {
                             serviceId: job.id,
-                            providerId: job.customer?.userId,
-                            providerName: job.customer?.fullName,
+                            providerId: job.customerId,
+                            providerName: job.customer?.fullName || 'Customer',
                             serviceType: job.serviceType,
                             status: job.status,
                             latitude: job.latitude || job.customer?.addresses?.[0]?.latitude,
@@ -200,12 +200,28 @@ const ServiceProviderDashboardScreen = () => {
                             serviceImage: job.customer?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(job.customer?.fullName || 'User')}&background=random`
                         } as any)}
                     >
-                        <Text style={styles.onTheWayBtnText}>{job.status === 'ARRIVED' ? 'Active Work' : job.status === 'COMPLETED' ? 'Review & Close' : 'Track Job'}</Text>
+                        <Text style={styles.onTheWayBtnText}>{job.status === 'CONFIRMED' ? 'View Details' : job.status === 'ARRIVED' ? 'Active Work' : job.status === 'COMPLETED' ? 'Review & Close' : 'Track Job'}</Text>
                         {job.status === 'ARRIVED' || job.status === 'COMPLETED' ? (
                             <Ionicons name="time-outline" size={16} color={COLORS.darkBlue} />
                         ) : (
                             <Ionicons name="location-outline" size={16} color={COLORS.darkBlue} />
                         )}
+                    </TouchableOpacity>
+                )}
+                {(job.status === 'COMPLETED' || job.status === 'PAID') && (
+                    <TouchableOpacity
+                        style={styles.reportCustomerBtn}
+                        onPress={() => navigation.navigate('ReportIssue', {
+                            reportType: 'SERVICE',
+                            id: job.id.toString(),
+                            targetId: job.customerId,
+                            title: job.serviceType,
+                            subtitle: job.customer?.fullName || 'Customer',
+                            image: job.customer?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(job.customer?.fullName || 'User')}&background=random`
+                        })}
+                    >
+                        <Text style={styles.reportCustomerBtnText}>Report Client</Text>
+                        <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
                     </TouchableOpacity>
                 )}
             </View>
@@ -701,6 +717,23 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         borderRadius: 10,
         gap: 6,
+    },
+    reportCustomerBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#FEF2F2',
+        paddingVertical: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#FEE2E2',
+        gap: 6,
+    },
+    reportCustomerBtnText: {
+        color: '#EF4444',
+        fontSize: 12,
+        fontWeight: 'bold',
     },
     sectionHeaderRow: {
         flexDirection: 'row',

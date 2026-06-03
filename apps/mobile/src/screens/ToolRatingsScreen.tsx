@@ -129,7 +129,7 @@ const ToolRatingsScreen = () => {
                     renderItem={renderReviewItem}
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
-                            <Ionicons name="chatbubbles-outline" size={60} color={COLORS.gray} opacity={0.3} />
+                            <Ionicons name="star-outline" size={60} color={COLORS.gray} opacity={0.3} />
                             <Text style={styles.emptyText}>No reviews found for this tool.</Text>
                         </View>
                     }

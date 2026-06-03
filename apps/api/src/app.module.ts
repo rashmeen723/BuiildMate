@@ -11,6 +11,7 @@ import { EjsAdapter } from '@nestjs-modules/mailer/dist/adapters/ejs.adapter';
 import { ConfigModule } from '@nestjs/config';
 import { RentalsModule } from './rentals/rentals.module';
 import { AiVerificationModule } from './ai-verification/ai-verification.module';
+import { DisputesModule } from './disputes/disputes.module';
 
 @Module({
   imports: [
@@ -41,7 +42,8 @@ import { AiVerificationModule } from './ai-verification/ai-verification.module';
     ServicesModule,
     CloudinaryModule,
     RentalsModule,
-    AiVerificationModule
+    AiVerificationModule,
+    DisputesModule
   ],
   controllers: [AppController],
   providers: [AppService],

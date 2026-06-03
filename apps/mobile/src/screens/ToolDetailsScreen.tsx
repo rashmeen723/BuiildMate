@@ -227,75 +227,118 @@ const ToolDetailsScreen = () => {
         </View>
     );
 
-    const renderLocation = () => (
-        <View style={styles.locationContainer}>
-            <Text style={styles.sectionTitle}>Pickup Location</Text>
-            <View style={styles.locationCard}>
-                <View style={styles.locationIconBox}>
-                    <Ionicons name="location" size={24} color={COLORS.orange} />
-                </View>
-                <View style={styles.locationInfo}>
-                    <Text style={styles.locationTitle}>{currentTool.owner?.businessName || ownerName}'s Location</Text>
-                    <Text style={styles.locationText}>
-                        {currentTool.owner?.formattedAddress || 'No specific location provided for this tool.'}
-                    </Text>
-                    {currentTool.owner?.formattedAddress && (
-                        <TouchableOpacity
-                            style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center' }}
-                            onPress={() => {
-                                const toolLat = currentTool.owner?.latitude || currentTool.pickupLatitude;
-                                const toolLng = currentTool.owner?.longitude || currentTool.pickupLongitude;
-                                if (!toolLat || !toolLng) return;
+    const renderLocation = () => {
+        const isIndividual = currentTool.owner?.ownerType === 'INDIVIDUAL';
+        const rawAddress = currentTool.owner?.formattedAddress || '';
+        
+        let displayAddress = rawAddress;
+        if (isIndividual && rawAddress) {
+            const parts = rawAddress.split(',');
+            const city = parts[parts.length - 2]?.trim() || parts[parts.length - 1]?.trim() || '';
+            const district = parts[parts.length - 1]?.trim() || '';
+            displayAddress = city && district ? `${city}, ${district} (Approximate Location)` : `${rawAddress} (Approximate Location)`;
+        }
 
-                                navigation.navigate('ToolMap', {
-                                    tools: [currentTool],
-                                    singleToolMode: true,
-                                    userLocation: defaultAddr ? {
-                                        latitude: defaultAddr.latitude,
-                                        longitude: defaultAddr.longitude,
-                                        address: defaultAddr.addressLine1
-                                    } : undefined,
-                                    initialRegion: {
-                                        latitude: toolLat,
-                                        longitude: toolLng,
-                                        latitudeDelta: 0.05,
-                                        longitudeDelta: 0.05,
-                                    }
-                                });
-                            }}
-                        >
-                            <Text style={{ color: COLORS.darkBlue, fontWeight: 'bold', fontSize: 12 }}>View on Map</Text>
-                            <Ionicons name="chevron-forward" size={12} color={COLORS.darkBlue} style={{ marginLeft: 2 }} />
-                        </TouchableOpacity>
-                    )}
-                </View>
-            </View>
-        </View>
-    );
+        return (
+            <View style={styles.locationContainer}>
+                <Text style={styles.sectionTitle}>Pickup Location</Text>
+                <View style={styles.locationCard}>
+                    <View style={styles.locationIconBox}>
+                        <Ionicons name="location" size={24} color={COLORS.orange} />
+                    </View>
+                    <View style={styles.locationInfo}>
+                        <Text style={styles.locationTitle}>{currentTool.owner?.businessName || ownerName}'s Location</Text>
+                        <Text style={styles.locationText}>
+                            {displayAddress || 'No specific location provided for this tool.'}
+                        </Text>
+                        {currentTool.owner?.formattedAddress && !isIndividual && (
+                            <TouchableOpacity
+                                style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center' }}
+                                onPress={() => {
+                                    const toolLat = currentTool.owner?.latitude || currentTool.pickupLatitude;
+                                    const toolLng = currentTool.owner?.longitude || currentTool.pickupLongitude;
+                                    if (!toolLat || !toolLng) return;
 
-    const renderOwner = () => (
-        <View style={styles.ownerContainer}>
-            <Text style={styles.sectionTitle}>Owner</Text>
-            <View style={styles.ownerCard}>
-                <Image source={{ uri: ownerImage }} style={styles.ownerImage} />
-                <View style={styles.ownerInfo}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={styles.ownerName}>{ownerName}</Text>
-                        {currentTool.owner?.user?.badges?.includes('IDENTITY_VERIFIED') && (
-                            <Ionicons name="checkmark-circle" size={14} color="#10B981" style={{ marginLeft: 4 }} />
+                                    navigation.navigate('ToolMap', {
+                                        tools: [currentTool],
+                                        singleToolMode: true,
+                                        userLocation: defaultAddr ? {
+                                            latitude: defaultAddr.latitude,
+                                            longitude: defaultAddr.longitude,
+                                            address: defaultAddr.addressLine1
+                                        } : undefined,
+                                        initialRegion: {
+                                            latitude: toolLat,
+                                            longitude: toolLng,
+                                            latitudeDelta: 0.05,
+                                            longitudeDelta: 0.05,
+                                        }
+                                    });
+                                }}
+                            >
+                                <Text style={{ color: COLORS.darkBlue, fontWeight: 'bold', fontSize: 12 }}>View on Map</Text>
+                                <Ionicons name="chevron-forward" size={12} color={COLORS.darkBlue} style={{ marginLeft: 2 }} />
+                            </TouchableOpacity>
+                        )}
+                        {isIndividual && (
+                            <View style={{ marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                <Ionicons name="lock-closed" size={12} color={COLORS.gray} />
+                                <Text style={{ color: COLORS.gray, fontSize: 11, fontStyle: 'italic' }}>
+                                    Exact address shared once rental is confirmed.
+                                </Text>
+                            </View>
                         )}
                     </View>
-                    <Text style={styles.ownerPhone}>{ownerPhone}</Text>
-                </View>
-                <View style={styles.ownerRating}>
-                    <Ionicons name="star" size={14} color={COLORS.orange} />
-                    <Text style={styles.ratingText}>
-                        {averageRating} ({reviews.length} rentals)
-                    </Text>
                 </View>
             </View>
-        </View>
-    );
+        );
+    };
+
+    const renderOwner = () => {
+        const badges = currentTool.owner?.user?.badges || [];
+        const isVerified = badges.includes('IDENTITY_VERIFIED');
+        const isBusinessVerified = badges.includes('BUSINESS_VERIFIED');
+        const isAddressVerified = badges.includes('ADDRESS_VERIFIED');
+
+        return (
+            <View style={styles.ownerContainer}>
+                <Text style={styles.sectionTitle}>Owner</Text>
+                <View style={styles.ownerCard}>
+                    <Image source={{ uri: ownerImage }} style={styles.ownerImage} />
+                    <View style={styles.ownerInfo}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+                            <Text style={styles.ownerName}>{ownerName}</Text>
+                            {isVerified && (
+                                <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                            )}
+                        </View>
+                        <Text style={styles.ownerPhone}>{ownerPhone}</Text>
+                        
+                        <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
+                            {isBusinessVerified && (
+                                <View style={[styles.badgeTag, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
+                                    <Ionicons name="business" size={12} color="#1D4ED8" />
+                                    <Text style={[styles.badgeText, { color: '#1D4ED8' }]}>Verified Business</Text>
+                                </View>
+                            )}
+                            {isAddressVerified && (
+                                <View style={[styles.badgeTag, { backgroundColor: '#FDF2F8', borderColor: '#FBCFE8' }]}>
+                                    <Ionicons name="home" size={12} color="#BE185D" />
+                                    <Text style={[styles.badgeText, { color: '#BE185D' }]}>Address Verified</Text>
+                                </View>
+                            )}
+                        </View>
+                    </View>
+                    <View style={styles.ownerRating}>
+                        <Ionicons name="star" size={14} color={COLORS.orange} />
+                        <Text style={styles.ratingText}>
+                            {averageRating} ({reviews.length} rentals)
+                        </Text>
+                    </View>
+                </View>
+            </View>
+        );
+    };
 
     const renderReviews = () => (
         <View style={styles.reviewsContainer}>
@@ -337,7 +380,7 @@ const ToolDetailsScreen = () => {
                 ))
             ) : (
                 <View style={styles.emptyReviews}>
-                    <Ionicons name="chatbubbles-outline" size={40} color={COLORS.gray} opacity={0.5} />
+                    <Ionicons name="star-outline" size={40} color={COLORS.gray} opacity={0.5} />
                     <Text style={styles.emptyReviewsText}>No reviews yet for this tool.</Text>
                 </View>
             )}
@@ -867,6 +910,19 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: COLORS.gray,
         lineHeight: 18,
+    },
+    badgeTag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        borderWidth: 1,
+        gap: 4,
+    },
+    badgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
     },
 });
 

@@ -171,6 +171,44 @@ const TrackServiceScreen = () => {
         }
     };
 
+    const handleCall = () => {
+        const targetPhone = isProvider
+            ? (currentServiceData?.customer?.phone)
+            : (currentServiceData?.provider?.phone);
+        const targetName = providerName;
+
+        if (!targetPhone) {
+            Alert.alert('Phone number not available', 'We could not retrieve the contact number for this user.');
+            return;
+        }
+
+        Alert.alert(
+            'Make a Call',
+            `Do you want to call ${targetName}?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Call',
+                    onPress: () => {
+                        Linking.openURL(`tel:${targetPhone}`).catch(() => {
+                            Alert.alert('Error', 'Unable to initiate call.');
+                        });
+                    }
+                }
+            ]
+        );
+    };
+
+    const performProviderCancellation = async (reason: string) => {
+        try {
+            await authApi.updateBookingStatus(serviceId.toString(), 'CANCELLED', undefined, reason, 'PROVIDER');
+            Alert.alert("Success", "Job cancelled successfully.");
+            navigation.goBack();
+        } catch (error: any) {
+            Alert.alert("Error", error.message || "Failed to cancel booking.");
+        }
+    };
+
     return (
         <View style={styles.container}>
             {/* Map View - Only Full Screen if Tracking */}
@@ -283,10 +321,25 @@ const TrackServiceScreen = () => {
                             </View>
                         </View>
                         <View style={styles.actions}>
-                            <TouchableOpacity style={styles.actionButton}>
-                                <Ionicons name="chatbubble-ellipses-outline" size={24} color={COLORS.darkBlue} />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.actionButton, styles.callButton]}>
+                            {currentStatus !== 'CANCELLED' && currentStatus !== 'REJECTED' && (
+                                <TouchableOpacity 
+                                    style={[styles.actionButton, { backgroundColor: '#FEF2F2' }]}
+                                    onPress={() => navigation.navigate('ReportIssue', {
+                                        reportType: 'SERVICE',
+                                        id: serviceId.toString(),
+                                        targetId: providerId || currentServiceData?.providerId || '',
+                                        title: serviceType,
+                                        subtitle: providerName,
+                                        image: serviceImage
+                                    })}
+                                >
+                                    <Ionicons name="alert-circle-outline" size={24} color="#EF4444" />
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity 
+                                style={[styles.actionButton, styles.callButton]}
+                                onPress={handleCall}
+                            >
                                 <Ionicons name="call-outline" size={24} color={COLORS.white} />
                             </TouchableOpacity>
                         </View>
@@ -335,6 +388,26 @@ const TrackServiceScreen = () => {
                                 <Text style={styles.arrivedButtonText}>I Have Arrived</Text>
                             </TouchableOpacity>
                         </>
+                    )}
+
+                    {isProvider && (currentStatus === 'CONFIRMED' || currentStatus === 'ON_THE_WAY') && (
+                        <TouchableOpacity
+                            style={[styles.cancelButton, { marginTop: 15 }]}
+                            onPress={() => {
+                                Alert.alert(
+                                    "Cannot Attend Job",
+                                    "Select a reason for cancellation:",
+                                    [
+                                        { text: "Cancel", style: "cancel" },
+                                        { text: "Emergency / Health Issue", onPress: () => performProviderCancellation("Personal Emergency / Health Issue") },
+                                        { text: "Vehicle / Transport Issue", onPress: () => performProviderCancellation("Vehicle / Transport Issue") },
+                                        { text: "Schedule Conflict", onPress: () => performProviderCancellation("Schedule Conflict") }
+                                    ]
+                                );
+                            }}
+                        >
+                            <Text style={styles.cancelButtonText}>Cancel Job (Cannot Attend)</Text>
+                        </TouchableOpacity>
                     )}
 
                     {!isProvider && currentStatus === 'ARRIVED' && (
@@ -480,7 +553,7 @@ const TrackServiceScreen = () => {
                                                     style: "destructive",
                                                     onPress: async () => {
                                                         try {
-                                                            await authApi.updateBookingStatus(serviceId.toString(), 'CANCELLED');
+                                                            await authApi.updateBookingStatus(serviceId.toString(), 'CANCELLED', undefined, 'Cancelled by customer', 'CUSTOMER');
                                                             Alert.alert("Success", "Booking cancelled successfully.");
                                                             navigation.goBack();
                                                         } catch (error) {
