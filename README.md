@@ -1,109 +1,167 @@
-# BuildMate — Professional Monorepo Marketplace
+# BuildMate - Home Services and Tool Rental Marketplace
 
-BuildMate is a comprehensive, corporate-grade marketplace platform designed to connect household clients, skilled maintenance professionals, and tool owners. It provides a unified ecosystem containing a React Native mobile application, a NestJS REST API, and a Next.js administrative web portal.
+Welcome to BuildMate! This monorepo project unites a robust backend API, a modern cross-platform mobile application, and an administrative web dashboard to deliver a secure, scalable, and user-friendly platform for maintenance services and equipment rentals. The system ensures transparency, integrity, and accessibility for all stakeholders—customers, service providers, rental owners, and administrators.
 
-This project was developed as an **Individual Project (5th Semester)**.
+## Table of Contents
+* Introduction
+* Features
+* Technology Stack
+* Installation
+* Usage
+* Project Structure
+* Contributors
+* Acknowledgments
 
----
+## Introduction
+The BuildMate system is designed to facilitate secure, efficient, and auditable home maintenance bookings and equipment rentals for households and skilled professionals. It comprises:
+* Backend API: Built with NestJS, handling business logic, authentication, booking management, user enrollment, catalog mapping, and review/dispute tracking.
+* Mobile Client: A cross-platform TypeScript React Native/Expo application delivering an accessible and intuitive interface for customers, service providers, and tool owners.
+* Admin Dashboard: A modern TypeScript Next.js web application for platform administration, verification workflows, and dispute resolution.
 
-## 🎓 Academic Credits & Guidance
+## Why This System?
+Traditional methods of hiring local handymen and renting tools are often fragmented, inefficient, and lack validation. BuildMate addresses these challenges by:
+* Automating and verifying complex booking and rental workflows.
+* Providing transparent ratings, togglable review likes, and real-time tracking.
+* Securing every action with robust role-based JWT authentication and authorization.
+* Enabling safe-area layouts that work seamlessly across varying Android and iOS displays.
 
-* **Academic Supervisor**: Prof. Thanuja Sandanayake
-* **Project Mentor**: Mr. Nipuna Senanayake
-* **Student/Developer**: Rashmeen
+## Features
+* Role-Based Authentication and Authorization: Fine-grained access control for Household Customers, Service Providers, and Rental Owners.
+* Trust and Verification System: Admin verification pipelines for documents and credentials.
+* Service Booking Workflows: Detailed booking requests with step-by-step state tracking (Pending, Confirmed, On Route, Working, Awaiting Pay, Completed).
+* Tool Rental Management: Dynamic day calculations, status tracking (Available, Rented), and interactive rental details.
+* Real-time Location Tracking: Interactive map navigation via Expo maps to track service providers on route.
+* Review and Feedback System: User ratings and comments with togglable likes for increased engagement.
+* Dispute and Suspension Panel: Official resolution tracking and user account suspension options.
+* Android and iOS Status Bar Support: Context-aware safe area handling for notch compatibility.
 
----
+## Technology Stack
 
-## 💡 Key Features & Roles
+### Backend
+* NestJS (API, business logic, and integration)
+* Prisma ORM (database client mapping)
+* PostgreSQL / Relational Database support
+* JWT (JSON Web Tokens authentication)
+* Cloudinary SDK (image and document uploads)
 
-The system supports four distinct user roles, each equipped with dedicated dashboards and specialized workflows:
+### Frontend Mobile
+* TypeScript & React Native (UI/UX framework)
+* Expo (cross-platform tooling)
+* React Navigation (screen navigation)
+* Expo Safe Area Context (notch and status bar handling)
 
-### 1. 🏠 Household Customer (Client)
-* **Onboarding & Authentication**: Secure sign-up/login, profile creation, and dynamic category discovery.
-* **Service Booking**: Explore maintenance services (e.g., electrical, plumbing) and request bookings.
-* **Tool Rentals**: Search, view, and rent local equipment with dynamic daily rates, extensions, and automated price calculations.
-* **Interactive Reviews**: Post ratings and detailed feedback with a toggleable "Like/Unlike" system for review engagement.
-* **Real-time Tracking**: Interactive map navigation via Expo maps to track service providers on route.
+### Frontend Web
+* Next.js (routing, server-side features)
+* Tailwind CSS (styling)
+* Lucide React (icons)
 
-### 2. 🛠️ Service Provider (Expert)
-* **Pending Booking Feed**: Inspect details (date, customer profile, issue photos) before approving or declining.
-* **Interactive Dashboard**: Track today's earnings, see active bookings, and start provider journeys.
-* **Active Progress Tracking**: Update statuses (`ON_THE_WAY`, `ARRIVED`, `COMPLETED`) to keep clients informed.
-* **Dispute Reporting**: Option to flag customer accounts or file client issue reports upon service completion.
+## Installation
 
-### 3. 🚜 Rental Owner (Supplier)
-* **Dashboard Feeds**: Monitor incoming rental tool orders and ongoing pickups in real-time.
-* **Inventory Management (CRUD)**: Create, read, update, and delete tools in the rental inventory (uploading product photos via Cloudinary).
-* **Schedules & Splits**: View past completed rentals and ongoing rentals separately, limited to 2 items by default with a "View All / Show Less" toggle.
+### Prerequisites
+* Backend: Node.js (v18+), npm/yarn, supported relational database
+* Mobile: Node.js (v18+), npm/yarn, Expo Go app (for testing on physical devices)
+* Admin Web: Node.js (v18+), npm/yarn
 
-### 4. 🛡️ System Administrator
-* **Trust & Verification**: Approve or reject provider/owner credentials.
-* **Identity Audits**: Track document uploads and automated identity flags.
-* **Disputes Resolution Panel**: Review client-provider conflicts, penalty configurations, and suspend/unsuspend user profiles.
+### Backend Setup
+1. Clone and enter the repository.
+2. Navigate to the API folder:
+   ```bash
+   cd apps/api
+   ```
+3. Configure your database connection and environment variables in `.env`.
+4. Run migrations and database seeding:
+   ```bash
+   npx prisma migrate dev
+   node populate_data.js
+   ```
 
----
+### Mobile Client Setup
+1. Navigate to the mobile folder:
+   ```bash
+   cd apps/mobile
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Run the development server:
+   ```bash
+   npx expo start
+   ```
 
-## 🛠️ Technology Stack
+### Admin Web Setup
+1. Navigate to the web folder:
+   ```bash
+   cd apps/admin-web
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Run the development server:
+   ```bash
+   npm run dev
+   ```
 
-BuildMate is configured as a Monorepo managed with **Turborepo** for optimal code compilation and modularity:
+## Usage
+* Household Customers: Browse categories, book services, rent tools, check provider locations, submit reviews, and like reviews.
+* Service Providers: Configure categories, accept/decline bookings, track active paths, report client issues, and check ratings.
+* Rental Owners: Manage tools, add equipment to catalog, track rental returns, and view order details.
+* System Administrators: Manage category registries, review pending verifications, uphold disputes, and suspend users.
 
-* **Mobile Client (`apps/mobile`)**: React Native, Expo CLI, Expo SDK, React Navigation, Expo Linear Gradient, React Native Vector Icons, React Native Maps, Expo Image Picker.
-* **Backend REST API (`apps/api`)**: NestJS, Prisma ORM, PostgreSQL / SQLite Database, JWT Authentication (strategies/guards), Cloudinary SDK.
-* **Administrative Web Portal (`apps/admin-web`)**: Next.js (App Router), Tailwind CSS, Lucide Icons.
+## Project Structure
 
----
-
-## 📂 Codebase Directory Structure
-
+### Backend (apps/api)
 ```text
-BuildMate/
-├── apps/
-│   ├── admin-web/              # Next.js admin interface
-│   │   ├── src/app/            # App router pages (verifications, disputes, services, settings)
-│   │   └── src/services/       # API call utilities
-│   ├── api/                    # NestJS API backend
-│   │   ├── prisma/             # Database schema and seed population configurations
-│   │   ├── src/admin/          # Category CRUD & user controls
-│   │   ├── src/auth/           # JWT, signup/login & verification systems
-│   │   └── src/disputes/       # Dispute resolution logic
-│   └── mobile/                 # React Native / Expo app
-│       ├── src/assets/         # Icons and illustration assets
-│       ├── src/components/     # Shared components (BottomNavBar, etc.)
-│       ├── src/navigation/     # Stack navigators and routes
-│       └── src/screens/        # Role-based screens (Activity, Inventory, Dashboard, etc.)
-├── package.json                # Core workspaces and dependency scripts
-└── turbo.json                  # Turborepo task pipeline configuration
+├── prisma/
+│   ├── schema.prisma             # Data models and DB schema mapping
+│   ├── seed.ts                   # Seed data configuration
+├── src/
+│   ├── admin/                    # Category CRUD and admin controls
+│   ├── auth/                     # JWT authentication and user roles
+│   ├── disputes/                 # Dispute resolution and logging
+│   ├── rentals/                  # Rental orders tracking
+│   ├── services/                 # Service bookings tracking
+│   ├── app.module.ts             # Main app module
+│   └── main.ts                   # App bootstrapper
+├── populate_data.js              # Database seeder execution script
+├── package.json
+└── README.md
 ```
 
----
-
-## 🚀 Getting Started
-
-To get a local development environment running:
-
-### 1. Prerequisite Installations
-Ensure you have **Node.js (v18+)** and **npm** installed on your workstation.
-
-### 2. Dependency Setup
-Clone the repository and install all dependencies in the monorepo root:
-```bash
-npm install
+### Frontend Mobile (apps/mobile)
+```text
+├── src/
+│   ├── assets/                   # Images and branding files
+│   ├── components/               # Navbars and common widgets
+│   ├── constants/                # Theme colors and margins
+│   ├── context/                  # Auth state provider
+│   ├── navigation/               # Route stacks and navigation definitions
+│   ├── screens/                  # Mobile screens (Dashboards, Booking Details, Schedules)
+│   └── services/                 # API connection configurations
+├── package.json
+├── tsconfig.json
+├── README.md
+└── ...
 ```
 
-### 3. Database Initialization
-Configure your database connection credentials in `apps/api/.env`. Then run the migrations and seed data script:
-```bash
-cd apps/api
-npx prisma migrate dev
-node populate_data.js
+### Frontend Web (apps/admin-web)
+```text
+├── src/
+│   ├── app/                      # App router layout and page views
+│   ├── components/               # Shared dashboard components
+│   └── services/                 # Admin API connections
+├── package.json
+├── tsconfig.json
+├── README.md
+└── ...
 ```
 
-### 4. Run the Platform
-Start the Next.js, NestJS, and Expo development servers concurrently using Turborepo from the root directory:
-```bash
-npm run dev
-```
+## Contributors
+* Rashmeen: [Individual Project Developer - Full-stack Monorepo Architecture, Mobile UI, Backend API, Database Seeding, Admin Web Portal, Safe Area Adjustments]
 
----
-
-*This project was built with clean type-safety and visual polish to comply with modern UX best practices.*
+## Acknowledgments
+* Supervised by: Prof. Thanuja Sandanayake, Faculty of Information Technology, University of Moratuwa.
+* Project Mentor: Mr. Nipuna Senanayake.
+* Special thanks to the Faculty of Information Technology at the University of Moratuwa for academic and platform guidance.
+* Disclaimer: This system is intended for research and demonstration purposes only.
