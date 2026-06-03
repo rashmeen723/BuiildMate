@@ -34,6 +34,10 @@ const SplashScreen: React.FC = () => {
         if (!loading) {
             const timer = setTimeout(() => {
                 if (user) {
+                    if (user.isSuspended) {
+                        navigation.replace('Suspended');
+                        return;
+                    }
                     // Logic for role-based auto-login
                     if (user.role === 'SERVICE_PROVIDER') {
                         navigation.replace('ServiceProviderDashboard');

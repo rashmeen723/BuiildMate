@@ -30,13 +30,13 @@ const ServiceProviderPendingScreen = () => {
                 <Text style={styles.title}>Application Submitted!</Text>
 
                 <Text style={styles.message}>
-                    Your account is currently under review by our admin team.
+                    Your account is currently being processed. Our AI is analyzing your documents to speed up your approval.
                 </Text>
 
                 <View style={styles.infoBox}>
-                    <Ionicons name="time-outline" size={24} color={COLORS.darkBlue} style={{ marginBottom: 8 }} />
-                    <Text style={styles.infoTitle}>Verification Timeline</Text>
-                    <Text style={styles.infoText}>Usually takes 24-48 hours</Text>
+                    <Ionicons name="flash-outline" size={24} color={COLORS.orange} style={{ marginBottom: 8 }} />
+                    <Text style={styles.infoTitle}>AI Instant Verification</Text>
+                    <Text style={styles.infoText}>Usually takes less than 60 seconds</Text>
                 </View>
 
                 <Text style={styles.subMessage}>

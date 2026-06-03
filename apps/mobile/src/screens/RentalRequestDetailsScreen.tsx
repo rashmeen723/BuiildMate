@@ -17,7 +17,8 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
-import { rentalsApi } from '../services/api';
+import { rentalsApi, authApi } from '../services/api';
+import * as ImagePicker from 'expo-image-picker';
 
 const { width } = Dimensions.get('window');
 
@@ -40,18 +41,84 @@ const RentalRequestDetailsScreen = () => {
         toolImage,
         status,
         paymentMethod,
-        isPaid
+        isPaid,
+        extensionDays,
+        extensionStatus,
+        extensionCost,
+        pickupPhotos,
+        returnPhotos
     } = route.params;
 
     const [loading, setLoading] = useState(false);
+    const [pickupImages, setPickupImages] = useState<string[]>([]);
+    const [returnImages, setReturnImages] = useState<string[]>([]);
+    const [uploadingPhotos, setUploadingPhotos] = useState(false);
 
     const platformFee = totalAmount * 0.1;
     const payout = totalAmount - platformFee;
 
-    const handleUpdateStatus = async (newStatus: string, successMsg: string) => {
+    const pickVerificationImage = async (type: 'pickup' | 'return') => {
+        const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+        const libraryPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (cameraPermission.status !== 'granted' && libraryPermission.status !== 'granted') {
+            Alert.alert('Permission Required', 'We need camera or media library permissions to capture verification photos.');
+            return;
+        }
+
+        Alert.alert(
+            "Upload Photo",
+            "Choose a source for your verification photo",
+            [
+                {
+                    text: "Take Photo (Camera)",
+                    onPress: async () => {
+                        const result = await ImagePicker.launchCameraAsync({
+                            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                            quality: 0.6,
+                        });
+                        if (!result.canceled && result.assets?.[0]?.uri) {
+                            if (type === 'pickup') {
+                                setPickupImages(prev => [...prev, result.assets[0].uri]);
+                            } else {
+                                setReturnImages(prev => [...prev, result.assets[0].uri]);
+                            }
+                        }
+                    }
+                },
+                {
+                    text: "Choose from Library",
+                    onPress: async () => {
+                        const result = await ImagePicker.launchImageLibraryAsync({
+                            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                            quality: 0.6,
+                        });
+                        if (!result.canceled && result.assets?.[0]?.uri) {
+                            if (type === 'pickup') {
+                                setPickupImages(prev => [...prev, result.assets[0].uri]);
+                            } else {
+                                setReturnImages(prev => [...prev, result.assets[0].uri]);
+                            }
+                        }
+                    }
+                },
+                { text: "Cancel", style: "cancel" }
+            ]
+        );
+    };
+
+    const removeImage = (index: number, type: 'pickup' | 'return') => {
+        if (type === 'pickup') {
+            setPickupImages(prev => prev.filter((_, i) => i !== index));
+        } else {
+            setReturnImages(prev => prev.filter((_, i) => i !== index));
+        }
+    };
+
+    const handleUpdateStatus = async (newStatus: string, successMsg: string, pickupPhotosArg?: string[], returnPhotosArg?: string[]) => {
         setLoading(true);
         try {
-            await rentalsApi.updateRentalStatus(rentalId, newStatus);
+            await rentalsApi.updateRentalStatus(rentalId, newStatus, pickupPhotosArg, returnPhotosArg);
             Alert.alert("Success", successMsg);
             navigation.navigate('RentalRequests');
         } catch (error) {
@@ -64,8 +131,100 @@ const RentalRequestDetailsScreen = () => {
 
     const handleAccept = () => handleUpdateStatus('CONFIRMED', "Rental request accepted!");
     const handleDecline = () => handleUpdateStatus('REJECTED', "Rental request declined.");
-    const handlePickup = () => handleUpdateStatus('IN_PROGRESS', "Tool marked as Picked Up!");
-    const handleReturn = () => handleUpdateStatus('COMPLETED', "Tool marked as Returned & Completed!");
+
+    const handlePickup = async () => {
+        if (pickupImages.length === 0) {
+            Alert.alert(
+                "Verification Photos Recommended",
+                "Uploading pickup condition photos is highly recommended to protect against damage disputes. Are you sure you want to proceed without photos?",
+                [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Yes, Proceed", onPress: () => executePickup([]) }
+                ]
+            );
+            return;
+        }
+
+        setUploadingPhotos(true);
+        try {
+            const uploadedUrls = [];
+            for (const img of pickupImages) {
+                const url = await authApi.uploadPublicFile(img);
+                uploadedUrls.push(url);
+            }
+            await executePickup(uploadedUrls);
+        } catch (err) {
+            Alert.alert("Upload Failed", "Failed to upload verification photos. Please try again.");
+            console.error(err);
+        } finally {
+            setUploadingPhotos(false);
+        }
+    };
+
+    const executePickup = async (uploadedUrls: string[]) => {
+        await handleUpdateStatus('IN_PROGRESS', "Tool marked as Picked Up!", uploadedUrls, undefined);
+    };
+
+    const handleReturn = async () => {
+        if (returnImages.length === 0) {
+            Alert.alert(
+                "Verification Photos Recommended",
+                "Uploading return condition photos is highly recommended to protect against damage disputes. Are you sure you want to proceed without photos?",
+                [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Yes, Proceed", onPress: () => executeReturn([]) }
+                ]
+            );
+            return;
+        }
+
+        setUploadingPhotos(true);
+        try {
+            const uploadedUrls = [];
+            for (const img of returnImages) {
+                const url = await authApi.uploadPublicFile(img);
+                uploadedUrls.push(url);
+            }
+            await executeReturn(uploadedUrls);
+        } catch (err) {
+            Alert.alert("Upload Failed", "Failed to upload return verification photos. Please try again.");
+            console.error(err);
+        } finally {
+            setUploadingPhotos(false);
+        }
+    };
+
+    const executeReturn = async (uploadedUrls: string[]) => {
+        await handleUpdateStatus('COMPLETED', "Tool marked as Returned & Completed!", undefined, uploadedUrls);
+    };
+
+    const handleApproveExtension = async () => {
+        setLoading(true);
+        try {
+            await rentalsApi.approveExtension(rentalId);
+            Alert.alert("Success", "Extension request approved successfully!");
+            navigation.goBack();
+        } catch (error: any) {
+            console.error("Error approving extension:", error);
+            Alert.alert("Error", error.message || "Failed to approve extension request.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRejectExtension = async () => {
+        setLoading(true);
+        try {
+            await rentalsApi.rejectExtension(rentalId);
+            Alert.alert("Success", "Extension request declined.");
+            navigation.goBack();
+        } catch (error: any) {
+            console.error("Error rejecting extension:", error);
+            Alert.alert("Error", error.message || "Failed to decline extension request.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -161,6 +320,126 @@ const RentalRequestDetailsScreen = () => {
                         <Text style={styles.payoutValue}>LKR {payout.toLocaleString()}</Text>
                     </View>
                 </View>
+
+                {/* Extension Request Section */}
+                {extensionStatus === 'PENDING' && (
+                    <View style={styles.extensionCard}>
+                        <View style={styles.extensionHeader}>
+                            <Ionicons name="time" size={24} color={COLORS.orange} />
+                            <Text style={styles.extensionTitle}>Extension Request</Text>
+                        </View>
+                        <Text style={styles.extensionText}>
+                            The customer has requested to extend this rental by <Text style={{fontWeight: 'bold'}}>{extensionDays} days</Text>.
+                        </Text>
+                        <View style={styles.extensionCostRow}>
+                            <Text style={styles.extensionCostLabel}>Additional Earnings:</Text>
+                            <Text style={styles.extensionCostValue}>LKR {extensionCost?.toLocaleString()}</Text>
+                        </View>
+                        
+                        <View style={styles.extensionButtonRow}>
+                            <TouchableOpacity 
+                                style={styles.extensionDeclineButton} 
+                                onPress={handleRejectExtension}
+                                disabled={loading}
+                            >
+                                <Text style={styles.extensionDeclineButtonText}>Decline</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={styles.extensionApproveButton} 
+                                onPress={handleApproveExtension}
+                                disabled={loading}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator color={COLORS.white} />
+                                ) : (
+                                    <Text style={styles.extensionApproveButtonText}>Approve</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+
+                {/* Condition Verification Photos */}
+                {(status === 'CONFIRMED' || status === 'IN_PROGRESS' || status === 'COMPLETED' || status === 'PAID' || (pickupPhotos && pickupPhotos.length > 0) || (returnPhotos && returnPhotos.length > 0)) && (
+                    <View style={styles.photosSectionCard}>
+                        <Text style={styles.sectionTitle}>Verification Photos</Text>
+                        
+                        {/* 1. Show existing Pickup Photos if they exist or show upload slot when CONFIRMED */}
+                        {((pickupPhotos && pickupPhotos.length > 0) || status === 'CONFIRMED') && (
+                            <View style={styles.photoBlock}>
+                                <Text style={styles.photoBlockTitle}>Pickup Photos (Handover)</Text>
+                                {pickupPhotos && pickupPhotos.length > 0 ? (
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbnailList}>
+                                        {pickupPhotos.map((url: string, index: number) => (
+                                            <Image key={index} source={{ uri: url }} style={styles.thumbnailImage} />
+                                        ))}
+                                    </ScrollView>
+                                ) : status === 'CONFIRMED' ? (
+                                    <View>
+                                        <Text style={styles.photoHelperText}>Upload photos of the tool's condition before handover.</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                                            <TouchableOpacity style={styles.addPhotoBtn} onPress={() => pickVerificationImage('pickup')} disabled={uploadingPhotos}>
+                                                <Ionicons name="camera" size={20} color={COLORS.darkBlue} />
+                                                <Text style={styles.addPhotoBtnText}>Add Photo</Text>
+                                            </TouchableOpacity>
+                                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbnailList}>
+                                                {pickupImages.map((uri, index) => (
+                                                    <View key={index} style={styles.thumbnailContainer}>
+                                                        <Image source={{ uri }} style={styles.thumbnailImage} />
+                                                        <TouchableOpacity style={styles.removeThumbnailBtn} onPress={() => removeImage(index, 'pickup')}>
+                                                            <Ionicons name="close-circle" size={18} color={'#EF4444'} />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                ))}
+                                            </ScrollView>
+                                        </View>
+                                    </View>
+                                ) : null}
+                            </View>
+                        )}
+
+                        {/* 2. Show existing Return Photos if they exist or show upload slot when IN_PROGRESS */}
+                        {((returnPhotos && returnPhotos.length > 0) || status === 'IN_PROGRESS') && (
+                            <View style={[styles.photoBlock, { marginTop: 16 }]}>
+                                <Text style={styles.photoBlockTitle}>Return Photos</Text>
+                                {returnPhotos && returnPhotos.length > 0 ? (
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbnailList}>
+                                        {returnPhotos.map((url: string, index: number) => (
+                                            <Image key={index} source={{ uri: url }} style={styles.thumbnailImage} />
+                                        ))}
+                                    </ScrollView>
+                                ) : status === 'IN_PROGRESS' ? (
+                                    <View>
+                                        <Text style={styles.photoHelperText}>Upload photos of the tool's condition upon return.</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                                            <TouchableOpacity style={styles.addPhotoBtn} onPress={() => pickVerificationImage('return')} disabled={uploadingPhotos}>
+                                                <Ionicons name="camera" size={20} color={COLORS.darkBlue} />
+                                                <Text style={styles.addPhotoBtnText}>Add Photo</Text>
+                                            </TouchableOpacity>
+                                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbnailList}>
+                                                {returnImages.map((uri, index) => (
+                                                    <View key={index} style={styles.thumbnailContainer}>
+                                                        <Image source={{ uri }} style={styles.thumbnailImage} />
+                                                        <TouchableOpacity style={styles.removeThumbnailBtn} onPress={() => removeImage(index, 'return')}>
+                                                            <Ionicons name="close-circle" size={18} color={'#EF4444'} />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                ))}
+                                            </ScrollView>
+                                        </View>
+                                    </View>
+                                ) : null}
+                            </View>
+                        )}
+
+                        {uploadingPhotos && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, justifyContent: 'center' }}>
+                                <ActivityIndicator size="small" color={COLORS.darkBlue} />
+                                <Text style={{ color: COLORS.darkBlue, fontSize: 13, fontWeight: '600' }}>Uploading photos to Cloudinary...</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
 
                 {/* Action Buttons */}
                 {status === 'PENDING' && (
@@ -494,6 +773,155 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
+    },
+    extensionCard: {
+        backgroundColor: '#FFFBEB',
+        borderWidth: 1,
+        borderColor: '#FEF3C7',
+        borderRadius: 20,
+        padding: 20,
+        marginVertical: 16,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    extensionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+        gap: 8,
+    },
+    extensionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#92400E',
+    },
+    extensionText: {
+        fontSize: 14,
+        color: '#78350F',
+        lineHeight: 20,
+        marginBottom: 12,
+    },
+    extensionCostRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#FEF3C7',
+        padding: 12,
+        borderRadius: 12,
+        marginBottom: 20,
+    },
+    extensionCostLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#78350F',
+    },
+    extensionCostValue: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: COLORS.orange,
+    },
+    extensionButtonRow: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    extensionDeclineButton: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: '#EF4444',
+        borderRadius: 12,
+        paddingVertical: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: COLORS.white,
+    },
+    extensionDeclineButtonText: {
+        color: '#EF4444',
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    extensionApproveButton: {
+        flex: 1,
+        backgroundColor: '#10B981',
+        borderRadius: 12,
+        paddingVertical: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    extensionApproveButtonText: {
+        color: COLORS.white,
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: COLORS.black,
+        marginBottom: 12,
+    },
+    photosSectionCard: {
+        backgroundColor: COLORS.white,
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#F3F4F6',
+        marginBottom: 24,
+    },
+    photoBlock: {
+        backgroundColor: '#F9FAFB',
+        borderRadius: 12,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    photoBlockTitle: {
+        fontSize: 13,
+        fontWeight: 'bold',
+        color: COLORS.black,
+        marginBottom: 4,
+    },
+    photoHelperText: {
+        fontSize: 11,
+        color: '#6B7280',
+        marginBottom: 4,
+    },
+    addPhotoBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#EEF2FF',
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        gap: 6,
+    },
+    addPhotoBtnText: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: COLORS.darkBlue,
+    },
+    thumbnailList: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    thumbnailContainer: {
+        position: 'relative',
+        width: 50,
+        height: 50,
+    },
+    thumbnailImage: {
+        width: 50,
+        height: 50,
+        borderRadius: 8,
+        backgroundColor: '#E5E7EB',
+    },
+    removeThumbnailBtn: {
+        position: 'absolute',
+        top: -6,
+        right: -6,
+        backgroundColor: COLORS.white,
+        borderRadius: 9,
     },
 });
 

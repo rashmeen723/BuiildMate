@@ -55,6 +55,7 @@ const ProviderProfileScreen = () => {
                     image: data.profileImage || 'https://via.placeholder.com/150',
                     experience: `${data.yearsOfExperience}+ years`,
                     skills: data.skills || [],
+                    badges: data.badges || [],
                 });
             } catch (error) {
                 console.error('Error fetching provider details:', error);
@@ -233,6 +234,24 @@ const ProviderProfileScreen = () => {
                             <Text style={styles.reviewCount}>({provider.reviews} reviews)</Text>
                         </View>
 
+                        {/* Badges Section */}
+                        {provider.badges?.length > 0 && (
+                            <View style={styles.badgeRow}>
+                                {provider.badges.includes('IDENTITY_VERIFIED') && (
+                                    <View style={[styles.badge, { backgroundColor: '#10B981' }]}>
+                                        <Ionicons name="checkmark-circle" size={12} color={COLORS.white} />
+                                        <Text style={styles.badgeText}>Identity Verified</Text>
+                                    </View>
+                                )}
+                                {provider.badges.includes('CERTIFIED_PRO') && (
+                                    <View style={[styles.badge, { backgroundColor: COLORS.orange }]}>
+                                        <Ionicons name="ribbon" size={12} color={COLORS.white} />
+                                        <Text style={styles.badgeText}>Certified Pro</Text>
+                                    </View>
+                                )}
+                            </View>
+                        )}
+
                         <View style={styles.contactRow}>
                             <Ionicons name="call-outline" size={16} color={COLORS.gray} />
                             <Text style={styles.contactText}>{provider.phone}</Text>
@@ -396,7 +415,7 @@ const ProviderProfileScreen = () => {
                         ))
                     ) : (
                         <View style={styles.emptyCard}>
-                            <Ionicons name="chatbox-ellipses-outline" size={40} color={COLORS.lightGray} />
+                            <Ionicons name="star-outline" size={40} color={COLORS.lightGray} />
                             <Text style={styles.emptyText}>No reviews yet</Text>
                         </View>
                     )}
@@ -544,6 +563,26 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#D97706',
         fontWeight: '600',
+    },
+    badgeRow: {
+        flexDirection: 'row',
+        marginBottom: 16,
+        gap: 8,
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+    },
+    badge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    badgeText: {
+        color: COLORS.white,
+        fontSize: 10,
+        fontWeight: 'bold',
+        marginLeft: 4,
     },
     skillsContainer: {
         flexDirection: 'row',

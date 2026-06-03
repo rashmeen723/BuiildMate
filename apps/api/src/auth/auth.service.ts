@@ -1,9 +1,10 @@
-import { Injectable, ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { MailerService } from '@nestjs-modules/mailer';
 import { JwtService } from '@nestjs/jwt';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { AiVerificationService } from '../ai-verification/ai-verification.service';
 
 @Injectable()
 export class AuthService {
@@ -11,7 +12,8 @@ export class AuthService {
         private prisma: PrismaService,
         private mailerService: MailerService,
         private jwtService: JwtService,
-        private cloudinaryService: CloudinaryService
+        private cloudinaryService: CloudinaryService,
+        private aiVerificationService: AiVerificationService
     ) { }
 
     async uploadFilePublic(file: Express.Multer.File) {
@@ -74,14 +76,28 @@ export class AuthService {
                                 documentType: 'ID_CARD',
                                 documentUrl: documents.idImage
                             }] : []),
+                            ...(documents?.idImageFront ? [{
+                                documentType: 'ID_CARD_FRONT',
+                                documentUrl: documents.idImageFront
+                            }] : []),
+                            ...(documents?.idImageBack ? [{
+                                documentType: 'ID_CARD_BACK',
+                                documentUrl: documents.idImageBack
+                            }] : []),
                             ...(role === 'SERVICE_PROVIDER' ? (documents?.certificateImages || []).map((url: string) => ({
                                 documentType: 'CERTIFICATE',
                                 documentUrl: url
                             })) : []),
-                            ...(role === 'RENTAL_OWNER' && documents?.businessDoc ? [{
-                                documentType: 'BUSINESS_PERMIT',
-                                documentUrl: documents.businessDoc
-                            }] : [])
+                            ...(role === 'RENTAL_OWNER' ? [
+                                ...(documents?.businessDoc ? [{
+                                    documentType: 'BUSINESS_PERMIT',
+                                    documentUrl: documents.businessDoc
+                                }] : []),
+                                ...(documents?.utilityBill ? [{
+                                    documentType: 'UTILITY_BILL',
+                                    documentUrl: documents.utilityBill
+                                }] : [])
+                            ] : [])
                         ]
                     },
                     // Handle specific profiles based on role
@@ -105,6 +121,7 @@ export class AuthService {
                     ...(role === 'RENTAL_OWNER' && {
                         rentalOwner: {
                             create: {
+                                ownerType: rentalDetails?.ownerType || 'INDIVIDUAL',
                                 businessName: rentalDetails?.businessName || 'Business Name',
                                 toolCategories: rentalDetails?.categories || [],
                                 yearsInBusiness: rentalDetails?.yearsInBusiness?.toString(),
@@ -135,6 +152,13 @@ export class AuthService {
                 }
             });
 
+            // 3. Trigger AI Verification for uploaded documents (asynchronously)
+            user.documents.forEach(doc => {
+                this.aiVerificationService.verifyDocument(doc.id).catch(err => {
+                    console.error(`Background AI verification failed for document ${doc.id}:`, err);
+                });
+            });
+
             // Remove password from response
             const { password: _, ...result } = user;
             return result;
@@ -154,6 +178,12 @@ export class AuthService {
 
         if (!user) {
             throw new UnauthorizedException('Invalid credentials');
+        }
+
+        if (user.isSuspended) {
+            throw new ForbiddenException(
+                `Your account has been suspended: ${user.suspensionReason || 'No reason provided'}`
+            );
         }
 
         const isPasswordValid = await bcrypt.compare(password, user.password);

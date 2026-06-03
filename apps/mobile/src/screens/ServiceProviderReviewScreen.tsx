@@ -87,8 +87,7 @@ const ServiceProviderReviewScreen = () => {
                 professionalDetails,
                 documents: {
                     idImage: idImageUrl,
-                    certificateImages: certImageUrls,
-                    businessRegNum: documents.businessRegNum
+                    certificateImages: certImageUrls
                 },
                 serviceArea: {
                     address: serviceArea.address,
@@ -174,8 +173,9 @@ const ServiceProviderReviewScreen = () => {
                 <Section title="Verification Documents" onEdit={handleEditDocuments}>
                     <Row label="Profile Photo" value={documents.profileImage ? "Attached" : "Missing"} />
                     <Row label="ID Proof" value={documents.idImage ? "Attached" : "Missing"} />
+
                     <Row label="Certificates" value={`${documents.certificateImages.length} uploaded`} />
-                    <Row label="Business Reg. No" value={documents.businessRegNum || "N/A"} />
+
                 </Section>
 
                 {/* Service Area */}

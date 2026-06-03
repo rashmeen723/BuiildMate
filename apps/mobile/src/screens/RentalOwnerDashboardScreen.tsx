@@ -99,7 +99,12 @@ const RentalOwnerDashboardScreen = () => {
                 customerImage: item.customer.profileImage,
                 pickupLocation: item.pickupLocation,
                 paymentMethod: item.paymentMethod,
-                isPaid: item.isPaid
+                isPaid: item.isPaid,
+                extensionDays: item.extensionDays,
+                extensionStatus: item.extensionStatus,
+                extensionCost: item.extensionCost,
+                pickupPhotos: item.pickupPhotos,
+                returnPhotos: item.returnPhotos
             })}
         >
             <View style={styles.requestHeader}>
@@ -210,7 +215,7 @@ const RentalOwnerDashboardScreen = () => {
                                 </View>
                                 <View style={styles.inventoryInfo}>
                                     <Text style={styles.inventoryTitle}>My Tools</Text>
-                                    <Text style={styles.inventorySubtitle}>Manage your equipment catalog</Text>
+                                    <Text style={styles.inventorySubtitle} numberOfLines={1}>Manage your equipment catalog</Text>
                                 </View>
                             </View>
                             <View style={styles.inventoryCardRight}>
@@ -224,7 +229,7 @@ const RentalOwnerDashboardScreen = () => {
                         {/* Rental Overview Card */}
                         <TouchableOpacity
                             style={[styles.inventoryCard, { marginTop: 16 }]}
-                            onPress={() => navigation.navigate('RentalOwnerSchedule')}
+                            onPress={() => navigation.navigate('RentalRequests')}
                         >
                             <View style={styles.inventoryCardLeft}>
                                 <View style={[styles.inventoryIconBg, { backgroundColor: COLORS.orange }]}>
@@ -232,7 +237,7 @@ const RentalOwnerDashboardScreen = () => {
                                 </View>
                                 <View style={styles.inventoryInfo}>
                                     <Text style={styles.inventoryTitle}>Rental Request</Text>
-                                    <Text style={styles.inventorySubtitle}>Check pickups & returns</Text>
+                                    <Text style={styles.inventorySubtitle} numberOfLines={1}>Check pickups & returns</Text>
                                 </View>
                             </View>
                             <View style={styles.inventoryCardRight}>
@@ -243,7 +248,43 @@ const RentalOwnerDashboardScreen = () => {
                             </View>
                         </TouchableOpacity>
 
+                        {/* New Rental Requests */}
+                        <View style={{ marginTop: 24 }}>
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionTitle}>New Requests</Text>
+                                <TouchableOpacity onPress={() => navigation.navigate('RentalRequests')}>
+                                    <Text style={styles.seeAllText}>View All</Text>
+                                </TouchableOpacity>
+                            </View>
+                            {rentals.filter(r => r.status === 'PENDING').length > 0 ? (
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.requestsScroll}>
+                                    {rentals.filter(r => r.status === 'PENDING').map(renderRequestCard)}
+                                </ScrollView>
+                            ) : (
+                                <View style={styles.emptyRequests}>
+                                    <Text style={styles.emptyRequestsText}>No new requests pending.</Text>
+                                </View>
+                            )}
+                        </View>
 
+                        {/* Active Rentals */}
+                        <View style={{ marginTop: 24 }}>
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionTitle}>Active Pickups & Rentals</Text>
+                                <TouchableOpacity onPress={() => navigation.navigate('RentalRequests')}>
+                                    <Text style={styles.seeAllText}>View All</Text>
+                                </TouchableOpacity>
+                            </View>
+                            {rentals.filter(r => r.status === 'CONFIRMED' || r.status === 'IN_PROGRESS').length > 0 ? (
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.requestsScroll}>
+                                    {rentals.filter(r => r.status === 'CONFIRMED' || r.status === 'IN_PROGRESS').map(renderRequestCard)}
+                                </ScrollView>
+                            ) : (
+                                <View style={styles.emptyRequests}>
+                                    <Text style={styles.emptyRequestsText}>No active rentals currently.</Text>
+                                </View>
+                            )}
+                        </View>
                     </>
                 )}
 
@@ -405,7 +446,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         borderWidth: 1,
-        borderColor: '#F1F5F9',
+        borderColor: '#E2E8F0',
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
@@ -415,6 +456,7 @@ const styles = StyleSheet.create({
     inventoryCardLeft: {
         flexDirection: 'row',
         alignItems: 'center',
+        flex: 1,
     },
     inventoryIconBg: {
         width: 54,
@@ -426,6 +468,7 @@ const styles = StyleSheet.create({
     },
     inventoryInfo: {
         marginLeft: 16,
+        flex: 1,
     },
     inventoryTitle: {
         fontSize: 18,
@@ -440,6 +483,7 @@ const styles = StyleSheet.create({
     inventoryCardRight: {
         flexDirection: 'row',
         alignItems: 'center',
+        paddingLeft: 12,
     },
     countBadge: {
         backgroundColor: '#EFF6FF',

@@ -22,9 +22,11 @@ const ActivityScreen = () => {
     const [ongoingServices, setOngoingServices] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedTab, setSelectedTab] = useState('ALL');
-
-    // Mock Data for Active Rentals (Customer side)
     const [rentals, setRentals] = useState<any[]>([]);
+
+    const [viewAllCompletedServices, setViewAllCompletedServices] = useState(false);
+    const [viewAllCompletedRentals, setViewAllCompletedRentals] = useState(false);
+    const [viewAllProviderCompleted, setViewAllProviderCompleted] = useState(false);
 
     const route = useRoute<RouteProp<RootStackParamList, 'Activity'>>();
 
@@ -74,6 +76,135 @@ const ActivityScreen = () => {
         }
     };
 
+    const renderServiceCard = (service: any) => (
+        <View key={service.id} style={styles.card}>
+            <View style={styles.cardContent}>
+                <View style={styles.textContainer}>
+                    <Text style={[styles.statusText, { color: getStatusColor(service.status) }]}>
+                        {getStatusText(service.status)}
+                    </Text>
+                    <Text style={styles.cardTitle}>{service.serviceType}</Text>
+                    <Text style={styles.subText}>
+                        {isProvider ? 'Customer: ' : 'Provider: '}
+                        {isProvider ? (service.customer?.fullName || 'N/A') : (service.provider?.fullName || 'N/A')}
+                    </Text>
+
+                    <View style={styles.buttonRow}>
+                        {service.status === 'CANCELLED' || service.status === 'REJECTED' ? (
+                            <View style={[styles.trackButton, { backgroundColor: '#F3F4F6', borderWidth: 0 }]}>
+                                <Text style={[styles.trackButtonText, { color: '#9CA3AF' }]}>
+                                    {service.status === 'CANCELLED' ? 'Cancelled' : 'Rejected'}
+                                </Text>
+                            </View>
+                        ) : isProvider && service.status === 'PENDING' ? (
+                            <TouchableOpacity
+                                style={[styles.trackButton, { backgroundColor: COLORS.orange }]}
+                                onPress={() => {
+                                    navigation.navigate('BookingRequest', {
+                                        bookingId: service.id,
+                                        customerName: service.customer?.fullName || 'Customer',
+                                        address: service.address,
+                                        date: service.bookingDate || 'Today',
+                                        time: service.startTime || '10:30 AM',
+                                        description: service.description || service.serviceType,
+                                        estimatedTotal: service.totalAmount,
+                                        phone: service.customer?.phone || '+94 77 123 4567',
+                                        latitude: service.latitude || service.customer?.addresses?.[0]?.latitude,
+                                        longitude: service.longitude || service.customer?.addresses?.[0]?.longitude,
+                                        customerImage: service.customer?.profileImage,
+                                        issueImage: service.issueImage
+                                    });
+                                }}
+                            >
+                                <Text style={styles.trackButtonText}>View Request</Text>
+                            </TouchableOpacity>
+                        ) : service.status === 'PAID' ? (
+                            <TouchableOpacity
+                                style={[styles.trackButton, { backgroundColor: '#ECFDF5', borderWidth: 0 }]}
+                                onPress={() => {
+                                    navigation.navigate('TrackService', {
+                                        serviceId: service.id,
+                                        providerId: isProvider ? service.customerId : (service.provider?.userId || service.providerId),
+                                        providerName: isProvider ? (service.customer?.fullName || 'Customer') : (service.provider?.fullName || 'Provider'),
+                                        serviceType: service.serviceType,
+                                        status: service.status,
+                                        arrivedAt: service.arrivedAt,
+                                        serviceImage: isProvider ? (service.customer?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(service.customer?.fullName || 'User')}&background=random`) : (service.provider?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(service.provider?.fullName || 'User')}&background=random`)
+                                    });
+                                }}
+                            >
+                                <Text style={[styles.trackButtonText, { color: '#10B981' }]}>
+                                    Completed
+                                </Text>
+                            </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity
+                                style={styles.trackButton}
+                                onPress={() => {
+                                    navigation.navigate('TrackService', {
+                                        serviceId: service.id,
+                                        providerId: isProvider ? service.customerId : (service.provider?.userId || service.providerId),
+                                        providerName: isProvider ? (service.customer?.fullName || 'Customer') : (service.provider?.fullName || 'Provider'),
+                                        serviceType: service.serviceType,
+                                        status: service.status,
+                                        arrivedAt: service.arrivedAt,
+                                        serviceImage: isProvider ? (service.customer?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(service.customer?.fullName || 'User')}&background=random`) : (service.provider?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(service.provider?.fullName || 'User')}&background=random`)
+                                    });
+                                }}
+                            >
+                                <Text style={styles.trackButtonText}>
+                                    {service.status === 'COMPLETED' ? (isProvider ? 'Confirm Payment' : 'Review Invoice') : 'Track'}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                        <Text style={styles.dateTimeText}>
+                            {new Date(service.bookingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} | {service.startTime}
+                        </Text>
+                    </View>
+                </View>
+            </View>
+        </View>
+    );
+
+    const renderRentalCard = (rental: any) => (
+        <View key={rental.id} style={styles.card}>
+            <View style={styles.cardContent}>
+                <View style={styles.textContainer}>
+                    <Text style={[styles.statusText, rental.status === 'PENDING' ? { color: COLORS.orange } : {}]}>
+                        {rental.status}
+                    </Text>
+                    <Text style={styles.cardTitle}>{rental.tool.name}</Text>
+                    <Text style={styles.subText}>Rental ID: #{rental.id.slice(0, 8)}</Text>
+                    <TouchableOpacity
+                        style={styles.extendButton}
+                        onPress={() => navigation.navigate('RentalStatus', {
+                            rentalId: rental.id,
+                            toolName: rental.tool.name,
+                            dueDate: new Date(rental.endDate).toLocaleDateString(),
+                            startDate: new Date(rental.startDate).toLocaleDateString(),
+                            image: rental.tool.images?.[0],
+                            status: rental.status,
+                            ownerName: rental.tool.owner.user.fullName,
+                            ownerId: rental.tool.owner.userId,
+                            ownerPhone: rental.tool.owner.user.phone,
+                            ownerAddress: rental.pickupLocation,
+                            paymentMethod: rental.paymentMethod,
+                            isPaid: rental.isPaid,
+                            totalAmount: rental.totalAmount,
+                            reviews: rental.reviews || [],
+                            extensionDays: rental.extensionDays,
+                            extensionStatus: rental.extensionStatus,
+                            extensionCost: rental.extensionCost
+                        })}
+                    >
+                        <Text style={styles.extendButtonText}>View Status</Text>
+                    </TouchableOpacity>
+                </View>
+                <Image source={{ uri: rental.tool.images?.[0] || 'https://via.placeholder.com/150' }} style={styles.cardImage} />
+            </View>
+        </View>
+    );
+
     return (
         <SafeAreaView style={styles.container}>
             {/* Header */}
@@ -108,131 +239,189 @@ const ActivityScreen = () => {
                     </ScrollView>
                 )}
 
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Ongoing Services</Text>
-                    <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{ongoingServices.length} ACTIVE</Text>
-                    </View>
-                </View>
-
                 {loading ? (
                     <ActivityIndicator size="large" color={COLORS.orange} style={{ marginVertical: 20 }} />
-                ) : (
+                ) : isProvider ? (
                     (() => {
+                        if (selectedTab === 'ALL') {
+                            const activeServices = ongoingServices.filter(s =>
+                                s.status === 'PENDING' ||
+                                s.status === 'CONFIRMED' ||
+                                s.status === 'ON_THE_WAY' ||
+                                s.status === 'ARRIVED'
+                            );
+                            const pastServices = ongoingServices.filter(s =>
+                                s.status === 'COMPLETED' ||
+                                s.status === 'PAID' ||
+                                s.status === 'CANCELLED' ||
+                                s.status === 'REJECTED'
+                            );
+                            const displayedPastServices = viewAllProviderCompleted ? pastServices : pastServices.slice(0, 2);
+
+                            return (
+                                <>
+                                    {/* Ongoing Services */}
+                                    <View style={styles.sectionHeader}>
+                                        <Text style={styles.sectionTitle}>Ongoing Services</Text>
+                                        <View style={styles.badge}>
+                                            <Text style={styles.badgeText}>{activeServices.length} ACTIVE</Text>
+                                        </View>
+                                    </View>
+                                    {activeServices.length > 0 ? activeServices.map((service) => renderServiceCard(service)) : (
+                                        <View style={styles.emptyCard}>
+                                            <Ionicons name="calendar-outline" size={40} color={COLORS.lightGray} />
+                                            <Text style={styles.emptyText}>No ongoing services found</Text>
+                                        </View>
+                                    )}
+
+                                    {/* Completed Services */}
+                                    {pastServices.length > 0 && (
+                                        <>
+                                            <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+                                                <Text style={styles.sectionTitle}>Completed Services</Text>
+                                                {pastServices.length > 2 && (
+                                                    <TouchableOpacity onPress={() => setViewAllProviderCompleted(!viewAllProviderCompleted)}>
+                                                        <Text style={styles.viewAllText}>
+                                                            {viewAllProviderCompleted ? "Show Less" : `View All (${pastServices.length})`}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+                                            {displayedPastServices.map((service) => renderServiceCard(service))}
+                                        </>
+                                    )}
+                                </>
+                            );
+                        }
+
+                        // For tabs other than ALL (e.g. PENDING, ACTIVE, COMPLETED)
                         const filteredServices = ongoingServices.filter(s => {
-                            if (!isProvider) return true;
-                            if (selectedTab === 'ALL') return true;
                             if (selectedTab === 'PENDING') return s.status === 'PENDING';
                             if (selectedTab === 'ACTIVE') return s.status === 'CONFIRMED' || s.status === 'ON_THE_WAY' || s.status === 'ARRIVED';
                             if (selectedTab === 'COMPLETED') return s.status === 'COMPLETED' || s.status === 'PAID';
                             return true;
                         });
 
-                        return filteredServices.length > 0 ? filteredServices.map((service) => (
-                            <View key={service.id} style={styles.card}>
-                                <View style={styles.cardContent}>
-                                    <View style={styles.textContainer}>
-                                        <Text style={[styles.statusText, { color: getStatusColor(service.status) }]}>
-                                            {getStatusText(service.status)}
-                                        </Text>
-                                        <Text style={styles.cardTitle}>{service.serviceType}</Text>
-                                        <Text style={styles.subText}>
-                                            {isProvider ? 'Customer: ' : 'Provider: '}
-                                            {isProvider ? (service.customer?.fullName || 'N/A') : (service.provider?.fullName || 'N/A')}
-                                        </Text>
+                        return (
+                            <>
+                                <View style={styles.sectionHeader}>
+                                    <Text style={styles.sectionTitle}>
+                                        {selectedTab === 'PENDING' ? 'Pending Requests' : selectedTab === 'ACTIVE' ? 'Active Jobs' : 'Completed Jobs'}
+                                    </Text>
+                                    <View style={styles.badge}>
+                                        <Text style={styles.badgeText}>{filteredServices.length} TOTAL</Text>
+                                    </View>
+                                </View>
+                                {filteredServices.length > 0 ? filteredServices.map((service) => renderServiceCard(service)) : (
+                                    <View style={styles.emptyCard}>
+                                        <Ionicons name="calendar-outline" size={40} color={COLORS.lightGray} />
+                                        <Text style={styles.emptyText}>No services found</Text>
+                                    </View>
+                                )}
+                            </>
+                        );
+                    })()
+                ) : (
+                    (() => {
+                        const activeServices = ongoingServices.filter(s =>
+                            s.status === 'PENDING' ||
+                            s.status === 'CONFIRMED' ||
+                            s.status === 'ON_THE_WAY' ||
+                            s.status === 'ARRIVED' ||
+                            s.status === 'IN_PROGRESS'
+                        );
 
-                                        <View style={styles.buttonRow}>
-                                            {isProvider && service.status === 'PENDING' ? (
-                                                <TouchableOpacity
-                                                    style={[styles.trackButton, { backgroundColor: COLORS.orange }]}
-                                                    onPress={async () => {
-                                                        try {
-                                                            await authApi.updateBookingStatus(service.id.toString(), 'CONFIRMED');
-                                                            const data = await authApi.getProviderBookings(user!.id);
-                                                            setOngoingServices(data);
-                                                        } catch (error) {
-                                                            console.error(error);
-                                                        }
-                                                    }}
-                                                >
-                                                    <Text style={styles.trackButtonText}>Accept</Text>
-                                                </TouchableOpacity>
-                                            ) : (
-                                                <TouchableOpacity
-                                                    style={styles.trackButton}
-                                                    onPress={() => {
-                                                        navigation.navigate('TrackService', {
-                                                            serviceId: service.id,
-                                                            providerId: isProvider ? service.customerId : (service.provider?.userId || service.providerId),
-                                                            providerName: isProvider ? (service.customer?.fullName || 'Customer') : (service.provider?.fullName || 'Provider'),
-                                                            serviceType: service.serviceType,
-                                                            status: service.status,
-                                                            arrivedAt: service.arrivedAt,
-                                                            serviceImage: isProvider ? (service.customer?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(service.customer?.fullName || 'User')}&background=random`) : (service.provider?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(service.provider?.fullName || 'User')}&background=random`)
-                                                        });
-                                                    }}
-                                                >
-                                                    <Text style={styles.trackButtonText}>
-                                                        {service.status === 'COMPLETED' ? 'Review Invoice' : 'Track'}
+                        const pastServices = ongoingServices.filter(s =>
+                            s.status === 'COMPLETED' ||
+                            s.status === 'PAID' ||
+                            s.status === 'CANCELLED' ||
+                            s.status === 'REJECTED'
+                        );
+
+                        const activeRentals = rentals.filter(r =>
+                            r.status === 'PENDING' ||
+                            r.status === 'CONFIRMED' ||
+                            r.status === 'ON_THE_WAY' ||
+                            r.status === 'ARRIVED' ||
+                            r.status === 'IN_PROGRESS'
+                        );
+
+                        const pastRentals = rentals.filter(r =>
+                            r.status === 'COMPLETED' ||
+                            r.status === 'PAID' ||
+                            r.status === 'CANCELLED' ||
+                            r.status === 'REJECTED'
+                        );
+
+                        const displayedPastServices = viewAllCompletedServices ? pastServices : pastServices.slice(0, 2);
+                        const displayedPastRentals = viewAllCompletedRentals ? pastRentals : pastRentals.slice(0, 2);
+
+                        return (
+                            <>
+                                {/* Ongoing Services */}
+                                <View style={styles.sectionHeader}>
+                                    <Text style={styles.sectionTitle}>Ongoing Services</Text>
+                                    <View style={styles.badge}>
+                                        <Text style={styles.badgeText}>{activeServices.length} ACTIVE</Text>
+                                    </View>
+                                </View>
+                                {activeServices.length > 0 ? activeServices.map((service) => renderServiceCard(service)) : (
+                                    <View style={styles.emptyCard}>
+                                        <Ionicons name="calendar-outline" size={40} color={COLORS.lightGray} />
+                                        <Text style={styles.emptyText}>No ongoing services found</Text>
+                                    </View>
+                                )}
+
+                                {/* Completed Services */}
+                                {pastServices.length > 0 && (
+                                    <>
+                                        <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+                                            <Text style={styles.sectionTitle}>Completed Services</Text>
+                                            {pastServices.length > 2 && (
+                                                <TouchableOpacity onPress={() => setViewAllCompletedServices(!viewAllCompletedServices)}>
+                                                    <Text style={styles.viewAllText}>
+                                                        {viewAllCompletedServices ? "Show Less" : `View All (${pastServices.length})`}
                                                     </Text>
                                                 </TouchableOpacity>
                                             )}
-                                            <Text style={styles.dateTimeText}>
-                                                {new Date(service.bookingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} | {service.startTime}
-                                            </Text>
                                         </View>
+                                        {displayedPastServices.map((service) => renderServiceCard(service))}
+                                    </>
+                                )}
+
+                                {/* Active Rentals */}
+                                <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+                                    <Text style={styles.sectionTitle}>Active Rentals</Text>
+                                    <View style={styles.badge}>
+                                        <Text style={styles.badgeText}>{activeRentals.length} ACTIVE</Text>
                                     </View>
                                 </View>
-                            </View>
-                        )) : (
-                            <View style={styles.emptyCard}>
-                                <Ionicons name="calendar-outline" size={40} color={COLORS.lightGray} />
-                                <Text style={styles.emptyText}>No ongoing services found</Text>
-                            </View>
+                                {activeRentals.length > 0 ? activeRentals.map((rental) => renderRentalCard(rental)) : (
+                                    <View style={styles.emptyCard}>
+                                        <Ionicons name="hammer-outline" size={40} color={COLORS.lightGray} />
+                                        <Text style={styles.emptyText}>No active rentals found</Text>
+                                    </View>
+                                )}
+
+                                {/* Completed Rentals */}
+                                {pastRentals.length > 0 && (
+                                    <>
+                                        <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+                                            <Text style={styles.sectionTitle}>Completed Rentals</Text>
+                                            {pastRentals.length > 2 && (
+                                                <TouchableOpacity onPress={() => setViewAllCompletedRentals(!viewAllCompletedRentals)}>
+                                                    <Text style={styles.viewAllText}>
+                                                        {viewAllCompletedRentals ? "Show Less" : `View All (${pastRentals.length})`}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+                                        {displayedPastRentals.map((rental) => renderRentalCard(rental))}
+                                    </>
+                                )}
+                            </>
                         );
                     })()
-                )}
-
-                {!isProvider && (
-                    <>
-                        <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-                            <Text style={styles.sectionTitle}>Active Rentals</Text>
-                        </View>
-                        {rentals.map((rental) => (
-                            <View key={rental.id} style={styles.card}>
-                                <View style={styles.cardContent}>
-                                    <View style={styles.textContainer}>
-                                        <Text style={[styles.statusText, rental.status === 'PENDING' ? { color: COLORS.orange } : {}]}>
-                                            {rental.status}
-                                        </Text>
-                                        <Text style={styles.cardTitle}>{rental.tool.name}</Text>
-                                        <Text style={styles.subText}>Rental ID: #{rental.id.slice(0, 8)}</Text>
-                                        <TouchableOpacity
-                                            style={styles.extendButton}
-                                            onPress={() => navigation.navigate('RentalStatus', {
-                                                rentalId: rental.id,
-                                                toolName: rental.tool.name,
-                                                dueDate: new Date(rental.endDate).toLocaleDateString(),
-                                                startDate: new Date(rental.startDate).toLocaleDateString(),
-                                                image: rental.tool.images?.[0],
-                                                status: rental.status,
-                                                ownerName: rental.tool.owner.user.fullName,
-                                                ownerId: rental.tool.owner.userId,
-                                                ownerAddress: rental.pickupLocation,
-                                                paymentMethod: rental.paymentMethod,
-                                                isPaid: rental.isPaid,
-                                                totalAmount: rental.totalAmount,
-                                                reviews: rental.reviews || []
-                                            })}
-                                        >
-                                            <Text style={styles.extendButtonText}>View Status</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                    <Image source={{ uri: rental.tool.images?.[0] || 'https://via.placeholder.com/150' }} style={styles.cardImage} />
-                                </View>
-                            </View>
-                        ))}
-                    </>
                 )}
 
                 <View style={{ height: 100 }} />
@@ -421,6 +610,11 @@ const styles = StyleSheet.create({
     },
     tabTextActive: {
         color: COLORS.white,
+    },
+    viewAllText: {
+        fontSize: 12,
+        color: COLORS.orange,
+        fontWeight: '600',
     }
 });
 

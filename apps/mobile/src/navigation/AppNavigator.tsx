@@ -56,6 +56,8 @@ import ProviderScheduleScreen from '../screens/ProviderScheduleScreen';
 import ProviderRatingsScreen from '../screens/ProviderRatingsScreen';
 import ToolRatingsScreen from '../screens/ToolRatingsScreen';
 import ToolMapScreen from '../screens/ToolMapScreen';
+import ReportIssueScreen from '../screens/ReportIssueScreen';
+import SuspendedScreen from '../screens/SuspendedScreen';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -82,6 +84,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="LocationPicker" component={LocationPickerScreen} />
                 <Stack.Screen name="MapSelection" component={MapSelectionScreen} />
                 <Stack.Screen name="Welcome" component={WelcomeScreen} />
+                <Stack.Screen name="Suspended" component={SuspendedScreen} />
                 <Stack.Screen name="ServiceProviderDetails" component={ServiceProviderDetailsScreen} />
                 <Stack.Screen name="ServiceProviderDocuments" component={ServiceProviderDocumentsScreen} />
                 <Stack.Screen name="ServiceProviderServiceArea" component={ServiceProviderServiceAreaScreen} />
@@ -124,6 +127,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="ProviderRatings" component={ProviderRatingsScreen} />
                 <Stack.Screen name="ToolRatings" component={ToolRatingsScreen} />
                 <Stack.Screen name="ToolMap" component={ToolMapScreen} />
+                <Stack.Screen name="ReportIssue" component={ReportIssueScreen} />
                 {/* Add more screens here later */}
             </Stack.Navigator>
         </NavigationContainer>

@@ -46,6 +46,26 @@ export class RentalsService {
         });
     }
 
+    async deleteTool(toolId: string) {
+        const rentalCount = await this.prisma.toolRental.count({
+            where: { toolId },
+        });
+
+        if (rentalCount === 0) {
+            return this.prisma.tool.delete({
+                where: { id: toolId },
+            });
+        } else {
+            return this.prisma.tool.update({
+                where: { id: toolId },
+                data: {
+                    available: false,
+                    status: 'DELETED',
+                },
+            });
+        }
+    }
+
     async getStats(userId: string) {
         const owner = await this.prisma.rentalOwnerProfile.findUnique({
             where: { userId },
@@ -94,6 +114,7 @@ export class RentalsService {
                 tool: true,
                 customer: {
                     select: {
+                        id: true,
                         fullName: true,
                         profileImage: true,
                         phone: true,
@@ -230,10 +251,16 @@ export class RentalsService {
         return rental;
     }
 
-    async updateRentalStatus(rentalId: string, status: string) {
+    async updateRentalStatus(rentalId: string, status: string, pickupPhotos?: string[], returnPhotos?: string[]) {
         const updateData: any = { status: status as any };
         if (status === 'PAID') {
             updateData.isPaid = true;
+        }
+        if (pickupPhotos && pickupPhotos.length > 0) {
+            updateData.pickupPhotos = pickupPhotos;
+        }
+        if (returnPhotos && returnPhotos.length > 0) {
+            updateData.returnPhotos = returnPhotos;
         }
 
         const rental = await this.prisma.toolRental.update({
@@ -298,6 +325,30 @@ export class RentalsService {
                 reviews: true
             },
             orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    async getRentalById(id: string) {
+        return (this.prisma.toolRental as any).findUnique({
+            where: { id },
+            include: {
+                tool: {
+                    include: {
+                        owner: {
+                            include: {
+                                user: {
+                                    select: {
+                                        fullName: true,
+                                        profileImage: true,
+                                        phone: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                reviews: true
+            }
         });
     }
 
@@ -379,6 +430,127 @@ export class RentalsService {
                 if (b.rating !== a.rating) return b.rating - a.rating;
                 return a.distance - b.distance;
             });
+    }
+
+    async requestExtension(rentalId: string, extensionDays: number) {
+        const rental = await this.prisma.toolRental.findUnique({
+            where: { id: rentalId },
+            include: { tool: { include: { owner: true } } }
+        });
+
+        if (!rental) throw new Error('Rental not found');
+        if (rental.status !== 'IN_PROGRESS' && rental.status !== 'CONFIRMED') {
+            throw new Error('Can only extend active or confirmed rentals');
+        }
+
+        const extensionCost = extensionDays * rental.tool.dailyRate;
+
+        const updated = await this.prisma.toolRental.update({
+            where: { id: rentalId },
+            data: {
+                extensionDays,
+                extensionCost,
+                extensionStatus: 'PENDING'
+            }
+        });
+
+        if (rental.tool?.owner) {
+            try {
+                await (this.prisma as any).notification.create({
+                    data: {
+                        userId: rental.tool.owner.userId,
+                        title: 'Extension Request Received',
+                        message: `The customer has requested to extend the rental of ${rental.tool.name} by ${extensionDays} days.`,
+                        type: 'RENTAL_EXTENSION_REQUEST',
+                        linkId: rental.id,
+                        data: {}
+                    }
+                });
+            } catch (error) {
+                console.error('Error creating notification:', error);
+            }
+        }
+
+        return updated;
+    }
+
+    async approveExtension(rentalId: string) {
+        const rental = await this.prisma.toolRental.findUnique({
+            where: { id: rentalId },
+            include: { tool: true }
+        });
+
+        if (!rental) throw new Error('Rental not found');
+        if (rental.extensionStatus !== 'PENDING' || !rental.extensionDays) {
+            throw new Error('No pending extension request found');
+        }
+
+        const newEndDate = new Date(rental.endDate);
+        newEndDate.setDate(newEndDate.getDate() + rental.extensionDays);
+
+        const newTotalAmount = rental.totalAmount + (rental.extensionCost || 0);
+
+        const updated = await this.prisma.toolRental.update({
+            where: { id: rentalId },
+            data: {
+                endDate: newEndDate,
+                totalAmount: newTotalAmount,
+                extensionStatus: 'APPROVED'
+            }
+        });
+
+        try {
+            await (this.prisma as any).notification.create({
+                data: {
+                    userId: rental.customerId,
+                    title: 'Extension Approved!',
+                    message: `Your extension request for ${rental.tool?.name} has been approved. New due date is ${newEndDate.toLocaleDateString()}.`,
+                    type: 'RENTAL_EXTENSION_APPROVED',
+                    linkId: rental.id,
+                    data: {}
+                }
+            });
+        } catch (error) {
+            console.error('Error creating notification:', error);
+        }
+
+        return updated;
+    }
+
+    async rejectExtension(rentalId: string) {
+        const rental = await this.prisma.toolRental.findUnique({
+            where: { id: rentalId },
+            include: { tool: true }
+        });
+
+        if (!rental) throw new Error('Rental not found');
+        if (rental.extensionStatus !== 'PENDING') {
+            throw new Error('No pending extension request found');
+        }
+
+        const updated = await this.prisma.toolRental.update({
+            where: { id: rentalId },
+            data: {
+                extensionStatus: 'REJECTED'
+            }
+        });
+
+        try {
+            await (this.prisma as any).notification.create({
+                data: {
+                    userId: rental.customerId,
+                    title: 'Extension Declined',
+                    message: `Your extension request for ${rental.tool?.name} has been declined.`,
+                    type: 'RENTAL_EXTENSION_REJECTED',
+                    linkId: rental.id,
+                    data: {}
+                }
+            });
+        } catch (error) {
+            console.error('Error creating notification:', error);
+        }
+
+        return updated;
     }
 
     private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {

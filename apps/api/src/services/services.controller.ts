@@ -60,14 +60,19 @@ export class ServicesController {
         return this.servicesService.likeReview(id);
     }
 
+    @Post('review/:id/unlike')
+    async unlikeReview(@Param('id') id: string) {
+        return this.servicesService.unlikeReview(id);
+    }
+
     @Get('provider/:id/bookings')
     async getProviderBookings(@Param('id') id: string, @Query('date') date?: string) {
         return this.servicesService.getProviderBookings(id, date);
     }
 
     @Post('booking/status')
-    async updateBookingStatus(@Body() data: { bookingId: string, status: string, additionalCharges?: number }) {
-        return this.servicesService.updateBookingStatus(data.bookingId, data.status, data.additionalCharges);
+    async updateBookingStatus(@Body() data: { bookingId: string, status: string, additionalCharges?: number, reason?: string, cancelledBy?: string }) {
+        return this.servicesService.updateBookingStatus(data.bookingId, data.status, data.additionalCharges, data.reason, data.cancelledBy);
     }
 
     @Get('user/:userId/notifications')

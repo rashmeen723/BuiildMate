@@ -1,10 +1,105 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { VerificationStatus } from '@prisma/client';
 
 @Injectable()
-export class ServicesService {
+export class ServicesService implements OnModuleInit {
     constructor(private prisma: PrismaService) { }
+
+    onModuleInit() {
+        this.checkAndSendReminders().catch(err => console.error('Error in initial reminder check:', err));
+        setInterval(() => {
+            this.checkAndSendReminders().catch(err => console.error('Error in reminder checker loop:', err));
+        }, 5 * 60 * 1000);
+    }
+
+    private getBookingStartDateTime(bookingDate: Date, startTimeStr: string): Date {
+        const date = new Date(bookingDate);
+        const match = startTimeStr.match(/^(\d{2}):(\d{2})\s*(AM|PM)$/i);
+        if (match) {
+            let hours = parseInt(match[1], 10);
+            const minutes = parseInt(match[2], 10);
+            const ampm = match[3].toUpperCase();
+            if (ampm === 'PM' && hours < 12) hours += 12;
+            if (ampm === 'AM' && hours === 12) hours = 0;
+            date.setHours(hours, minutes, 0, 0);
+        } else {
+            date.setHours(9, 0, 0, 0);
+        }
+        return date;
+    }
+
+    async checkAndSendReminders() {
+        const now = new Date();
+        const minDate = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+        const maxDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+        const bookings = await (this.prisma as any).booking.findMany({
+            where: {
+                status: 'CONFIRMED',
+                bookingDate: {
+                    gte: minDate,
+                    lte: maxDate
+                }
+            }
+        });
+
+        for (const booking of bookings) {
+            const startDateTime = this.getBookingStartDateTime(booking.bookingDate, booking.startTime);
+            const diffMs = startDateTime.getTime() - now.getTime();
+            const diffHours = diffMs / (1000 * 60 * 60);
+
+            if (diffHours <= 24 && diffHours > 0) {
+                const alreadySent = await (this.prisma as any).notification.findFirst({
+                    where: {
+                        linkId: booking.id,
+                        type: 'REMINDER_1DAY'
+                    }
+                });
+                if (!alreadySent) {
+                    await this.createNotification(
+                        booking.customerId,
+                        'Upcoming Service Reminder',
+                        `Your booking for ${booking.serviceType} is scheduled for tomorrow at ${booking.startTime}.`,
+                        'REMINDER_1DAY',
+                        booking.id
+                    );
+                    await this.createNotification(
+                        booking.providerId,
+                        'Upcoming Job Reminder',
+                        `You have a scheduled job for ${booking.serviceType} tomorrow at ${booking.startTime}.`,
+                        'REMINDER_1DAY',
+                        booking.id
+                    );
+                }
+            }
+
+            if (diffHours <= 1 && diffHours > 0) {
+                const alreadySent = await (this.prisma as any).notification.findFirst({
+                    where: {
+                        linkId: booking.id,
+                        type: 'REMINDER_1HOUR'
+                    }
+                });
+                if (!alreadySent) {
+                    await this.createNotification(
+                        booking.customerId,
+                        'Upcoming Service Reminder',
+                        `Your booking for ${booking.serviceType} starts in 1 hour at ${booking.startTime}.`,
+                        'REMINDER_1HOUR',
+                        booking.id
+                    );
+                    await this.createNotification(
+                        booking.providerId,
+                        'Upcoming Job Reminder',
+                        `You have a scheduled job for ${booking.serviceType} starting in 1 hour at ${booking.startTime}.`,
+                        'REMINDER_1HOUR',
+                        booking.id
+                    );
+                }
+            }
+        }
+    }
 
     async getNearbyProviders(lat: number, lng: number, radius: number = 20, category?: string, dateStr?: string, timeStr?: string) {
         const now = dateStr ? new Date(dateStr) : new Date();
@@ -26,9 +121,10 @@ export class ServicesService {
                 }
             },
             include: {
-                serviceProvider: true
+                serviceProvider: true,
+                reviewsReceived: true
             }
-        });
+        }) as any[];
 
         return providers
             .map(user => {
@@ -46,12 +142,16 @@ export class ServicesService {
 
                 const isWithinHours = this.isTimeBetween(currentTimeString, sp.workingHoursStart || '08:00 AM', sp.workingHoursEnd || '06:00 PM');
 
+                const avgRating = user.reviewsReceived && user.reviewsReceived.length > 0
+                    ? user.reviewsReceived.reduce((sum: number, r: any) => sum + r.rating, 0) / user.reviewsReceived.length
+                    : 0;
+
                 return {
                     id: user.id,
                     fullName: user.fullName,
                     profileImage: user.profileImage,
                     category: sp.category,
-                    rating: 4.8,
+                    rating: parseFloat(avgRating.toFixed(1)) || 4.8,
                     distance: parseFloat(distance.toFixed(1)),
                     address: sp.formattedAddress,
                     latitude: sp.latitude,
@@ -183,6 +283,7 @@ export class ServicesService {
                     select: {
                         fullName: true,
                         profileImage: true,
+                        phone: true,
                         serviceProvider: {
                             select: {
                                 category: true
@@ -227,11 +328,21 @@ export class ServicesService {
         });
     }
 
-    async updateBookingStatus(bookingId: string, status: string, additionalCharges: number = 0) {
+    async updateBookingStatus(bookingId: string, status: string, additionalCharges: number = 0, reason?: string, cancelledBy?: string) {
         const existingBooking = await (this.prisma as any).booking.findUnique({
             where: { id: bookingId },
             include: { customer: true, provider: true }
         });
+
+        if (status === 'CANCELLED') {
+            if (existingBooking) {
+                if (cancelledBy === 'CUSTOMER' && 
+                    existingBooking.status !== 'PENDING' && 
+                    existingBooking.status !== 'CONFIRMED') {
+                    throw new BadRequestException('Cannot cancel the booking after the provider has started the journey.');
+                }
+            }
+        }
 
         if (status === 'COMPLETED') {
             const booking = await (this.prisma as any).booking.findUnique({
@@ -262,12 +373,19 @@ export class ServicesService {
             }
         }
 
+        const updateData: any = {
+            status,
+        };
+        if (status === 'ARRIVED') {
+            updateData.arrivedAt = new Date();
+        }
+        if (status === 'CANCELLED' && reason) {
+            updateData.disputeReason = reason;
+        }
+
         const updatedBooking = await (this.prisma as any).booking.update({
             where: { id: bookingId },
-            data: {
-                status,
-                arrivedAt: status === 'ARRIVED' ? new Date() : undefined
-            }
+            data: updateData
         });
 
         // Trigger Notifications based on status
@@ -284,6 +402,41 @@ export class ServicesService {
                 await this.createNotification(existingBooking.customerId, 'Job Completed', `Work for ${existingBooking.serviceType} is done. Please review the invoice.`, 'STATUS_UPDATE', bookingId);
             } else if (status === 'PAID') {
                 await this.createNotification(existingBooking.providerId, 'Payment Received', `${existingBooking.customer?.fullName} has paid the invoice. Job closed.`, 'STATUS_UPDATE', bookingId);
+            } else if (status === 'CANCELLED') {
+                if (cancelledBy === 'PROVIDER') {
+                    await this.createNotification(
+                        existingBooking.customerId,
+                        'Booking Cancelled',
+                        `The professional has cancelled the booking. Reason: ${reason || 'Not specified'}.`,
+                        'STATUS_UPDATE',
+                        bookingId
+                    );
+                    await this.createNotification(
+                        existingBooking.providerId,
+                        'Booking Cancelled',
+                        `You have successfully cancelled the booking.`,
+                        'STATUS_UPDATE',
+                        bookingId
+                    );
+                } else if (cancelledBy === 'CUSTOMER') {
+                    await this.createNotification(
+                        existingBooking.providerId,
+                        'Booking Cancelled',
+                        `The customer has cancelled the booking. Reason: ${reason || 'Not specified'}.`,
+                        'STATUS_UPDATE',
+                        bookingId
+                    );
+                    await this.createNotification(
+                        existingBooking.customerId,
+                        'Booking Cancelled',
+                        `You have successfully cancelled the booking.`,
+                        'STATUS_UPDATE',
+                        bookingId
+                    );
+                } else {
+                    await this.createNotification(existingBooking.customerId, 'Booking Cancelled', `The booking for ${existingBooking.serviceType} has been cancelled.`, 'STATUS_UPDATE', bookingId);
+                    await this.createNotification(existingBooking.providerId, 'Booking Cancelled', `The booking for ${existingBooking.serviceType} has been cancelled.`, 'STATUS_UPDATE', bookingId);
+                }
             }
         }
 
@@ -397,6 +550,19 @@ export class ServicesService {
                 likes: {
                     increment: 1
                 }
+            }
+        });
+    }
+
+    async unlikeReview(reviewId: string) {
+        const review = await (this.prisma as any).review.findUnique({
+            where: { id: reviewId }
+        });
+        if (!review) return null;
+        return (this.prisma as any).review.update({
+            where: { id: reviewId },
+            data: {
+                likes: Math.max(0, (review.likes || 0) - 1)
             }
         });
     }

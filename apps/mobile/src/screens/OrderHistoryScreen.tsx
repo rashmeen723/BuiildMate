@@ -1,54 +1,130 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
 import BottomNavBar from '../components/BottomNavBar';
+import { authApi, rentalsApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 type OrderHistoryScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'OrderHistory'>;
 
-// Mock Data
-const orders = [
-    {
-        id: 1,
-        type: 'SERVICE',
-        title: 'Plumbing Service',
-        provider: 'Nimal Fernando',
-        providerId: 'provider-1',
-        amount: 2500,
-        date: 'Oct 24, 2024',
-        status: 'Completed',
-        image: 'https://randomuser.me/api/portraits/men/32.jpg',
-    },
-    {
-        id: 2,
-        type: 'RENTAL',
-        title: 'Bosch Power Drill',
-        provider: 'Rental Store',
-        providerId: 'provider-2',
-        amount: 1500,
-        date: 'Oct 15, 2024',
-        status: 'Returns',
-        image: 'https://images.unsplash.com/photo-1540539234-c14a205bf96e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-    },
-    {
-        id: 3,
-        type: 'SERVICE',
-        title: 'Home Cleaning',
-        provider: 'Sarah Jones',
-        providerId: 'provider-3',
-        amount: 4000,
-        date: 'Sep 28, 2024',
-        status: 'Cancelled',
-        image: 'https://randomuser.me/api/portraits/women/44.jpg',
-    },
-];
-
 const OrderHistoryScreen = () => {
     const navigation = useNavigation<OrderHistoryScreenNavigationProp>();
+    const { user } = useAuth();
+    const [orders, setOrders] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useFocusEffect(
+        useCallback(() => {
+            const fetchOrders = async () => {
+                if (!user) return;
+                try {
+                    setLoading(true);
+                    const isProvider = user.role === 'SERVICE_PROVIDER';
+                    
+                    if (isProvider) {
+                        const bookings = await authApi.getProviderBookings(user.id);
+                        // Filter past bookings: COMPLETED, PAID, CANCELLED, REJECTED
+                        const pastBookings = bookings.filter((b: any) => 
+                            b.status === 'COMPLETED' || 
+                            b.status === 'PAID' || 
+                            b.status === 'CANCELLED' || 
+                            b.status === 'REJECTED'
+                        );
+                        
+                        const formatted = pastBookings.map((b: any) => ({
+                            id: b.id,
+                            type: 'SERVICE',
+                            title: b.serviceType,
+                            provider: b.customer?.fullName || 'Customer',
+                            providerId: b.customerId,
+                            amount: b.totalAmount,
+                            date: new Date(b.bookingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                            rawDate: new Date(b.bookingDate).getTime(),
+                            status: b.status === 'COMPLETED' || b.status === 'PAID' ? 'Completed' :
+                                    b.status === 'CANCELLED' ? 'Cancelled' : 'Rejected',
+                            image: b.customer?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(b.customer?.fullName || 'User')}&background=random`,
+                        }));
+                        
+                        // Sort by date descending
+                        formatted.sort((a: any, b: any) => b.rawDate - a.rawDate);
+                        setOrders(formatted);
+                    } else {
+                        // Customer side
+                        const bookings = await authApi.getUserBookings(user.id);
+                        let rentals: any[] = [];
+                        try {
+                            rentals = await rentalsApi.getUserRentals(user.id);
+                        } catch (err) {
+                            console.error('Error fetching rentals:', err);
+                        }
+                        
+                        const pastBookings = bookings.filter((b: any) => 
+                            b.status === 'COMPLETED' || 
+                            b.status === 'PAID' || 
+                            b.status === 'CANCELLED' || 
+                            b.status === 'REJECTED'
+                        );
+                        
+                        const pastRentals = rentals.filter((r: any) => 
+                            r.status === 'COMPLETED' || 
+                            r.status === 'CANCELLED' || 
+                            r.status === 'REJECTED' ||
+                            r.status === 'RETURNED'
+                        );
+
+                        const formattedBookings = pastBookings.map((b: any) => ({
+                            id: b.id,
+                            type: 'SERVICE',
+                            title: b.serviceType,
+                            provider: b.provider?.fullName || 'Provider',
+                            providerId: b.providerId,
+                            amount: b.totalAmount,
+                            date: new Date(b.bookingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                            rawDate: new Date(b.bookingDate).getTime(),
+                            status: b.status === 'COMPLETED' || b.status === 'PAID' ? 'Completed' :
+                                    b.status === 'CANCELLED' ? 'Cancelled' : 'Rejected',
+                            image: b.provider?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(b.provider?.fullName || 'User')}&background=random`,
+                        }));
+
+                        const formattedRentals = formattedRentalsMap(pastRentals);
+
+                        const combined = [...formattedBookings, ...formattedRentals].sort((a, b) => 
+                            b.rawDate - a.rawDate
+                        );
+                        
+                        setOrders(combined);
+                    }
+                } catch (error) {
+                    console.error('Error fetching order history:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            fetchOrders();
+        }, [user])
+    );
+
+    const formattedRentalsMap = (pastRentals: any[]) => {
+        return pastRentals.map((r: any) => ({
+            id: r.id,
+            type: 'RENTAL',
+            title: r.tool?.name || 'Tool Rental',
+            provider: r.tool?.owner?.businessName || 'Rental Store',
+            providerId: r.tool?.ownerId,
+            amount: r.totalAmount,
+            date: new Date(r.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            rawDate: new Date(r.endDate).getTime(),
+            status: r.status === 'COMPLETED' ? 'Completed' :
+                    r.status === 'CANCELLED' ? 'Cancelled' : 'Returned',
+            image: r.tool?.images?.[0] || 'https://via.placeholder.com/150',
+        }));
+    };
 
     const renderItem = ({ item }: { item: any }) => (
         <View style={styles.orderCard}>
@@ -56,7 +132,10 @@ const OrderHistoryScreen = () => {
                 <Image source={{ uri: item.image }} style={styles.image} />
                 <View style={styles.details}>
                     <Text style={styles.title}>{item.title}</Text>
-                    <Text style={styles.provider}>{item.provider}</Text>
+                    <Text style={styles.provider}>
+                        {user?.role === 'SERVICE_PROVIDER' ? 'Client: ' : 'Provider: '}
+                        {item.provider}
+                    </Text>
                     <Text style={styles.date}>{item.date}</Text>
                 </View>
             </View>
@@ -71,20 +150,34 @@ const OrderHistoryScreen = () => {
                         item.status === 'Cancelled' ? styles.statusTextCancelled : styles.statusTextReturn
                     ]}>{item.status}</Text>
                 </View>
-                {item.status === 'Completed' && (
+                {item.status === 'Completed' && user?.role !== 'SERVICE_PROVIDER' && (
                     <TouchableOpacity
                         style={styles.reviewButton}
                         onPress={() => navigation.navigate('WriteReview', {
-                            serviceId: item.id.toString(),
-                            providerId: item.providerId,
-                            serviceName: item.title,
-                            providerName: item.provider,
-                            serviceImage: item.image,
+                            reviewType: item.type as 'SERVICE' | 'RENTAL',
+                            id: item.id.toString(),
+                            targetId: item.providerId,
+                            title: item.title,
+                            subtitle: item.provider,
+                            image: item.image,
                         })}
                     >
                         <Text style={styles.reviewButtonText}>Write Review</Text>
                     </TouchableOpacity>
                 )}
+                <TouchableOpacity
+                    style={styles.reportButton}
+                    onPress={() => navigation.navigate('ReportIssue', {
+                        reportType: item.type as 'SERVICE' | 'RENTAL',
+                        id: item.id.toString(),
+                        targetId: item.providerId,
+                        title: item.title,
+                        subtitle: item.provider,
+                        image: item.image,
+                    })}
+                >
+                    <Text style={styles.reportButtonText}>Report Issue</Text>
+                </TouchableOpacity>
             </View>
         </View>
     );
@@ -99,18 +192,24 @@ const OrderHistoryScreen = () => {
                 <View style={{ width: 40 }} />
             </View>
 
-            <FlatList
-                data={orders}
-                keyExtractor={item => item.id.toString()}
-                renderItem={renderItem}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Text style={styles.emptyText}>No past orders found.</Text>
-                    </View>
-                }
-            />
+            {loading ? (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color={COLORS.orange} />
+                </View>
+            ) : (
+                <FlatList
+                    data={orders}
+                    keyExtractor={item => item.id.toString()}
+                    renderItem={renderItem}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                    ListEmptyComponent={
+                        <View style={styles.emptyContainer}>
+                            <Text style={styles.emptyText}>No past orders found.</Text>
+                        </View>
+                    }
+                />
+            )}
 
             {/* Bottom Navigation */}
             <BottomNavBar />
@@ -243,6 +342,19 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: 'bold',
         color: COLORS.orange,
+    },
+    reportButton: {
+        marginTop: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        backgroundColor: '#FEF2F2',
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    reportButtonText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#EF4444',
     }
 });
 

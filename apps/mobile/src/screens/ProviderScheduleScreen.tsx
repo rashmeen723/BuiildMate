@@ -18,6 +18,8 @@ const ProviderScheduleScreen = () => {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [bookings, setBookings] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [overdueBookings, setOverdueBookings] = useState<any[]>([]);
+    const [showAllCompleted, setShowAllCompleted] = useState(false);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -35,6 +37,33 @@ const ProviderScheduleScreen = () => {
     };
 
     const weekDates = generateDates();
+
+    const isTaskOverdue = (job: any) => {
+        if (job.status === 'COMPLETED' || job.status === 'PAID' || job.status === 'CANCELLED' || job.status === 'REJECTED') {
+            return false;
+        }
+        const bookingDate = new Date(job.bookingDate);
+        const timeStr = job.startTime;
+        
+        const [time, modifier] = timeStr.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
+        if (modifier === 'PM' && hours < 12) hours += 12;
+        if (modifier === 'AM' && hours === 12) hours = 0;
+        
+        bookingDate.setHours(hours, minutes, 0, 0);
+        return bookingDate < new Date();
+    };
+
+    const checkOverdueBookings = async () => {
+        if (!user?.id) return;
+        try {
+            const allBookings = await authApi.getProviderBookings(user.id);
+            const overdue = allBookings.filter(isTaskOverdue);
+            setOverdueBookings(overdue);
+        } catch (e) {
+            console.error('Error checking overdue bookings:', e);
+        }
+    };
 
     const fetchSchedule = async (dateObj: Date) => {
         if (!user?.serviceProvider?.id && !user?.id) return;
@@ -56,6 +85,7 @@ const ProviderScheduleScreen = () => {
     useFocusEffect(
         useCallback(() => {
             fetchSchedule(selectedDate);
+            checkOverdueBookings();
         }, [user, selectedDate])
     );
 
@@ -77,6 +107,152 @@ const ProviderScheduleScreen = () => {
         .filter(b => b.status === 'COMPLETED' || b.status === 'PAID')
         .reduce((sum, b) => sum + (b.totalAmount || 0), 0);
 
+    const renderJobRow = (job: any, index: number, totalItems: number) => {
+        const isLast = index === totalItems - 1;
+        let cardStyle: any = styles.jobCard;
+        let statusBadgeStyle: any = styles.statusBadge;
+        let statusTextStyle: any = styles.statusBadgeText;
+
+        const overdue = isTaskOverdue(job);
+
+        if (job.status === 'COMPLETED' || job.status === 'PAID') {
+            cardStyle = [styles.jobCard, styles.completedCard];
+            statusBadgeStyle = [styles.statusBadge, { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' }];
+            statusTextStyle = [styles.statusBadgeText, { color: '#6B7280' }];
+        } else if (overdue) {
+            cardStyle = [styles.jobCard, styles.overdueCard];
+            statusBadgeStyle = [styles.statusBadge, { backgroundColor: '#FEF2F2', borderColor: '#FEE2E2' }];
+            statusTextStyle = [styles.statusBadgeText, { color: '#EF4444' }];
+        } else if (job.status === 'PENDING') {
+            cardStyle = [styles.jobCard, { borderLeftWidth: 4, borderLeftColor: '#F97316' }];
+            statusBadgeStyle = [styles.statusBadge, { backgroundColor: '#FFF7ED', borderColor: '#FFEDD5' }];
+            statusTextStyle = [styles.statusBadgeText, { color: '#F97316' }];
+        } else if (job.status === 'ON_THE_WAY' || job.status === 'ARRIVED') {
+            cardStyle = [styles.jobCard, styles.activeCard];
+            statusBadgeStyle = [styles.statusBadge, { backgroundColor: '#EFF6FF', borderColor: '#DBEAFE' }];
+            statusTextStyle = [styles.statusBadgeText, { color: '#3B82F6' }];
+        } else {
+            statusBadgeStyle = [styles.statusBadge, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }];
+            statusTextStyle = [styles.statusBadgeText, { color: '#64748B' }];
+        }
+
+        return (
+            <View key={job.id} style={styles.timelineRow}>
+                <View style={styles.timeColumn}>
+                    <Text style={styles.timeText}>{job.startTime}</Text>
+                    <View style={styles.timelineLine}>
+                        <View style={[styles.timelineDot, job.status === 'ON_THE_WAY' || job.status === 'ARRIVED' ? { backgroundColor: COLORS.darkBlue, borderColor: COLORS.darkBlue } : {}]} />
+                        {!isLast && <View style={styles.lineVertical} />}
+                    </View>
+                </View>
+
+                <TouchableOpacity
+                    style={cardStyle}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                        if (job.status === 'PENDING') {
+                            navigation.navigate('BookingRequest', {
+                                bookingId: job.id,
+                                customerName: job.customer?.fullName || 'Customer',
+                                address: job.address,
+                                date: job.bookingDate || 'Today',
+                                time: job.startTime || '10:30 AM',
+                                description: job.description || job.serviceType,
+                                estimatedTotal: job.totalAmount,
+                                phone: job.customer?.phone || '+94 77 123 4567',
+                                latitude: job.latitude || job.customer?.addresses?.[0]?.latitude,
+                                longitude: job.longitude || job.customer?.addresses?.[0]?.longitude,
+                                customerImage: job.customer?.profileImage,
+                                issueImage: job.issueImage
+                            });
+                        } else if (job.status === 'CONFIRMED' || job.status === 'ON_THE_WAY' || job.status === 'ARRIVED' || job.status === 'COMPLETED' || overdue) {
+                            navigation.navigate('TrackService', {
+                                serviceId: job.id,
+                                providerId: job.customerId,
+                                providerName: job.customer?.fullName,
+                                serviceType: job.serviceType,
+                                status: job.status,
+                                latitude: job.latitude || job.customer?.addresses?.[0]?.latitude,
+                                longitude: job.longitude || job.customer?.addresses?.[0]?.longitude,
+                                arrivedAt: job.arrivedAt,
+                                serviceImage: job.customer?.profileImage || 'https://via.placeholder.com/150'
+                            } as any);
+                        }
+                    }}
+                >
+                    <View style={styles.cardHeader}>
+                        <View style={statusBadgeStyle}>
+                            <Text style={statusTextStyle}>
+                                {job.status === 'ON_THE_WAY' || job.status === 'ARRIVED' ? 'IN PROGRESS' : job.status === 'COMPLETED' || job.status === 'PAID' ? 'COMPLETED' : overdue ? 'OVERDUE' : job.status === 'PENDING' ? 'PENDING' : 'UPCOMING'}
+                            </Text>
+                        </View>
+                        {(job.status === 'ON_THE_WAY' || job.status === 'ARRIVED') && (
+                            <Text style={styles.activeTimeText}>{job.startTime} - Est. 2 Hrs</Text>
+                        )}
+                        {(job.status === 'COMPLETED' || job.status === 'PAID') && (
+                            <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                        )}
+                    </View>
+
+                    <Text style={styles.jobTitle}>{job.serviceType}</Text>
+
+                    <View style={styles.customerInfo}>
+                        <Text style={styles.customerText}>
+                            {job.customer?.fullName || 'Customer'}
+                        </Text>
+                        <Text style={styles.dotSeparator}>•</Text>
+                        <Text style={styles.addressText} numberOfLines={1}>
+                            {job.address}
+                        </Text>
+                        {(job.status === 'PENDING' || job.status === 'CONFIRMED') && job.issueImage && (
+                            <Image source={{ uri: job.issueImage }} style={styles.issueImage} />
+                        )}
+                    </View>
+
+                    {(job.status === 'COMPLETED' || job.status === 'PAID') && (
+                        <View style={styles.earnedRow}>
+                            <Ionicons name="cash-outline" size={14} color="#94A3B8" />
+                            <Text style={styles.earnedText}>LKR {job.totalAmount.toLocaleString()} earned</Text>
+                        </View>
+                    )}
+
+                    {(job.status === 'PENDING' || job.status === 'CONFIRMED') && (
+                        <View style={styles.upcomingFooter}>
+                            <Text style={styles.feeText}>Fee: LKR {job.totalAmount.toLocaleString()}</Text>
+                            <View style={styles.detailsBtn}>
+                                <Text style={styles.detailsBtnText}>Details</Text>
+                                <Ionicons name="chevron-forward" size={14} color="#64748B" />
+                            </View>
+                        </View>
+                    )}
+
+                    {(job.status === 'ON_THE_WAY' || job.status === 'ARRIVED') && (
+                        <View style={styles.activeActions}>
+                            <TouchableOpacity style={styles.updateStatusBtn} onPress={() => {
+                                navigation.navigate('TrackService', {
+                                    serviceId: job.id,
+                                    providerId: job.customerId,
+                                    providerName: job.customer?.fullName,
+                                    serviceType: job.serviceType,
+                                    status: job.status,
+                                    latitude: job.latitude || job.customer?.addresses?.[0]?.latitude,
+                                    longitude: job.longitude || job.customer?.addresses?.[0]?.longitude,
+                                    arrivedAt: job.arrivedAt,
+                                    serviceImage: job.customer?.profileImage || 'https://via.placeholder.com/150'
+                                } as any);
+                            }}>
+                                <Text style={styles.updateStatusText}>Update Status</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.navBtn}>
+                                <Ionicons name="navigate" size={18} color={COLORS.darkBlue} />
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                </TouchableOpacity>
+            </View>
+        );
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             {/* Header / Week View */}
@@ -89,21 +265,34 @@ const ProviderScheduleScreen = () => {
                     {weekDates.map((date, index) => {
                         const isSelected = isSameDay(date, selectedDate);
                         const dayPast = isPast(date);
+                        const hasOverdueOnDate = overdueBookings.some(ob => isSameDay(new Date(ob.bookingDate), date));
                         return (
                             <TouchableOpacity
                                 key={index}
-                                disabled={dayPast}
                                 style={[
                                     styles.dateCell,
                                     isSelected && styles.dateCellActive,
-                                    dayPast && { opacity: 0.3 }
+                                    dayPast && !isSelected && { backgroundColor: '#F1F5F9' }
                                 ]}
                                 onPress={() => {
                                     setSelectedDate(date);
                                 }}
                             >
-                                <Text style={[styles.dayName, isSelected && styles.dayNameActive, dayPast && { color: '#CBD5E1' }]}>{getDayName(date)}</Text>
-                                <Text style={[styles.dayNumber, isSelected && styles.dayNumberActive, dayPast && { color: '#CBD5E1' }]}>{getDayNumber(date)}</Text>
+                                <Text style={[
+                                    styles.dayName, 
+                                    isSelected && styles.dayNameActive, 
+                                    dayPast && !isSelected && { color: '#94A3B8' }
+                                ]}>
+                                    {getDayName(date)}
+                                </Text>
+                                <Text style={[
+                                    styles.dayNumber, 
+                                    isSelected && styles.dayNumberActive, 
+                                    dayPast && !isSelected && { color: '#64748B' }
+                                ]}>
+                                    {getDayNumber(date)}
+                                </Text>
+                                {hasOverdueOnDate && <View style={styles.overdueDot} />}
                             </TouchableOpacity>
                         );
                     })}
@@ -115,6 +304,24 @@ const ProviderScheduleScreen = () => {
                 <Text style={styles.estEarnings}>Est. Earnings: <Text style={styles.estEarningsAmount}>LKR {estimatedEarnings.toLocaleString()}</Text></Text>
             </View>
 
+            {overdueBookings.length > 0 && (
+                <View style={styles.overdueBanner}>
+                    <Ionicons name="alert-circle" size={20} color="#EF4444" />
+                    <Text style={styles.overdueBannerText}>
+                        You have {overdueBookings.length} overdue task{overdueBookings.length > 1 ? 's' : ''} from past days.
+                    </Text>
+                    <TouchableOpacity 
+                        style={styles.viewOverdueBtn}
+                        onPress={() => {
+                            const firstOverdue = overdueBookings[0];
+                            setSelectedDate(new Date(firstOverdue.bookingDate));
+                        }}
+                    >
+                        <Text style={styles.viewOverdueBtnText}>View</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 {loading ? (
                     <ActivityIndicator size="large" color={COLORS.orange} style={{ marginTop: 40 }} />
@@ -123,134 +330,46 @@ const ProviderScheduleScreen = () => {
                         <Ionicons name="calendar-clear-outline" size={48} color="#CBD5E1" />
                         <Text style={styles.emptyStateText}>No tasks scheduled for this day.</Text>
                     </View>
-                ) : (
-                    <View style={styles.timelineContainer}>
-                        {bookings.map((job, index) => {
-                            const isFirst = index === 0;
-                            const isLast = index === bookings.length - 1;
+                ) : (() => {
+                    const ongoingTasks = bookings.filter(job => 
+                        job.status !== 'COMPLETED' && 
+                        job.status !== 'PAID' && 
+                        job.status !== 'CANCELLED' && 
+                        job.status !== 'REJECTED'
+                    );
+                    const completedTasks = bookings.filter(job => 
+                        job.status === 'COMPLETED' || 
+                        job.status === 'PAID' || 
+                        job.status === 'CANCELLED' || 
+                        job.status === 'REJECTED'
+                    );
+                    const displayedCompleted = showAllCompleted ? completedTasks : completedTasks.slice(0, 2);
 
-                            let cardStyle: any = styles.jobCard;
-                            let statusBadgeStyle: any = styles.statusBadge;
-                            let statusTextStyle: any = styles.statusBadgeText;
+                    return (
+                        <View style={styles.timelineContainer}>
+                            {ongoingTasks.length > 0 && (
+                                <>
+                                    <Text style={styles.sectionHeaderTitle}>Ongoing Tasks ({ongoingTasks.length})</Text>
+                                    {ongoingTasks.map((job, index) => renderJobRow(job, index, ongoingTasks.length))}
+                                </>
+                            )}
 
-                            if (job.status === 'COMPLETED' || job.status === 'PAID') {
-                                cardStyle = [styles.jobCard, styles.completedCard];
-                                statusBadgeStyle = [styles.statusBadge, { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' }];
-                                statusTextStyle = [styles.statusBadgeText, { color: '#6B7280' }];
-                            } else if (job.status === 'ON_THE_WAY' || job.status === 'ARRIVED') {
-                                cardStyle = [styles.jobCard, styles.activeCard];
-                                statusBadgeStyle = [styles.statusBadge, { backgroundColor: '#EFF6FF', borderColor: '#DBEAFE' }];
-                                statusTextStyle = [styles.statusBadgeText, { color: '#3B82F6' }];
-                            } else {
-                                statusBadgeStyle = [styles.statusBadge, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }];
-                                statusTextStyle = [styles.statusBadgeText, { color: '#64748B' }];
-                            }
-
-                            return (
-                                <View key={job.id} style={styles.timelineRow}>
-                                    <View style={styles.timeColumn}>
-                                        <Text style={styles.timeText}>{job.startTime}</Text>
-                                        <View style={styles.timelineLine}>
-                                            <View style={[styles.timelineDot, job.status === 'ON_THE_WAY' || job.status === 'ARRIVED' ? { backgroundColor: COLORS.darkBlue, borderColor: COLORS.darkBlue } : {}]} />
-                                            {!isLast && <View style={styles.lineVertical} />}
-                                        </View>
+                            {completedTasks.length > 0 && (
+                                <>
+                                    <View style={styles.sectionHeaderRow}>
+                                        <Text style={styles.sectionHeaderTitle}>Completed Tasks ({completedTasks.length})</Text>
+                                        {completedTasks.length > 2 && (
+                                            <TouchableOpacity onPress={() => setShowAllCompleted(!showAllCompleted)}>
+                                                <Text style={styles.toggleBtnText}>{showAllCompleted ? 'Show Less' : 'View All'}</Text>
+                                            </TouchableOpacity>
+                                        )}
                                     </View>
-
-                                    <TouchableOpacity
-                                        style={cardStyle}
-                                        activeOpacity={0.8}
-                                        onPress={() => {
-                                            if (job.status === 'ON_THE_WAY' || job.status === 'ARRIVED' || job.status === 'COMPLETED') {
-                                                navigation.navigate('TrackService', {
-                                                    serviceId: job.id,
-                                                    providerId: job.customer?.userId,
-                                                    providerName: job.customer?.fullName,
-                                                    serviceType: job.serviceType,
-                                                    status: job.status,
-                                                    latitude: job.latitude || job.customer?.addresses?.[0]?.latitude,
-                                                    longitude: job.longitude || job.customer?.addresses?.[0]?.longitude,
-                                                    arrivedAt: job.arrivedAt,
-                                                    serviceImage: job.customer?.profileImage || 'https://via.placeholder.com/150'
-                                                } as any);
-                                            }
-                                        }}
-                                    >
-                                        <View style={styles.cardHeader}>
-                                            <View style={statusBadgeStyle}>
-                                                <Text style={statusTextStyle}>
-                                                    {job.status === 'ON_THE_WAY' || job.status === 'ARRIVED' ? 'IN PROGRESS' : job.status === 'COMPLETED' || job.status === 'PAID' ? 'COMPLETED' : 'UPCOMING'}
-                                                </Text>
-                                            </View>
-                                            {(job.status === 'ON_THE_WAY' || job.status === 'ARRIVED') && (
-                                                <Text style={styles.activeTimeText}>{job.startTime} - Est. 2 Hrs</Text>
-                                            )}
-                                            {(job.status === 'COMPLETED' || job.status === 'PAID') && (
-                                                <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-                                            )}
-                                        </View>
-
-                                        <Text style={styles.jobTitle}>{job.serviceType}</Text>
-
-                                        <View style={styles.customerInfo}>
-                                            <Text style={styles.customerText}>
-                                                {job.customer?.fullName || 'Customer'}
-                                            </Text>
-                                            <Text style={styles.dotSeparator}>•</Text>
-                                            <Text style={styles.addressText} numberOfLines={1}>
-                                                {job.address}
-                                            </Text>
-                                            {(job.status === 'PENDING' || job.status === 'CONFIRMED') && job.issueImage && (
-                                                <Image source={{ uri: job.issueImage }} style={styles.issueImage} />
-                                            )}
-                                        </View>
-
-                                        {(job.status === 'COMPLETED' || job.status === 'PAID') && (
-                                            <View style={styles.earnedRow}>
-                                                <Ionicons name="cash-outline" size={14} color="#94A3B8" />
-                                                <Text style={styles.earnedText}>LKR {job.totalAmount.toLocaleString()} earned</Text>
-                                            </View>
-                                        )}
-
-                                        {(job.status === 'PENDING' || job.status === 'CONFIRMED') && (
-                                            <View style={styles.upcomingFooter}>
-                                                <Text style={styles.feeText}>Fee: LKR {job.totalAmount.toLocaleString()}</Text>
-                                                <View style={styles.detailsBtn}>
-                                                    <Text style={styles.detailsBtnText}>Details</Text>
-                                                    <Ionicons name="chevron-forward" size={14} color="#64748B" />
-                                                </View>
-                                            </View>
-                                        )}
-
-                                        {(job.status === 'ON_THE_WAY' || job.status === 'ARRIVED') && (
-                                            <View style={styles.activeActions}>
-                                                <TouchableOpacity style={styles.updateStatusBtn} onPress={() => {
-                                                    // This handles status update (e.g. from start to arrrived, etc)
-                                                    // Let's reuse track service for active work
-                                                    navigation.navigate('TrackService', {
-                                                        serviceId: job.id,
-                                                        providerId: job.customer?.userId,
-                                                        providerName: job.customer?.fullName,
-                                                        serviceType: job.serviceType,
-                                                        status: job.status,
-                                                        latitude: job.latitude || job.customer?.addresses?.[0]?.latitude,
-                                                        longitude: job.longitude || job.customer?.addresses?.[0]?.longitude,
-                                                        arrivedAt: job.arrivedAt,
-                                                        serviceImage: job.customer?.profileImage || 'https://via.placeholder.com/150'
-                                                    } as any);
-                                                }}>
-                                                    <Text style={styles.updateStatusText}>Update Status</Text>
-                                                </TouchableOpacity>
-                                                <TouchableOpacity style={styles.navBtn}>
-                                                    <Ionicons name="navigate" size={18} color={COLORS.darkBlue} />
-                                                </TouchableOpacity>
-                                            </View>
-                                        )}
-                                    </TouchableOpacity>
-                                </View>
-                            );
-                        })}
-                    </View>
-                )}
+                                    {displayedCompleted.map((job, index) => renderJobRow(job, index, displayedCompleted.length))}
+                                </>
+                            )}
+                        </View>
+                    );
+                })()}
                 <View style={{ height: 100 }} />
             </ScrollView>
 
@@ -513,6 +632,69 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    overdueCard: {
+        borderLeftWidth: 4,
+        borderLeftColor: '#EF4444',
+        shadowColor: '#EF4444',
+        shadowOpacity: 0.08,
+    },
+    overdueBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FEF2F2',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        marginHorizontal: 20,
+        marginBottom: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#FEE2E2',
+    },
+    overdueBannerText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#991B1B',
+        marginLeft: 8,
+        flex: 1,
+    },
+    viewOverdueBtn: {
+        backgroundColor: '#EF4444',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+    },
+    viewOverdueBtnText: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: COLORS.white,
+    },
+    overdueDot: {
+        position: 'absolute',
+        bottom: 6,
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#EF4444',
+    },
+    sectionHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    sectionHeaderTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#475569',
+        marginTop: 14,
+        marginBottom: 10,
+    },
+    toggleBtnText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: COLORS.orange,
     }
 });
 

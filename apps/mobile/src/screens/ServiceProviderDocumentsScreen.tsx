@@ -20,14 +20,13 @@ const ServiceProviderDocumentsScreen = () => {
     const [idImage, setIdImage] = useState<string | null>(currentDocuments?.idImage || null);
     const [profileImage, setProfileImage] = useState<string | null>(currentDocuments?.profileImage || null);
     const [certificateImages, setCertificateImages] = useState<string[]>(currentDocuments?.certificateImages || []);
-    const [businessRegNum, setBusinessRegNum] = useState(currentDocuments?.businessRegNum || '');
 
     const pickImage = async (type: 'id' | 'profile') => {
         // Request permissions
         const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
         if (permissionResult.granted === false) {
-            Alert.alert("Permission Required", "You've refused to allow this app to access your photos!");
+            Alert.alert("Permission Required", `You've refused to allow this app to access your photos!`);
             return;
         }
 
@@ -75,6 +74,11 @@ const ServiceProviderDocumentsScreen = () => {
             return;
         }
 
+        if (!idImage) {
+            Alert.alert("Required", "Please upload your ID Card / Passport.");
+            return;
+        }
+
         navigation.navigate('ServiceProviderServiceArea', {
             email,
             fullName,
@@ -84,8 +88,7 @@ const ServiceProviderDocumentsScreen = () => {
             documents: {
                 idImage,
                 profileImage,
-                certificateImages,
-                businessRegNum
+                certificateImages
             }
         });
     };
@@ -148,10 +151,12 @@ const ServiceProviderDocumentsScreen = () => {
                     )}
                 </View>
 
+
+
                 {/* Certificates */}
                 <View style={styles.section}>
-                    <Text style={styles.label}>Professional Certificates (Optional)</Text>
-                    <Text style={styles.helperText}>Upload your NVQ, training or degree certificates (PDF/Images).</Text>
+                    <Text style={styles.label}>Professional Certificates (Optional) - Get Certified Badge</Text>
+                    <Text style={styles.helperText}>Upload your NVQ, training or degree certificates (PDF/Images) to receive a "Certified Pro" badge on your profile once approved.</Text>
                     <TouchableOpacity style={styles.miniUploadButton} onPress={pickCertificates}>
                         <Ionicons name="add" size={20} color={COLORS.white} />
                         <Text style={styles.miniUploadText}>Add Certificates</Text>
@@ -178,18 +183,7 @@ const ServiceProviderDocumentsScreen = () => {
                     )}
                 </View>
 
-                {/* Business Registration */}
-                <View style={styles.section}>
-                    <Text style={styles.label}>Business Registration Number (Optional)</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="e.g. BR-12345678"
-                        placeholderTextColor={COLORS.gray}
-                        value={businessRegNum}
-                        onChangeText={setBusinessRegNum}
-                        autoCapitalize="characters"
-                    />
-                </View>
+
 
             </ScrollView>
 

@@ -19,6 +19,7 @@ const RentalRequestsScreen = () => {
     const [ownerRentals, setOwnerRentals] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedTab, setSelectedTab] = useState('ALL');
+    const [viewAllCompleted, setViewAllCompleted] = useState(false);
 
     useFocusEffect(
         useCallback(() => {
@@ -51,6 +52,143 @@ const RentalRequestsScreen = () => {
             default: return COLORS.gray;
         }
     };
+
+    const renderRentalCard = (rental: any) => (
+        <TouchableOpacity
+            key={rental.id}
+            style={styles.card}
+            onPress={() => navigation.navigate('RentalRequestDetails', {
+                rentalId: rental.id,
+                toolName: rental.tool.name,
+                customerName: rental.customer.fullName,
+                customerPhone: rental.customer.phone || 'N/A',
+                startDate: rental.startDate,
+                endDate: rental.endDate,
+                totalAmount: rental.totalAmount,
+                status: rental.status,
+                toolImage: rental.tool.images?.[0],
+                customerImage: rental.customer.profileImage,
+                pickupLocation: rental.pickupLocation,
+                paymentMethod: rental.paymentMethod,
+                isPaid: rental.isPaid,
+                extensionDays: rental.extensionDays,
+                extensionStatus: rental.extensionStatus,
+                extensionCost: rental.extensionCost,
+                pickupPhotos: rental.pickupPhotos,
+                returnPhotos: rental.returnPhotos
+            })}
+        >
+            <View style={styles.cardContent}>
+                <View style={styles.textContainer}>
+                    <Text style={[styles.statusText, { color: getStatusColor(rental.status) }]}>
+                        {rental.status}
+                    </Text>
+                    <Text style={styles.cardTitle}>{rental.tool.name}</Text>
+                    <Text style={styles.subText}>Customer: {rental.customer.fullName}</Text>
+
+                    <View style={styles.buttonRow}>
+                        {rental.status === 'PENDING' && (
+                            <TouchableOpacity
+                                style={[styles.trackButton, { backgroundColor: COLORS.orange }]}
+                                onPress={(e) => {
+                                    e.stopPropagation();
+                                    navigation.navigate('RentalRequestDetails', {
+                                        rentalId: rental.id,
+                                        toolName: rental.tool.name,
+                                        customerName: rental.customer.fullName,
+                                        customerPhone: rental.customer.phone || 'N/A',
+                                        startDate: rental.startDate,
+                                        endDate: rental.endDate,
+                                        totalAmount: rental.totalAmount,
+                                        status: rental.status,
+                                        toolImage: rental.tool.images?.[0],
+                                        customerImage: rental.customer.profileImage,
+                                        pickupLocation: rental.pickupLocation,
+                                        paymentMethod: rental.paymentMethod,
+                                        isPaid: rental.isPaid,
+                                        extensionDays: rental.extensionDays,
+                                        extensionStatus: rental.extensionStatus,
+                                        extensionCost: rental.extensionCost,
+                                        pickupPhotos: rental.pickupPhotos,
+                                        returnPhotos: rental.returnPhotos
+                                    });
+                                }}
+                            >
+                                <Text style={styles.trackButtonText}>View Request</Text>
+                            </TouchableOpacity>
+                        )}
+                        {rental.status === 'CONFIRMED' && (
+                            <TouchableOpacity
+                                style={[styles.trackButton, { backgroundColor: COLORS.darkBlue }]}
+                                onPress={(e) => {
+                                    e.stopPropagation();
+                                    navigation.navigate('RentalRequestDetails', {
+                                        rentalId: rental.id,
+                                        toolName: rental.tool.name,
+                                        customerName: rental.customer.fullName,
+                                        customerPhone: rental.customer.phone || 'N/A',
+                                        startDate: rental.startDate,
+                                        endDate: rental.endDate,
+                                        totalAmount: rental.totalAmount,
+                                        status: rental.status,
+                                        toolImage: rental.tool.images?.[0],
+                                        customerImage: rental.customer.profileImage,
+                                        pickupLocation: rental.pickupLocation,
+                                        paymentMethod: rental.paymentMethod,
+                                        isPaid: rental.isPaid,
+                                        extensionDays: rental.extensionDays,
+                                        extensionStatus: rental.extensionStatus,
+                                        extensionCost: rental.extensionCost,
+                                        pickupPhotos: rental.pickupPhotos,
+                                        returnPhotos: rental.returnPhotos
+                                    });
+                                }}
+                            >
+                                <Text style={styles.trackButtonText}>Confirm Pickup</Text>
+                            </TouchableOpacity>
+                        )}
+                        {rental.status === 'IN_PROGRESS' && (
+                            <TouchableOpacity
+                                style={[styles.trackButton, { backgroundColor: '#10B981' }]}
+                                onPress={(e) => {
+                                    e.stopPropagation();
+                                    navigation.navigate('RentalRequestDetails', {
+                                        rentalId: rental.id,
+                                        toolName: rental.tool.name,
+                                        customerName: rental.customer.fullName,
+                                        customerPhone: rental.customer.phone || 'N/A',
+                                        startDate: rental.startDate,
+                                        endDate: rental.endDate,
+                                        totalAmount: rental.totalAmount,
+                                        status: rental.status,
+                                        toolImage: rental.tool.images?.[0],
+                                        customerImage: rental.customer.profileImage,
+                                        pickupLocation: rental.pickupLocation,
+                                        paymentMethod: rental.paymentMethod,
+                                        isPaid: rental.isPaid,
+                                        extensionDays: rental.extensionDays,
+                                        extensionStatus: rental.extensionStatus,
+                                        extensionCost: rental.extensionCost,
+                                        pickupPhotos: rental.pickupPhotos,
+                                        returnPhotos: rental.returnPhotos
+                                    });
+                                }}
+                            >
+                                <Text style={styles.trackButtonText}>Confirm Return</Text>
+                            </TouchableOpacity>
+                        )}
+                        <Text style={styles.dateTimeText}>
+                            {new Date(rental.startDate).toLocaleDateString()} - {new Date(rental.endDate).toLocaleDateString()}
+                        </Text>
+                    </View>
+                </View>
+                <Image
+                    source={{ uri: rental.tool.images?.[0] || 'https://via.placeholder.com/150' }}
+                    style={styles.cardImage}
+                />
+            </View>
+        </TouchableOpacity>
+    );
 
     const filteredRentals = ownerRentals.filter(r => {
         if (selectedTab === 'ALL') return true;
@@ -93,114 +231,90 @@ const RentalRequestsScreen = () => {
                     ))}
                 </ScrollView>
 
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Rental Requests</Text>
-                    <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{filteredRentals.length} TOTAL</Text>
-                    </View>
-                </View>
-
                 {loading ? (
                     <ActivityIndicator size="large" color={COLORS.orange} style={{ marginVertical: 20 }} />
-                ) : filteredRentals.length > 0 ? (
-                    filteredRentals.map((rental) => (
-                        <TouchableOpacity
-                            key={rental.id}
-                            style={styles.card}
-                            onPress={() => navigation.navigate('RentalRequestDetails', {
-                                rentalId: rental.id,
-                                toolName: rental.tool.name,
-                                customerName: rental.customer.fullName,
-                                customerPhone: rental.customer.phone || 'N/A',
-                                startDate: rental.startDate,
-                                endDate: rental.endDate,
-                                totalAmount: rental.totalAmount,
-                                status: rental.status,
-                                toolImage: rental.tool.images?.[0],
-                                customerImage: rental.customer.profileImage,
-                                pickupLocation: rental.pickupLocation,
-                                paymentMethod: rental.paymentMethod,
-                                isPaid: rental.isPaid
-                            })}
-                        >
-                            <View style={styles.cardContent}>
-                                <View style={styles.textContainer}>
-                                    <Text style={[styles.statusText, { color: getStatusColor(rental.status) }]}>
-                                        {rental.status}
-                                    </Text>
-                                    <Text style={styles.cardTitle}>{rental.tool.name}</Text>
-                                    <Text style={styles.subText}>Customer: {rental.customer.fullName}</Text>
+                ) : (() => {
+                    if (selectedTab === 'ALL') {
+                        const activeRentals = ownerRentals.filter(r =>
+                            r.status === 'PENDING' ||
+                            r.status === 'CONFIRMED' ||
+                            r.status === 'IN_PROGRESS'
+                        );
+                        const pastRentals = ownerRentals.filter(r =>
+                            r.status === 'COMPLETED' ||
+                            r.status === 'PAID' ||
+                            r.status === 'CANCELLED' ||
+                            r.status === 'REJECTED'
+                        );
+                        const displayedPastRentals = viewAllCompleted ? pastRentals : pastRentals.slice(0, 2);
 
-                                    <View style={styles.buttonRow}>
-                                        {rental.status === 'PENDING' && (
-                                            <TouchableOpacity
-                                                style={[styles.trackButton, { backgroundColor: COLORS.orange }]}
-                                                onPress={async (e) => {
-                                                    e.stopPropagation();
-                                                    try {
-                                                        await rentalsApi.updateRentalStatus(rental.id, 'CONFIRMED');
-                                                        const data = await rentalsApi.getOwnerRentals(user!.id);
-                                                        setOwnerRentals(data);
-                                                    } catch (error) {
-                                                        console.error(error);
-                                                    }
-                                                }}
-                                            >
-                                                <Text style={styles.trackButtonText}>Accept</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                        {rental.status === 'CONFIRMED' && (
-                                            <TouchableOpacity
-                                                style={[styles.trackButton, { backgroundColor: COLORS.darkBlue }]}
-                                                onPress={async (e) => {
-                                                    e.stopPropagation();
-                                                    try {
-                                                        await rentalsApi.updateRentalStatus(rental.id, 'IN_PROGRESS');
-                                                        const data = await rentalsApi.getOwnerRentals(user!.id);
-                                                        setOwnerRentals(data);
-                                                    } catch (error) {
-                                                        console.error(error);
-                                                    }
-                                                }}
-                                            >
-                                                <Text style={styles.trackButtonText}>Picked Up</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                        {rental.status === 'IN_PROGRESS' && (
-                                            <TouchableOpacity
-                                                style={[styles.trackButton, { backgroundColor: '#10B981' }]}
-                                                onPress={async (e) => {
-                                                    e.stopPropagation();
-                                                    try {
-                                                        await rentalsApi.updateRentalStatus(rental.id, 'COMPLETED');
-                                                        const data = await rentalsApi.getOwnerRentals(user!.id);
-                                                        setOwnerRentals(data);
-                                                    } catch (error) {
-                                                        console.error(error);
-                                                    }
-                                                }}
-                                            >
-                                                <Text style={styles.trackButtonText}>Returned</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                        <Text style={styles.dateTimeText}>
-                                            {new Date(rental.startDate).toLocaleDateString()} - {new Date(rental.endDate).toLocaleDateString()}
-                                        </Text>
-                                    </View>
+                        if (activeRentals.length === 0 && pastRentals.length === 0) {
+                            return (
+                                <View style={styles.emptyCard}>
+                                    <MaterialCommunityIcons name="tools" size={40} color={COLORS.lightGray} />
+                                    <Text style={styles.emptyText}>No rental requests found</Text>
                                 </View>
-                                <Image
-                                    source={{ uri: rental.tool.images?.[0] || 'https://via.placeholder.com/150' }}
-                                    style={styles.cardImage}
-                                />
+                            );
+                        }
+
+                        return (
+                            <>
+                                {/* Ongoing Rentals */}
+                                {activeRentals.length > 0 && (
+                                    <>
+                                        <View style={styles.sectionHeader}>
+                                            <Text style={styles.sectionTitle}>Ongoing Rentals</Text>
+                                            <View style={styles.badge}>
+                                                <Text style={styles.badgeText}>{activeRentals.length} ACTIVE</Text>
+                                            </View>
+                                        </View>
+                                        {activeRentals.map(renderRentalCard)}
+                                    </>
+                                )}
+
+                                {/* Completed Rentals */}
+                                {pastRentals.length > 0 && (
+                                    <>
+                                        <View style={[styles.sectionHeader, { marginTop: activeRentals.length > 0 ? 24 : 0 }]}>
+                                            <Text style={styles.sectionTitle}>Completed Rentals</Text>
+                                            {pastRentals.length > 2 ? (
+                                                <TouchableOpacity onPress={() => setViewAllCompleted(!viewAllCompleted)}>
+                                                    <Text style={styles.viewAllText}>
+                                                        {viewAllCompleted ? "Show Less" : `View All (${pastRentals.length})`}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ) : (
+                                                <View style={styles.badge}>
+                                                    <Text style={styles.badgeText}>{pastRentals.length} TOTAL</Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                        {displayedPastRentals.map(renderRentalCard)}
+                                    </>
+                                )}
+                            </>
+                        );
+                    }
+
+                    // For other tabs: PENDING, ACTIVE, COMPLETED
+                    const tabTitle = selectedTab === 'PENDING' ? 'Pending Requests' : selectedTab === 'ACTIVE' ? 'Active Pickups & Rentals' : 'Completed Rentals';
+                    return (
+                        <>
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionTitle}>{tabTitle}</Text>
+                                <View style={styles.badge}>
+                                    <Text style={styles.badgeText}>{filteredRentals.length} TOTAL</Text>
+                                </View>
                             </View>
-                        </TouchableOpacity>
-                    ))
-                ) : (
-                    <View style={styles.emptyCard}>
-                        <MaterialCommunityIcons name="tools" size={40} color={COLORS.lightGray} />
-                        <Text style={styles.emptyText}>No matching rental requests found</Text>
-                    </View>
-                )}
+                            {filteredRentals.length > 0 ? filteredRentals.map(renderRentalCard) : (
+                                <View style={styles.emptyCard}>
+                                    <MaterialCommunityIcons name="tools" size={40} color={COLORS.lightGray} />
+                                    <Text style={styles.emptyText}>No requests found</Text>
+                                </View>
+                            )}
+                        </>
+                    );
+                })()}
 
                 <View style={{ height: 100 }} />
             </ScrollView>
@@ -373,6 +487,11 @@ const styles = StyleSheet.create({
         marginTop: 12,
         color: COLORS.gray,
         fontSize: 14,
+    },
+    viewAllText: {
+        fontSize: 12,
+        color: COLORS.orange,
+        fontWeight: '600',
     },
 });
 

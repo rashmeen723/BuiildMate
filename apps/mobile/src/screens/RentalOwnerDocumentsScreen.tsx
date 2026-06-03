@@ -17,11 +17,12 @@ const RentalOwnerDocumentsScreen = () => {
     const route = useRoute<RentalOwnerDocumentsRouteProp>();
     const { email, fullName, phone, role, rentalDetails, currentDocuments } = route.params;
 
-    const [idImage, setIdImage] = useState<string | null>(currentDocuments?.idImage || null);
+    const [idImageFront, setIdImageFront] = useState<string | null>(currentDocuments?.idImageFront || null);
+    const [idImageBack, setIdImageBack] = useState<string | null>(currentDocuments?.idImageBack || null);
     const [profileImage, setProfileImage] = useState<string | null>(currentDocuments?.profileImage || null);
     const [businessDoc, setBusinessDoc] = useState<string | null>(currentDocuments?.businessDoc || null);
 
-    const pickImage = async (type: 'id' | 'profile') => {
+    const pickImage = async (type: 'idFront' | 'idBack' | 'profile') => {
         const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (permissionResult.granted === false) {
             Alert.alert("Permission Required", "You've refused to allow this app to access your photos!");
@@ -35,8 +36,10 @@ const RentalOwnerDocumentsScreen = () => {
         });
 
         if (!result.canceled) {
-            if (type === 'id') {
-                setIdImage(result.assets[0].uri);
+            if (type === 'idFront') {
+                setIdImageFront(result.assets[0].uri);
+            } else if (type === 'idBack') {
+                setIdImageBack(result.assets[0].uri);
             } else if (type === 'profile') {
                 setProfileImage(result.assets[0].uri);
             }
@@ -63,11 +66,21 @@ const RentalOwnerDocumentsScreen = () => {
             Alert.alert("Required", "Please upload a professional profile photo.");
             return;
         }
-        if (!idImage) {
-            Alert.alert("Required", "Please upload a copy of your National ID or Passport.");
+        if (!idImageFront) {
+            Alert.alert("Required", "Please upload the Front side of your National ID or Passport.");
             return;
         }
-        if (!businessDoc) {
+        if (!idImageBack) {
+            Alert.alert("Required", "Please upload the Back side of your National ID or Passport.");
+            return;
+        }
+
+        const isIndividual = rentalDetails?.ownerType === 'INDIVIDUAL';
+        if (isIndividual && !businessDoc) {
+            Alert.alert("Required", "Please upload your Utility Bill or Proof of Address.");
+            return;
+        }
+        if (!isIndividual && !businessDoc) {
             Alert.alert("Required", "Please upload your Business Registration or Permit.");
             return;
         }
@@ -79,12 +92,15 @@ const RentalOwnerDocumentsScreen = () => {
             role,
             rentalDetails,
             documents: {
-                idImage,
+                idImageFront,
+                idImageBack,
                 profileImage,
-                businessDoc
+                ...(isIndividual ? { utilityBill: businessDoc } : { businessDoc })
             }
         });
     };
+
+    const isIndividual = rentalDetails?.ownerType === 'INDIVIDUAL';
 
     return (
         <SafeAreaView style={styles.container}>
@@ -98,7 +114,9 @@ const RentalOwnerDocumentsScreen = () => {
 
             <ScrollView contentContainerStyle={styles.content}>
                 <Text style={styles.title}>Legal Documents</Text>
-                <Text style={styles.subtitle}>Upload formal identification and business permits.</Text>
+                <Text style={styles.subtitle}>
+                    {isIndividual ? 'Upload formal identification and proof of home address.' : 'Upload formal identification and business permits.'}
+                </Text>
 
                 {/* Profile Photo */}
                 <View style={styles.section}>
@@ -119,28 +137,53 @@ const RentalOwnerDocumentsScreen = () => {
                     )}
                 </View>
 
-                {/* National ID */}
+                {/* National ID Front */}
                 <View style={styles.section}>
-                    <Text style={styles.label}>Owner's National ID / Passport <Text style={styles.required}>*</Text></Text>
-                    {!idImage ? (
-                        <TouchableOpacity style={styles.uploadBox} onPress={() => pickImage('id')}>
+                    <Text style={styles.label}>National ID / Passport (Front Side) <Text style={styles.required}>*</Text></Text>
+                    {!idImageFront ? (
+                        <TouchableOpacity style={styles.uploadBox} onPress={() => pickImage('idFront')}>
                             <Ionicons name="person-outline" size={40} color={COLORS.darkBlue} />
-                            <Text style={styles.uploadText}>Upload Identity Document</Text>
+                            <Text style={styles.uploadText}>Upload Front Side Image</Text>
                         </TouchableOpacity>
                     ) : (
                         <View style={styles.previewContainer}>
-                            <Image source={{ uri: idImage }} style={styles.previewImage} />
-                            <TouchableOpacity style={styles.removeButton} onPress={() => setIdImage(null)}>
+                            <Image source={{ uri: idImageFront }} style={styles.previewImage} />
+                            <TouchableOpacity style={styles.removeButton} onPress={() => setIdImageFront(null)}>
                                 <Ionicons name="close-circle" size={24} color={COLORS.error} />
                             </TouchableOpacity>
                         </View>
                     )}
                 </View>
 
-                {/* Business Registration */}
+                {/* National ID Back */}
                 <View style={styles.section}>
-                    <Text style={styles.label}>Business Registration / Permit <Text style={styles.required}>*</Text></Text>
-                    <Text style={styles.helperText}>Upload your BR or Trading License (PDF or Image).</Text>
+                    <Text style={styles.label}>National ID / Passport (Back Side) <Text style={styles.required}>*</Text></Text>
+                    {!idImageBack ? (
+                        <TouchableOpacity style={styles.uploadBox} onPress={() => pickImage('idBack')}>
+                            <Ionicons name="card-outline" size={40} color={COLORS.darkBlue} />
+                            <Text style={styles.uploadText}>Upload Back Side Image (Address Side)</Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={styles.previewContainer}>
+                            <Image source={{ uri: idImageBack }} style={styles.previewImage} />
+                            <TouchableOpacity style={styles.removeButton} onPress={() => setIdImageBack(null)}>
+                                <Ionicons name="close-circle" size={24} color={COLORS.error} />
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                </View>
+
+                {/* Business Registration or Utility Bill */}
+                <View style={styles.section}>
+                    <Text style={styles.label}>
+                        {isIndividual ? 'Utility Bill / Proof of Address' : 'Business Registration / Permit'}{' '}
+                        <Text style={styles.required}>*</Text>
+                    </Text>
+                    <Text style={styles.helperText}>
+                        {isIndividual 
+                            ? 'Upload a recent utility bill (Electricity, Water, or Fixed Line/Broadband bill) or tenancy agreement showing your registered home address.'
+                            : 'Upload your BR or Trading License (PDF or Image).'}
+                    </Text>
                     {!businessDoc ? (
                         <TouchableOpacity style={styles.uploadBox} onPress={pickDocument}>
                             <Ionicons name="document-text-outline" size={40} color={COLORS.darkBlue} />

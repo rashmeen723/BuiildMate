@@ -31,6 +31,7 @@ const BottomNavBar = () => {
             return [
                 { name: 'Home', label: 'Home', icon: 'home', route: 'RentalOwnerDashboard' },
                 { name: 'Rentals', label: 'Rentals', icon: 'swap-horizontal', route: 'RentalRequests' },
+                { name: 'Inventory', label: 'Inventory', icon: 'construct', route: 'RentalInventory' },
                 { name: 'Schedule', label: 'Schedule', icon: 'calendar', route: 'RentalOwnerSchedule' },
                 { name: 'Ratings', label: 'Ratings', icon: 'star', route: 'RentalOwnerRatings' },
                 { name: 'Profile', label: 'Profile', icon: 'person', route: 'Profile' },

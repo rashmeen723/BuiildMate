@@ -19,6 +19,7 @@ const RentalOwnerDetailsScreen = () => {
     const route = useRoute<RentalOwnerDetailsRouteProp>();
     const { email, fullName, phone, role, currentDetails } = route.params;
 
+    const [ownerType, setOwnerType] = useState<'INDIVIDUAL' | 'BUSINESS'>(currentDetails?.ownerType || 'INDIVIDUAL');
     const [businessName, setBusinessName] = useState(currentDetails?.businessName || '');
     const [selectedCategories, setSelectedCategories] = useState<string[]>(currentDetails?.toolCategories || []);
     const [yearsInBusiness, setYearsInBusiness] = useState(currentDetails?.yearsInBusiness || '');
@@ -33,7 +34,7 @@ const RentalOwnerDetailsScreen = () => {
 
     const handleNext = () => {
         if (!businessName) {
-            Alert.alert("Required", "Please enter your business or store name.");
+            Alert.alert("Required", ownerType === 'INDIVIDUAL' ? "Please enter your display name." : "Please enter your business or store name.");
             return;
         }
         if (selectedCategories.length === 0) {
@@ -47,9 +48,10 @@ const RentalOwnerDetailsScreen = () => {
             phone,
             role,
             rentalDetails: {
+                ownerType,
                 businessName,
                 toolCategories: selectedCategories,
-                yearsInBusiness
+                yearsInBusiness: ownerType === 'BUSINESS' ? yearsInBusiness : ''
             }
         });
     };
@@ -60,20 +62,47 @@ const RentalOwnerDetailsScreen = () => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="chevron-back" size={24} color={COLORS.black} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Business Details</Text>
+                <Text style={styles.headerTitle}>Rental Details</Text>
                 <View style={{ width: 24 }} />
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.title}>Describe your business</Text>
-                <Text style={styles.subtitle}>Help us set up your rental store profile.</Text>
+                <Text style={styles.title}>Describe your profile</Text>
+                <Text style={styles.subtitle}>Help us set up your tool rental profile.</Text>
 
-                {/* Business Name */}
+                {/* Rental Owner Type */}
                 <View style={styles.section}>
-                    <Text style={styles.label}>Business / Store Name</Text>
+                    <Text style={styles.label}>Rental Owner Type</Text>
+                    <View style={styles.tabContainer}>
+                        <TouchableOpacity
+                            style={[styles.tabButton, ownerType === 'INDIVIDUAL' && styles.tabButtonSelected]}
+                            onPress={() => setOwnerType('INDIVIDUAL')}
+                        >
+                            <Ionicons name="home-outline" size={20} color={ownerType === 'INDIVIDUAL' ? COLORS.darkBlue : COLORS.gray} />
+                            <Text style={[styles.tabButtonText, ownerType === 'INDIVIDUAL' && styles.tabButtonTextSelected]}>
+                                Individual / Homeowner
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.tabButton, ownerType === 'BUSINESS' && styles.tabButtonSelected]}
+                            onPress={() => setOwnerType('BUSINESS')}
+                        >
+                            <Ionicons name="briefcase-outline" size={20} color={ownerType === 'BUSINESS' ? COLORS.darkBlue : COLORS.gray} />
+                            <Text style={[styles.tabButtonText, ownerType === 'BUSINESS' && styles.tabButtonTextSelected]}>
+                                Registered Business
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                {/* Business/Display Name */}
+                <View style={styles.section}>
+                    <Text style={styles.label}>
+                        {ownerType === 'INDIVIDUAL' ? 'Display / Tool Shed Name' : 'Business / Store Name'}
+                    </Text>
                     <TextInput
                         style={styles.input}
-                        placeholder="e.g. BuildLink Tool Rentals"
+                        placeholder={ownerType === 'INDIVIDUAL' ? "e.g. Rashmeen's Tool Shed" : "e.g. BuildLink Tool Rentals"}
                         placeholderTextColor={COLORS.gray}
                         value={businessName}
                         onChangeText={setBusinessName}
@@ -98,18 +127,20 @@ const RentalOwnerDetailsScreen = () => {
                     </View>
                 </View>
 
-                {/* Years in Business */}
-                <View style={styles.section}>
-                    <Text style={styles.label}>Years in Business (Optional)</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="e.g. 3"
-                        placeholderTextColor={COLORS.gray}
-                        keyboardType="numeric"
-                        value={yearsInBusiness}
-                        onChangeText={setYearsInBusiness}
-                    />
-                </View>
+                {/* Years in Business - Only for Business */}
+                {ownerType === 'BUSINESS' && (
+                    <View style={styles.section}>
+                        <Text style={styles.label}>Years in Business (Optional)</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="e.g. 3"
+                            placeholderTextColor={COLORS.gray}
+                            keyboardType="numeric"
+                            value={yearsInBusiness}
+                            onChangeText={setYearsInBusiness}
+                        />
+                    </View>
+                )}
             </ScrollView>
 
             <View style={styles.footer}>
@@ -221,6 +252,35 @@ const styles = StyleSheet.create({
         color: COLORS.white,
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    tabContainer: {
+        flexDirection: 'column',
+        backgroundColor: COLORS.white,
+        gap: 10,
+    },
+    tabButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
+        backgroundColor: '#F8FAFC',
+        gap: 12,
+    },
+    tabButtonSelected: {
+        backgroundColor: '#EFF6FF',
+        borderColor: COLORS.darkBlue,
+        borderWidth: 1.5,
+    },
+    tabButtonText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#64748B',
+    },
+    tabButtonTextSelected: {
+        color: COLORS.darkBlue,
     },
 });
 

@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ShieldCheck, User, Mail, Phone, Calendar, Download, CheckCircle, XCircle, FileText, ExternalLink, MapPin } from "lucide-react";
+import { ChevronLeft, ShieldCheck, User, Mail, Phone, Calendar, Download, CheckCircle, XCircle, FileText, ExternalLink, MapPin, BrainCircuit, AlertCircle, BadgeCheck } from "lucide-react";
 import { adminApi } from "@/services/api";
 
 export default function VerificationDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -135,6 +135,38 @@ export default function VerificationDetailPage({ params }: { params: Promise<{ i
                             </li>
                         </ul>
                     </div>
+
+                    {/* AI Verification Section */}
+                    {user.documents?.some((d: any) => d.aiResult) && (
+                        <div className="glass-card p-6 border-sky-500/20 bg-sky-500/5">
+                            <h3 className="font-bold flex items-center gap-2 mb-4 text-sky-400">
+                                <BrainCircuit size={18} />
+                                AI Insights
+                            </h3>
+                            <div className="space-y-4">
+                                {user.documents.filter((d: any) => d.aiResult).map((doc: any, i: number) => {
+                                    const ai = doc.aiResult;
+                                    return (
+                                        <div key={i} className="p-3 rounded-lg bg-slate-900/50 border border-slate-800">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <span className="text-[10px] font-bold uppercase text-slate-500">{doc.documentType}</span>
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${ai.status === 'AI_PASSED' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                                                    {Math.round(ai.confidence * 100)}% Match
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-slate-300 leading-relaxed italic">"{ai.reason}"</p>
+                                            
+                                            <div className="mt-3 space-y-1.5">
+                                                <AiCheck label="Name Match" passed={ai.checks?.nameMatch} />
+                                                <AiCheck label="Not Expired" passed={ai.checks?.notExpired} />
+                                                <AiCheck label="Authentic" passed={ai.checks?.looksAuthentic} />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Right Column: Documents & Info */}
@@ -206,6 +238,19 @@ export default function VerificationDetailPage({ params }: { params: Promise<{ i
                     </div>
                 </div>
             </div>
+        </div>
+    );
+}
+
+function AiCheck({ label, passed }: { label: string, passed: boolean }) {
+    return (
+        <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400">{label}</span>
+            {passed ? (
+                <BadgeCheck size={14} className="text-emerald-500" />
+            ) : (
+                <AlertCircle size={14} className="text-rose-500" />
+            )}
         </div>
     );
 }
