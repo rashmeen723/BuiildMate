@@ -492,20 +492,37 @@ const TrackServiceScreen = () => {
                             <View style={styles.invoiceCard}>
                                 <View style={styles.invoiceRow}>
                                     <Text style={styles.invoiceLabel}>Base Service Rate</Text>
-                                    <Text style={styles.invoiceValue}>LKR {(totalAmount - additionalChargesAmount - (totalAmount * 0.05 / 1.05)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</Text>
+                                    <Text style={styles.invoiceValue}>
+                                        LKR {Math.round(currentServiceData?.baseAmount !== undefined && currentServiceData?.baseAmount !== null
+                                            ? currentServiceData.baseAmount
+                                            : (totalAmount - additionalChargesAmount - (totalAmount * 0.05 / 1.05))
+                                        ).toLocaleString()}
+                                    </Text>
                                 </View>
                                 <View style={styles.invoiceRow}>
                                     <Text style={styles.invoiceLabel}>Additional Materials/Work</Text>
-                                    <Text style={styles.invoiceValue}>LKR {additionalChargesAmount.toLocaleString()}</Text>
+                                    <Text style={styles.invoiceValue}>
+                                        LKR {Math.round(currentServiceData?.additionalCharges !== undefined && currentServiceData?.additionalCharges !== null
+                                            ? currentServiceData.additionalCharges
+                                            : additionalChargesAmount
+                                        ).toLocaleString()}
+                                    </Text>
                                 </View>
                                 <View style={styles.invoiceRow}>
                                     <Text style={styles.invoiceLabel}>BuildMate Service Fee</Text>
-                                    <Text style={styles.invoiceValue}>LKR {(totalAmount - (totalAmount / 1.05)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</Text>
+                                    <Text style={styles.invoiceValue}>
+                                        LKR {Math.round(currentServiceData?.platformFee !== undefined && currentServiceData?.platformFee !== null
+                                            ? currentServiceData.platformFee
+                                            : (totalAmount - (totalAmount / 1.05))
+                                        ).toLocaleString()}
+                                    </Text>
                                 </View>
                                 <View style={styles.invoiceDivider} />
                                 <View style={styles.invoiceRow}>
                                     <Text style={styles.totalLabel}>Total Payable</Text>
-                                    <Text style={styles.totalValue}>LKR {totalAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</Text>
+                                    <Text style={styles.totalValue}>
+                                        LKR {Math.round(currentServiceData?.totalAmount || totalAmount).toLocaleString()}
+                                    </Text>
                                 </View>
                             </View>
 
@@ -514,10 +531,17 @@ const TrackServiceScreen = () => {
                                 onPress={() => navigation.navigate('Payment', {
                                     id: serviceId,
                                     title: serviceType,
-                                    amount: totalAmount,
+                                    amount: currentServiceData?.totalAmount || totalAmount,
                                     type: 'SERVICE',
-                                    baseAmount: totalAmount - additionalChargesAmount,
-                                    additionalCharges: additionalChargesAmount
+                                    baseAmount: currentServiceData?.baseAmount !== undefined && currentServiceData?.baseAmount !== null
+                                        ? currentServiceData.baseAmount
+                                        : (totalAmount - additionalChargesAmount - (totalAmount * 0.05 / 1.05)),
+                                    additionalCharges: currentServiceData?.additionalCharges !== undefined && currentServiceData?.additionalCharges !== null
+                                        ? currentServiceData.additionalCharges
+                                        : additionalChargesAmount,
+                                    serviceFee: currentServiceData?.platformFee !== undefined && currentServiceData?.platformFee !== null
+                                        ? currentServiceData.platformFee
+                                        : (totalAmount - (totalAmount / 1.05))
                                 })}
                             >
                                 <Text style={styles.arrivedButtonText}>Secure Payment</Text>

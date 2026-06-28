@@ -227,6 +227,8 @@ export type RootStackParamList = {
     EditProfile: { selectedLocation?: any; selectedAddress?: string } | undefined;
     OrderHistory: undefined;
     NotificationSettings: undefined;
+    ChangePassword: undefined;
+    ForgotPassword: undefined;
     WriteReview: {
         reviewType: 'SERVICE' | 'RENTAL';
         id: string; // bookingId or rentalId

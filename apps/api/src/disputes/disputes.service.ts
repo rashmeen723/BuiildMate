@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DisputeStatus } from '@prisma/client';
 
@@ -23,6 +23,36 @@ export class DisputesService {
 
         if (!reporter || !reported) {
             throw new NotFoundException('Reporter or Reported user not found');
+        }
+
+        // Verify booking / rental relationship to block unauthorized disputes (IDOR protection)
+        if (bookingId) {
+            const booking = await this.prisma.booking.findUnique({
+                where: { id: bookingId }
+            });
+            if (!booking) {
+                throw new NotFoundException('Booking not found');
+            }
+            const isParticipant = (booking.customerId === reporterId && booking.providerId === reportedId) ||
+                                  (booking.providerId === reporterId && booking.customerId === reportedId);
+            if (!isParticipant) {
+                throw new BadRequestException('You are not authorized to raise a dispute for this booking');
+            }
+        }
+
+        if (rentalId) {
+            const rental = await (this.prisma as any).toolRental.findUnique({
+                where: { id: rentalId },
+                include: { tool: true }
+            });
+            if (!rental) {
+                throw new NotFoundException('Rental not found');
+            }
+            const isParticipant = (rental.customerId === reporterId && rental.tool.ownerId === reportedId) ||
+                                  (rental.tool.ownerId === reporterId && rental.customerId === reportedId);
+            if (!isParticipant) {
+                throw new BadRequestException('You are not authorized to raise a dispute for this rental');
+            }
         }
 
         // Create the dispute

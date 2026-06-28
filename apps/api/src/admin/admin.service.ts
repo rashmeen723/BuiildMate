@@ -5,6 +5,27 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const customCategoriesPath = path.join(__dirname, 'custom_categories.json');
+const platformSettingsPath = path.join(__dirname, 'platform-settings.json');
+
+function readPlatformSettings(): { commissionRate: number } {
+    try {
+        if (fs.existsSync(platformSettingsPath)) {
+            const data = fs.readFileSync(platformSettingsPath, 'utf-8');
+            return JSON.parse(data);
+        }
+    } catch (e) {
+        console.error("Error reading platform settings:", e);
+    }
+    return { commissionRate: 5.0 };
+}
+
+function writePlatformSettings(data: { commissionRate: number }) {
+    try {
+        fs.writeFileSync(platformSettingsPath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e) {
+        console.error("Error writing platform settings:", e);
+    }
+}
 
 function readCustomCategories(): { services: string[], rentals: string[], deletedServices?: string[], deletedRentals?: string[] } {
     try {
@@ -31,20 +52,12 @@ export class AdminService {
     constructor(private prisma: PrismaService) { }
 
     async getStats() {
-        // 1. Active Partners (approved providers + approved owners who are not suspended)
-        const activeServiceProviders = await this.prisma.serviceProviderProfile.count({
+        // 1. Registered Users (all non-admin accounts)
+        const registeredUsers = await this.prisma.user.count({
             where: {
-                status: 'APPROVED',
-                user: { isSuspended: false }
+                role: { not: 'ADMIN' }
             }
         });
-        const activeRentalOwners = await this.prisma.rentalOwnerProfile.count({
-            where: {
-                status: 'APPROVED',
-                user: { isSuspended: false }
-            }
-        });
-        const activePartners = activeServiceProviders + activeRentalOwners;
 
         // 2. Live Rentals (Tool Rentals that are currently active/in progress or confirmed)
         const liveRentals = await this.prisma.toolRental.count({
@@ -55,24 +68,28 @@ export class AdminService {
             }
         });
 
-        // 3. Total Revenue (sum of completed/paid bookings + rentals)
-        const bookingRevenueResult = await this.prisma.booking.aggregate({
+        // 3. Monthly Revenue (sum of completed/paid bookings + rentals for current month)
+        const now = new Date();
+        const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        const currentMonthBookingRev = await this.prisma.booking.aggregate({
             where: {
+                bookingDate: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
                 status: { in: ['COMPLETED', 'PAID'] }
             },
-            _sum: {
-                totalAmount: true
-            }
+            _sum: { totalAmount: true }
         });
-        const rentalRevenueResult = await this.prisma.toolRental.aggregate({
+
+        const currentMonthRentalRev = await this.prisma.toolRental.aggregate({
             where: {
+                startDate: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
                 status: { in: ['COMPLETED', 'PAID'] }
             },
-            _sum: {
-                totalAmount: true
-            }
+            _sum: { totalAmount: true }
         });
-        const totalRevenue = (bookingRevenueResult._sum.totalAmount || 0) + (rentalRevenueResult._sum.totalAmount || 0);
+
+        const monthlyRevenue = (currentMonthBookingRev._sum.totalAmount || 0) + (currentMonthRentalRev._sum.totalAmount || 0);
 
         // 4. Active Disputes
         const activeDisputes = await this.prisma.dispute.count({
@@ -181,9 +198,9 @@ export class AdminService {
         const averageTicket = averageRentalResult._avg.totalAmount || 3450;
 
         return {
-            activePartners,
+            registeredUsers,
             liveRentals,
-            totalRevenue,
+            monthlyRevenue,
             activeDisputes,
             monthlyData,
             toolUtilization,
@@ -243,10 +260,7 @@ export class AdminService {
     async getProviders() {
         const providers = await this.prisma.user.findMany({
             where: {
-                OR: [
-                    { role: 'SERVICE_PROVIDER' },
-                    { role: 'RENTAL_OWNER' }
-                ]
+                role: { not: 'ADMIN' }
             },
             include: {
                 serviceProvider: true,
@@ -259,7 +273,7 @@ export class AdminService {
             fullName: user.fullName,
             email: user.email,
             role: user.role,
-            status: user.serviceProvider?.status || user.rentalOwner?.status,
+            status: user.serviceProvider?.status || user.rentalOwner?.status || 'APPROVED',
             trustScore: user.trustScore,
             isSuspended: user.isSuspended,
             suspensionReason: user.suspensionReason,
@@ -595,12 +609,16 @@ export class AdminService {
         }
 
         if (status === 'APPROVED') {
-            const badgesToGrant: any[] = ['IDENTITY_VERIFIED'];
+            const badgesToGrant: any[] = [];
             
             if (user.serviceProvider) {
                 const hasCertificate = user.documents.some(d => d.documentType === 'CERTIFICATE');
                 if (hasCertificate) {
                     badgesToGrant.push('CERTIFIED_PRO');
+                }
+                const hasUtilityBill = user.documents.some(d => d.documentType === 'UTILITY_BILL');
+                if (hasUtilityBill) {
+                    badgesToGrant.push('ADDRESS_VERIFIED');
                 }
             }
 
@@ -730,5 +748,316 @@ export class AdminService {
 
             return { message: 'User and all associated data deleted successfully.' };
         });
+    }
+
+    async getMonthlyReportData() {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        // --- FINANCIAL METRICS ---
+        const bookings = await this.prisma.booking.findMany({
+            where: {
+                bookingDate: { gte: startOfMonth, lte: endOfMonth },
+                status: { in: ['COMPLETED', 'PAID'] }
+            }
+        });
+
+        const rentals = await this.prisma.toolRental.findMany({
+            where: {
+                startDate: { gte: startOfMonth, lte: endOfMonth },
+                status: { in: ['COMPLETED', 'PAID'] }
+            }
+        });
+
+        const platformSettings = readPlatformSettings();
+        const rateFactor = platformSettings.commissionRate / 100;
+
+        const bookingsRevenue = bookings.reduce((sum, b) => sum + (b.totalAmount || 0), 0);
+        const bookingsProfit = bookings.reduce((sum, b) => sum + (b.platformFee || (b.totalAmount || 0) * rateFactor), 0);
+
+        const rentalsRevenue = rentals.reduce((sum, r) => sum + (r.totalAmount || 0), 0);
+        const rentalsProfit = rentals.reduce((sum, r) => sum + ((r as any).platformFee || (r.totalAmount || 0) * rateFactor), 0);
+
+        // Payment Method splits
+        const cashRentalsCount = rentals.filter(r => r.paymentMethod === 'CASH').length;
+        const cardRentalsCount = rentals.filter(r => r.paymentMethod === 'CARD').length;
+        const cashRentalsRevenue = rentals.filter(r => r.paymentMethod === 'CASH').reduce((sum, r) => sum + (r.totalAmount || 0), 0);
+        const cardRentalsRevenue = rentals.filter(r => r.paymentMethod === 'CARD').reduce((sum, r) => sum + (r.totalAmount || 0), 0);
+
+        const totalRevenue = bookingsRevenue + rentalsRevenue;
+        const totalProfit = bookingsProfit + rentalsProfit;
+        const netPayouts = totalRevenue - totalProfit;
+
+        // --- MARKETING & TRUST METRICS ---
+        const newHouseholds = await this.prisma.user.count({
+            where: {
+                role: 'HOUSEHOLD',
+                createdAt: { gte: startOfMonth, lte: endOfMonth }
+            }
+        });
+        const newProviders = await this.prisma.user.count({
+            where: {
+                role: 'SERVICE_PROVIDER',
+                createdAt: { gte: startOfMonth, lte: endOfMonth }
+            }
+        });
+        const newOwners = await this.prisma.user.count({
+            where: {
+                role: 'RENTAL_OWNER',
+                createdAt: { gte: startOfMonth, lte: endOfMonth }
+            }
+        });
+
+        const bookingGroup = await this.prisma.booking.groupBy({
+            by: ['serviceType'],
+            where: {
+                bookingDate: { gte: startOfMonth, lte: endOfMonth }
+            },
+            _count: { id: true },
+            orderBy: {
+                _count: { id: 'desc' }
+            },
+            take: 1
+        });
+        const topService = bookingGroup[0]?.serviceType || "None";
+
+        const rentalGroup = await this.prisma.toolRental.groupBy({
+            by: ['toolId'],
+            where: {
+                startDate: { gte: startOfMonth, lte: endOfMonth }
+            },
+            _count: { id: true },
+            orderBy: {
+                _count: { id: 'desc' }
+            },
+            take: 1
+        });
+
+        let topTool = "None";
+        if (rentalGroup[0]?.toolId) {
+            const toolObj = await this.prisma.tool.findUnique({
+                where: { id: rentalGroup[0].toolId }
+            });
+            if (toolObj) {
+                topTool = toolObj.name;
+            }
+        }
+
+        // Trust Safety Disputes
+        const disputesLogged = await this.prisma.dispute.count({
+            where: {
+                createdAt: { gte: startOfMonth, lte: endOfMonth }
+            }
+        });
+        const disputesResolved = await this.prisma.dispute.count({
+            where: {
+                createdAt: { gte: startOfMonth, lte: endOfMonth },
+                status: { in: ['RESOLVED', 'DISMISSED'] }
+            }
+        });
+        const totalSuspensions = await this.prisma.user.count({
+            where: {
+                isSuspended: true,
+                updatedAt: { gte: startOfMonth, lte: endOfMonth }
+            }
+        });
+
+        // --- LOCATION ANALYSIS ---
+        const bookingsWithLocation = await this.prisma.booking.findMany({
+            where: {
+                bookingDate: { gte: startOfMonth, lte: endOfMonth }
+            },
+            select: { address: true }
+        });
+        const rentalsWithLocation = await this.prisma.toolRental.findMany({
+            where: {
+                startDate: { gte: startOfMonth, lte: endOfMonth }
+            },
+            select: { pickupLocation: true }
+        });
+
+        const cityActivity: { [key: string]: number } = {};
+        const addActivity = (addressStr: string | null) => {
+            if (!addressStr) return;
+            const parts = addressStr.split(',');
+            const city = parts[parts.length - 1].trim();
+            if (city) {
+                cityActivity[city] = (cityActivity[city] || 0) + 1;
+            }
+        };
+
+        bookingsWithLocation.forEach(b => addActivity(b.address));
+        rentalsWithLocation.forEach(r => addActivity(r.pickupLocation));
+
+        let topBookingLocation = "None";
+        let maxAct = 0;
+        let leastBookingLocation = "None";
+        let minAct = Infinity;
+
+        for (const city of Object.keys(cityActivity)) {
+            const count = cityActivity[city];
+            if (count > maxAct) {
+                maxAct = count;
+                topBookingLocation = `${city} (${count} orders)`;
+            }
+            if (count < minAct) {
+                minAct = count;
+                leastBookingLocation = `${city} (${count} orders)`;
+            }
+        }
+        if (leastBookingLocation === "None" && Object.keys(cityActivity).length > 0) {
+            leastBookingLocation = Object.keys(cityActivity)[0] + ` (${cityActivity[Object.keys(cityActivity)[0]]} orders)`;
+        }
+
+        const reviewsThisMonth = await this.prisma.review.findMany({
+            where: {
+                createdAt: { gte: startOfMonth, lte: endOfMonth }
+            },
+            include: {
+                booking: true,
+                rental: true
+            }
+        });
+
+        const locationRatings: { [key: string]: { sum: number, count: number } } = {};
+        for (const r of reviewsThisMonth) {
+            let addressStr = "";
+            if (r.booking) {
+                addressStr = r.booking.address;
+            } else if (r.rental && r.rental.pickupLocation) {
+                addressStr = r.rental.pickupLocation;
+            }
+
+            if (!addressStr) continue;
+            const parts = addressStr.split(',');
+            const city = parts[parts.length - 1].trim();
+            if (city) {
+                if (!locationRatings[city]) {
+                    locationRatings[city] = { sum: 0, count: 0 };
+                }
+                locationRatings[city].sum += r.rating;
+                locationRatings[city].count += 1;
+            }
+        }
+
+        let topRatedArea = "None";
+        let maxAvg = 0;
+
+        for (const city of Object.keys(locationRatings)) {
+            const avg = locationRatings[city].sum / locationRatings[city].count;
+            if (avg > maxAvg) {
+                maxAvg = avg;
+                topRatedArea = `${city} (${avg.toFixed(1)} ★)`;
+            }
+        }
+
+        return {
+            financials: {
+                month: now.toLocaleString('default', { month: 'long', year: 'numeric' }),
+                bookingsCount: bookings.length,
+                rentalsCount: rentals.length,
+                bookingsRevenue,
+                bookingsProfit,
+                rentalsRevenue,
+                rentalsProfit,
+                cashRentalsCount,
+                cardRentalsCount,
+                cashRentalsRevenue,
+                cardRentalsRevenue,
+                totalRevenue,
+                totalProfit,
+                netPayouts
+            },
+            marketing: {
+                month: now.toLocaleString('default', { month: 'long', year: 'numeric' }),
+                newHouseholds,
+                newProviders,
+                newOwners,
+                totalNewSignups: newHouseholds + newProviders + newOwners,
+                topService,
+                topTool,
+                disputesLogged,
+                disputesResolved,
+                totalSuspensions,
+                topRatedArea,
+                topBookingLocation,
+                leastBookingLocation
+            }
+        };
+    }
+
+    getPlatformSettings() {
+        return readPlatformSettings();
+    }
+
+    async updatePlatformSettings(data: { commissionRate: number }) {
+        if (typeof data.commissionRate !== 'number' || data.commissionRate < 0 || data.commissionRate > 100) {
+            throw new BadRequestException('Commission rate must be a percentage value between 0 and 100.');
+        }
+        writePlatformSettings(data);
+
+        // Notify all active system users of commission adjustments
+        try {
+            const users = await this.prisma.user.findMany({
+                where: {
+                    role: { in: ['SERVICE_PROVIDER', 'RENTAL_OWNER', 'HOUSEHOLD'] }
+                },
+                select: { id: true }
+            });
+
+            const notificationsData = users.map(user => ({
+                userId: user.id,
+                title: 'Marketplace Commission Adjusted',
+                message: `Please be advised that the platform transaction commission fee has been updated to ${data.commissionRate.toFixed(1)}% per completed order.`,
+                type: 'COMMISSION_UPDATE'
+            }));
+
+            if (notificationsData.length > 0) {
+                await this.prisma.notification.createMany({
+                    data: notificationsData
+                });
+            }
+        } catch (err) {
+            console.error('Failed to dispatch commission update notifications:', err);
+        }
+
+        return { message: 'Platform settings updated successfully', settings: readPlatformSettings() };
+    }
+
+    async broadcastAnnouncement(data: { title: string; message: string; targetAudience: 'ALL' | 'SERVICE_PROVIDER' | 'RENTAL_OWNER' | 'HOUSEHOLD' }) {
+        const { title, message, targetAudience } = data;
+        if (!title || !message) {
+            throw new BadRequestException('Announcement title and message are required.');
+        }
+
+        let roles: string[] = [];
+        if (targetAudience === 'ALL') {
+            roles = ['SERVICE_PROVIDER', 'RENTAL_OWNER', 'HOUSEHOLD'];
+        } else {
+            roles = [targetAudience];
+        }
+
+        const users = await this.prisma.user.findMany({
+            where: { role: { in: roles as any } },
+            select: { id: true }
+        });
+
+        if (users.length === 0) {
+            return { message: 'No users found matching target audience criteria.', count: 0 };
+        }
+
+        const notificationsData = users.map(user => ({
+            userId: user.id,
+            title,
+            message,
+            type: 'SYSTEM_BROADCAST'
+        }));
+
+        await this.prisma.notification.createMany({
+            data: notificationsData
+        });
+
+        return { message: `Announcement dispatched successfully!`, count: users.length };
     }
 }

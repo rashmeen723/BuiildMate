@@ -33,6 +33,9 @@ Traditional methods of hiring local handymen and renting tools are often fragmen
 * Real-time Location Tracking: Interactive map navigation via Expo maps to track service providers on route.
 * Review and Feedback System: User ratings and comments with togglable likes for increased engagement.
 * Dispute and Suspension Panel: Official resolution tracking and user account suspension options.
+* Admin Authentication & Session Guard: A premium Next.js gateway featuring secure logins, dynamic guards, forgot password loops, and eye toggles.
+* System Settings & Fee Controls: Configure marketplace commission percentages and dispatch system-wide announcement broadcast updates.
+* Reports Center: Export financial ledger profits and marketing diagnostics as CSVs or scoped printable PDFs.
 * Android and iOS Status Bar Support: Context-aware safe area handling for notch compatibility.
 
 ## Technology Stack
@@ -149,8 +152,12 @@ Traditional methods of hiring local handymen and renting tools are often fragmen
 ```text
 ├── src/
 │   ├── app/                      # App router layout and page views
-│   ├── components/               # Shared dashboard components
-│   └── services/                 # Admin API connections
+│   │   ├── login/                # Admin Portal auth and recovery wizard
+│   │   ├── providers/            # User Directory control grid
+│   │   ├── reports/              # Reports generation and print dashboard
+│   │   ├── verifications/        # KYC verifications list
+│   ├── components/               # Divided reusable widgets (StatCard, Modals)
+│   └── services/                 # Authenticated API connections
 ├── package.json
 ├── tsconfig.json
 ├── README.md

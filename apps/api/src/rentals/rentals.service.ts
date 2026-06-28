@@ -1,5 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class RentalsService {
@@ -156,7 +158,7 @@ export class RentalsService {
             const allReviews = tool.rentals.flatMap((r: any) => r.reviews || []);
             const averageRating = allReviews.length > 0
                 ? (allReviews.reduce((acc: number, r: any) => acc + r.rating, 0) / allReviews.length)
-                : 5.0; // Default to 5.0 for new tools or similar to what UI expects
+                : 0; // Default to 0 for new tools or similar to what UI expects
             return {
                 ...tool,
                 rating: averageRating,
@@ -193,7 +195,7 @@ export class RentalsService {
         const allReviews = tool.rentals.flatMap((r: any) => r.reviews || []);
         const averageRating = allReviews.length > 0
             ? (allReviews.reduce((acc: number, r: any) => acc + r.rating, 0) / allReviews.length)
-            : 5.0;
+            : 0;
 
         return {
             ...tool,
@@ -212,10 +214,36 @@ export class RentalsService {
         paymentMethod?: string;
         isPaid?: boolean;
     }) {
+        const start = new Date(data.startDate);
+        const end = new Date(data.endDate);
+        if (end < start) {
+            throw new BadRequestException('End date cannot be prior to start date');
+        }
+
         const tool = await this.prisma.tool.findUnique({
             where: { id: data.toolId },
             include: { owner: true }
         });
+
+        if (!tool || tool.status !== 'AVAILABLE') {
+            throw new BadRequestException('This tool is currently not available for rent.');
+        }
+
+        let rateFactor = 0.05;
+        try {
+            const settingsPath = path.join(__dirname, '..', 'admin', 'platform-settings.json');
+            if (fs.existsSync(settingsPath)) {
+                const settingsData = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+                if (typeof settingsData.commissionRate === 'number') {
+                    rateFactor = settingsData.commissionRate / 100;
+                }
+            }
+        } catch (e) {
+            console.error("Error reading platform settings in rentals:", e);
+        }
+
+        const platformFee = data.totalAmount * rateFactor;
+        const totalAmountWithFee = data.totalAmount + platformFee;
 
         const rental = await this.prisma.toolRental.create({
             data: {
@@ -223,12 +251,13 @@ export class RentalsService {
                 customerId: data.customerId,
                 startDate: new Date(data.startDate),
                 endDate: new Date(data.endDate),
-                totalAmount: data.totalAmount,
+                totalAmount: totalAmountWithFee,
+                platformFee: platformFee,
                 status: 'PENDING',
                 pickupLocation: data.pickupLocation,
                 paymentMethod: data.paymentMethod || 'CASH',
                 isPaid: data.isPaid || false,
-            },
+            } as any,
         });
 
         if (tool && tool.owner) {
@@ -252,6 +281,19 @@ export class RentalsService {
     }
 
     async updateRentalStatus(rentalId: string, status: string, pickupPhotos?: string[], returnPhotos?: string[]) {
+        const existingRental = await this.prisma.toolRental.findUnique({
+            where: { id: rentalId },
+            include: { tool: true }
+        });
+
+        if (!existingRental) {
+            throw new BadRequestException('Rental record not found');
+        }
+
+        if (status === 'CONFIRMED' && existingRental.tool.status === 'RENTED') {
+            throw new BadRequestException('This tool is already rented out to another customer.');
+        }
+
         const updateData: any = { status: status as any };
         if (status === 'PAID') {
             updateData.isPaid = true;
@@ -407,7 +449,7 @@ export class RentalsService {
             const allReviews = tool.rentals.flatMap((r: any) => r.reviews || []);
             const averageRating = allReviews.length > 0
                 ? (allReviews.reduce((acc: number, r: any) => acc + r.rating, 0) / allReviews.length)
-                : 5.0;
+                : 0;
 
             const distance = this.calculateDistance(
                 lat,

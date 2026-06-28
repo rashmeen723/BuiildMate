@@ -41,6 +41,7 @@ const ProfileScreen = () => {
 
     const menuItems = [
         { id: 1, title: 'Personal Information', icon: 'person', route: 'EditProfile' },
+        { id: 2, title: 'Change Password', icon: 'lock-closed', route: 'ChangePassword' },
         { id: 4, title: 'Order History', icon: 'time', route: 'OrderHistory' },
         { id: 5, title: 'Notification Settings', icon: 'notifications', route: 'NotificationSettings' },
     ];
@@ -124,10 +125,12 @@ const ProfileScreen = () => {
                         {/* Badges Section */}
                         {(user?.badges && user.badges.length > 0) && (
                             <View style={styles.badgeRow}>
-                                {user.badges.includes('IDENTITY_VERIFIED') && (
+                                {(user.badges.includes('ADDRESS_VERIFIED') || user.badges.includes('IDENTITY_VERIFIED')) && (
                                     <View style={[styles.badge, { backgroundColor: '#10B981' }]}>
                                         <Ionicons name="checkmark-circle" size={12} color={COLORS.white} />
-                                        <Text style={styles.badgeText}>Identity Verified</Text>
+                                        <Text style={styles.badgeText}>
+                                            {user.badges.includes('ADDRESS_VERIFIED') ? 'Address Verified' : 'Identity Verified'}
+                                        </Text>
                                     </View>
                                 )}
                                 {user.badges.includes('CERTIFIED_PRO') && (

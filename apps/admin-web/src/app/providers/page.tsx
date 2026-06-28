@@ -3,10 +3,40 @@
 import { useState, useEffect } from "react";
 import { Users, Search, Filter, ShieldCheck, CheckCircle2, AlertCircle, Clock, Trash2 } from "lucide-react";
 import { adminApi } from "@/services/api";
+import { SuspendModal } from "../../components/modals/SuspendModal";
+import { UnsuspendModal } from "../../components/modals/UnsuspendModal";
+import { DeleteUserModal } from "../../components/modals/DeleteUserModal";
 
 export default function ProvidersPage() {
     const [providers, setProviders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Search and filter states
+    const [searchQuery, setSearchQuery] = useState("");
+    const [roleFilter, setRoleFilter] = useState("ALL");
+    const [statusFilter, setStatusFilter] = useState("ALL");
+
+    // Derived filtered users list
+    const filteredProviders = providers.filter((user) => {
+        const matchesSearch = 
+            user.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            user.email.toLowerCase().includes(searchQuery.toLowerCase());
+
+        const matchesRole = 
+            roleFilter === "ALL" || 
+            user.role === roleFilter;
+
+        let matchesStatus = true;
+        if (statusFilter === "SUSPENDED") {
+            matchesStatus = user.isSuspended;
+        } else if (statusFilter === "ACTIVE") {
+            matchesStatus = !user.isSuspended && user.status === "APPROVED";
+        } else if (statusFilter === "PENDING") {
+            matchesStatus = !user.isSuspended && user.status === "PENDING";
+        }
+
+        return matchesSearch && matchesRole && matchesStatus;
+    });
 
     // Custom Modal States
     const [showSuspendModal, setShowSuspendModal] = useState(false);
@@ -100,24 +130,55 @@ export default function ProvidersPage() {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-700">
-            <div className="flex justify-between items-end">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-white">Provider Directory</h1>
-                    <p className="text-slate-400 mt-1 text-sm">Manage all active service providers and rental owners.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-white">User Directory</h1>
+                    <p className="text-slate-400 mt-1 text-sm">Manage all active platform customers, service providers, and rental owners.</p>
                 </div>
-                <div className="flex gap-3">
-                   <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                        <input 
-                            type="text" 
-                            placeholder="Search providers..." 
-                            className="bg-slate-900 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-[13px] focus:outline-none focus:border-sky-500 transition-colors w-60"
-                        />
-                   </div>
-                   <button className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-[13px] font-medium hover:bg-slate-800 transition-colors">
-                        <Filter size={14} />
-                        Filters
-                   </button>
+            </div>
+
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-5">
+                <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                    <input 
+                        type="text" 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search users by name or email..." 
+                        className="w-full bg-white/5 border border-white/5 rounded-xl pl-10 pr-4 py-2.5 text-[13px] text-white focus:outline-none focus:border-sky-500/50 placeholder-slate-500 transition-all"
+                    />
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-3">
+                    {/* Role Filter */}
+                    <div className="flex items-center gap-2 bg-white/5 border border-white/5 rounded-xl px-3 py-1.5">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase">Role:</span>
+                        <select 
+                            value={roleFilter}
+                            onChange={(e) => setRoleFilter(e.target.value)}
+                            className="bg-transparent text-[13px] font-semibold text-slate-300 focus:outline-none cursor-pointer"
+                        >
+                            <option value="ALL">All Roles</option>
+                            <option value="HOUSEHOLD">Household Customers</option>
+                            <option value="SERVICE_PROVIDER">Service Providers</option>
+                            <option value="RENTAL_OWNER">Rental Owners</option>
+                        </select>
+                    </div>
+
+                    {/* Status Filter */}
+                    <div className="flex items-center gap-2 bg-white/5 border border-white/5 rounded-xl px-3 py-1.5">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase">Status:</span>
+                        <select 
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="bg-transparent text-[13px] font-semibold text-slate-300 focus:outline-none cursor-pointer"
+                        >
+                            <option value="ALL">All Status</option>
+                            <option value="ACTIVE">Active</option>
+                            <option value="PENDING">Pending Verification</option>
+                            <option value="SUSPENDED">Suspended</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -133,7 +194,7 @@ export default function ProvidersPage() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800">
-                        {providers.length > 0 ? providers.map((provider) => (
+                        {filteredProviders.length > 0 ? filteredProviders.map((provider) => (
                             <tr key={provider.id} className="hover:bg-slate-800/30 transition-colors">
                                 <td className="px-6 py-3">
                                     <div className="flex items-center gap-3">
@@ -214,7 +275,7 @@ export default function ProvidersPage() {
                         )) : (
                             <tr>
                                 <td colSpan={5} className="p-10 text-center text-slate-500 italic">
-                                    No providers found.
+                                    No users found matching your criteria.
                                 </td>
                             </tr>
                         )}
@@ -222,139 +283,39 @@ export default function ProvidersPage() {
                 </table>
             </div>
 
-            {/* Suspend Confirmation Modal */}
-            {showSuspendModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-                    <div className="glass-card p-6 max-w-md w-full border border-slate-800 bg-slate-950/95 shadow-2xl space-y-4">
-                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                            <AlertCircle className="text-amber-500" size={20} />
-                            Suspend Provider Account
-                        </h3>
-                        <p className="text-slate-400 text-sm">
-                            Provide a reason for suspending this user. They will be locked out of all dashboards until the account is unsuspended.
-                        </p>
-                        <textarea
-                            value={suspendReason}
-                            onChange={(e) => setSuspendReason(e.target.value)}
-                            placeholder="e.g., Unsafe tools provided, failed verification, or trust score fell below safety threshold..."
-                            className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-amber-500 transition-colors h-24 resize-none"
-                        />
-                        <div className="flex justify-end gap-3 pt-2">
-                            <button
-                                onClick={() => {
-                                    setShowSuspendModal(false);
-                                    setSuspendUserId(null);
-                                    setSuspendReason("");
-                                }}
-                                className="px-4 py-2 rounded-lg bg-slate-850 hover:bg-slate-800 text-slate-300 text-sm font-medium transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={confirmSuspend}
-                                className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold shadow-lg shadow-amber-600/20 transition-colors"
-                            >
-                                Suspend Account
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <SuspendModal 
+                isOpen={showSuspendModal}
+                reason={suspendReason}
+                onReasonChange={setSuspendReason}
+                onClose={() => {
+                    setShowSuspendModal(false);
+                    setSuspendUserId(null);
+                    setSuspendReason("");
+                }}
+                onConfirm={confirmSuspend}
+            />
 
-            {/* Unsuspend Confirmation Modal */}
-            {showUnsuspendModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-                    <div className="glass-card p-6 max-w-md w-full border border-slate-800 bg-slate-950/95 shadow-2xl space-y-4">
-                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                            <CheckCircle2 className="text-emerald-500" size={20} />
-                            Restore Account Access
-                        </h3>
-                        <p className="text-slate-300 text-sm">
-                            Are you sure you want to lift this suspension? The user will be able to log back in and their trust score will be reset to 5.0.
-                        </p>
-                        <div className="flex justify-end gap-3 pt-2">
-                            <button
-                                onClick={() => {
-                                    setShowUnsuspendModal(false);
-                                    setUnsuspendUserId(null);
-                                }}
-                                className="px-4 py-2 rounded-lg bg-slate-850 hover:bg-slate-800 text-slate-300 text-sm font-medium transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={confirmUnsuspend}
-                                className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-lg shadow-emerald-600/20 transition-colors"
-                            >
-                                Unsuspend Account
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <UnsuspendModal 
+                isOpen={showUnsuspendModal}
+                onClose={() => {
+                    setShowUnsuspendModal(false);
+                    setUnsuspendUserId(null);
+                }}
+                onConfirm={confirmUnsuspend}
+            />
 
-            {/* Delete Confirmation Modal */}
-            {showDeleteModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-                    <div className="glass-card p-6 max-w-md w-full border border-slate-800 bg-slate-950/95 shadow-2xl space-y-4">
-                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                            <Trash2 className="text-rose-500" size={20} />
-                            Remove Provider Profile
-                        </h3>
-                        
-                        {!isDoubleConfirm ? (
-                            <>
-                                <p className="text-slate-300 text-sm leading-relaxed">
-                                    Are you sure you want to completely delete <strong className="text-white">"{deleteUserName}"</strong> from the system?
-                                </p>
-                                <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg p-3 text-[13px] text-rose-400">
-                                    This action will permanently delete their profile, active tool listings, rental transaction history, disputes, and reviews.
-                                </div>
-                                <div className="flex justify-end gap-3 pt-2">
-                                    <button
-                                        onClick={() => {
-                                            setShowDeleteModal(false);
-                                            setDeleteUserId(null);
-                                            setDeleteUserName("");
-                                        }}
-                                        className="px-4 py-2 rounded-lg bg-slate-850 hover:bg-slate-800 text-slate-300 text-sm font-medium transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={() => setIsDoubleConfirm(true)}
-                                        className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold shadow-lg shadow-rose-600/20 transition-colors"
-                                    >
-                                        Proceed
-                                    </button>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <p className="text-slate-300 text-sm leading-relaxed">
-                                    This is a **critical action** and cannot be undone. Please confirm to finalize user deletion.
-                                </p>
-                                <div className="flex justify-end gap-3 pt-2">
-                                    <button
-                                        onClick={() => {
-                                            setIsDoubleConfirm(false);
-                                        }}
-                                        className="px-4 py-2 rounded-lg bg-slate-850 hover:bg-slate-800 text-slate-305 text-sm font-medium transition-colors"
-                                    >
-                                        Back
-                                    </button>
-                                    <button
-                                        onClick={confirmDelete}
-                                        className="px-4 py-2 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-sm font-bold shadow-lg shadow-rose-700/20 transition-colors animate-pulse"
-                                    >
-                                        Confirm Delete
-                                    </button>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-            )}
+            <DeleteUserModal 
+                isOpen={showDeleteModal}
+                userName={deleteUserName}
+                isDoubleConfirm={isDoubleConfirm}
+                onDoubleConfirmChange={setIsDoubleConfirm}
+                onClose={() => {
+                    setShowDeleteModal(false);
+                    setDeleteUserId(null);
+                    setDeleteUserName("");
+                }}
+                onConfirm={confirmDelete}
+            />
         </div>
     );
 }

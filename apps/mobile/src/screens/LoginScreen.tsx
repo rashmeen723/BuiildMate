@@ -5,16 +5,15 @@ import {
     StyleSheet,
     TextInput,
     TouchableOpacity,
+    SafeAreaView,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
     TouchableWithoutFeedback,
     Keyboard,
     Alert,
-    ActivityIndicator,
-    Image
+    ActivityIndicator
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -34,9 +33,6 @@ const LoginScreen = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    const [isEmailFocused, setIsEmailFocused] = useState(false);
-    const [isPasswordFocused, setIsPasswordFocused] = useState(false);
-
     const handleLogin = async () => {
         if (!email || !password) {
             Alert.alert("Error", "Please enter both email and password.");
@@ -51,32 +47,11 @@ const LoginScreen = () => {
             // Save user and token in Context
             await login(result.user, result.token);
 
-            // Navigate based on Role
-            const user = result.user;
-            if (user.isSuspended) {
-                navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'Suspended' }],
-                });
-                return;
-            }
-
-            if (user.role === 'SERVICE_PROVIDER') {
-                navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'ServiceProviderDashboard' }],
-                });
-            } else if (user.role === 'RENTAL_OWNER') {
-                navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'RentalOwnerDashboard' }],
-                });
-            } else {
-                navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'Home' }],
-                });
-            }
+            // Navigate to Home
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'Home' }],
+            });
         } catch (error: any) {
             Alert.alert("Login Failed", error.message);
         } finally {
@@ -85,11 +60,11 @@ const LoginScreen = () => {
     };
 
     const handleSignUp = () => {
-        navigation.navigate('RoleSelection');
+        navigation.navigate('RoleSelection'); // Should go to role selection
     };
 
     const handleForgotPassword = () => {
-        console.log("Forgot password");
+        navigation.navigate('ForgotPassword' as any);
     };
 
     return (
@@ -110,82 +85,47 @@ const LoginScreen = () => {
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
-                        {/* Logo and Greeting */}
-                        <View style={styles.logoHeaderContainer}>
-                            <Image
-                                source={require('../assets/logo.png')}
-                                style={styles.logoImage}
-                                resizeMode="contain"
-                            />
-                            <Text style={styles.appName}>BuildMate</Text>
-                        </View>
-
                         <View style={styles.textContainer}>
-                            <Text style={styles.title}>Welcome Back</Text>
+                            <Text style={styles.title}>Welcome back</Text>
                             <Text style={styles.subtitle}>
                                 Log in to manage your tools and services.
                             </Text>
                         </View>
 
-                        {/* Form */}
                         <View style={styles.form}>
                             <View style={styles.inputContainer}>
                                 <Text style={styles.label}>Email Address</Text>
-                                <View style={[
-                                    styles.fieldContainer,
-                                    isEmailFocused && styles.fieldContainerFocused
-                                ]}>
-                                    <Ionicons
-                                        name="mail-outline"
-                                        size={20}
-                                        color={isEmailFocused ? COLORS.darkBlue : '#94A3B8'}
-                                        style={styles.fieldIcon}
-                                    />
-                                    <TextInput
-                                        style={styles.fieldInput}
-                                        placeholder="example@email.com"
-                                        placeholderTextColor="#94A3B8"
-                                        value={email}
-                                        onChangeText={setEmail}
-                                        keyboardType="email-address"
-                                        autoCapitalize="none"
-                                        onFocus={() => setIsEmailFocused(true)}
-                                        onBlur={() => setIsEmailFocused(false)}
-                                    />
-                                </View>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="example@email.com"
+                                    placeholderTextColor={COLORS.gray}
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                />
                             </View>
 
                             <View style={styles.inputContainer}>
                                 <Text style={styles.label}>Password</Text>
-                                <View style={[
-                                    styles.fieldContainer,
-                                    isPasswordFocused && styles.fieldContainerFocused
-                                ]}>
-                                    <Ionicons
-                                        name="lock-closed-outline"
-                                        size={20}
-                                        color={isPasswordFocused ? COLORS.darkBlue : '#94A3B8'}
-                                        style={styles.fieldIcon}
-                                    />
+                                <View style={styles.passwordContainer}>
                                     <TextInput
-                                        style={styles.fieldInput}
+                                        style={styles.passwordInput}
                                         placeholder="••••••••"
-                                        placeholderTextColor="#94A3B8"
+                                        placeholderTextColor={COLORS.gray}
                                         value={password}
                                         onChangeText={setPassword}
                                         secureTextEntry={!showPassword}
                                         autoCapitalize="none"
-                                        onFocus={() => setIsPasswordFocused(true)}
-                                        onBlur={() => setIsPasswordFocused(false)}
                                     />
                                     <TouchableOpacity
                                         style={styles.eyeIcon}
                                         onPress={() => setShowPassword(!showPassword)}
                                     >
                                         <Ionicons
-                                            name={showPassword ? "eye-off-outline" : "eye-outline"}
+                                            name={showPassword ? "eye-off" : "eye"}
                                             size={20}
-                                            color="#94A3B8"
+                                            color={COLORS.gray}
                                         />
                                     </TouchableOpacity>
                                 </View>
@@ -211,25 +151,6 @@ const LoginScreen = () => {
                             </TouchableOpacity>
                         </View>
 
-                        <View style={styles.dividerContainer}>
-                            <View style={styles.dividerLine} />
-                            <Text style={styles.dividerText}>Or log in with</Text>
-                            <View style={styles.dividerLine} />
-                        </View>
-
-                        {/* Social Buttons */}
-                        <View style={styles.socialContainer}>
-                            <TouchableOpacity style={styles.socialButton}>
-                                <Ionicons name="logo-google" size={20} color={COLORS.black} />
-                                <Text style={styles.socialButtonText}>Google</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.socialButton}>
-                                <Ionicons name="logo-apple" size={20} color={COLORS.black} />
-                                <Text style={styles.socialButtonText}>Apple</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Footer */}
                         <View style={styles.footer}>
                             <Text style={styles.footerText}>Don't have an account? </Text>
                             <TouchableOpacity onPress={() => {
@@ -255,93 +176,68 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingTop: Platform.OS === 'android' ? 24 : 10,
-        paddingBottom: 10,
+        height: 60,
     },
     backButton: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#F1F5F9',
+        backgroundColor: '#F3F4F6',
         justifyContent: 'center',
         alignItems: 'center',
     },
     scrollContent: {
         paddingHorizontal: 24,
-        paddingTop: 10,
+        paddingTop: 20,
         paddingBottom: 40,
     },
-    logoHeaderContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: 10,
-        marginBottom: 20,
-    },
-    logoImage: {
-        width: 60,
-        height: 60,
-        marginBottom: 8,
-    },
-    appName: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: COLORS.darkBlue,
-        letterSpacing: 0.5,
-    },
     textContainer: {
-        marginBottom: 28,
-        alignItems: 'center',
+        marginBottom: 32,
     },
     title: {
-        fontSize: 26,
+        fontSize: 28,
         fontWeight: 'bold',
         color: COLORS.darkBlue,
         marginBottom: 8,
     },
     subtitle: {
-        fontSize: 14,
+        fontSize: 16,
         color: COLORS.gray,
-        lineHeight: 20,
-        textAlign: 'center',
-        paddingHorizontal: 10,
+        lineHeight: 22,
     },
     form: {
-        marginBottom: 20,
+        marginBottom: 24,
     },
     inputContainer: {
-        marginBottom: 18,
+        marginBottom: 20,
     },
     label: {
-        fontSize: 13,
-        fontWeight: '700',
+        fontSize: 14,
+        fontWeight: '600',
         color: COLORS.darkBlue,
         marginBottom: 8,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
     },
-    fieldContainer: {
+    input: {
+        height: 52,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        fontSize: 16,
+        color: COLORS.black,
+        backgroundColor: COLORS.white,
+    },
+    passwordContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        borderWidth: 1.5,
+        borderWidth: 1,
         borderColor: '#E2E8F0',
-        borderRadius: 14,
-        backgroundColor: '#F8FAFC',
-        height: 54,
+        borderRadius: 12,
+        backgroundColor: COLORS.white,
+        height: 52,
         paddingHorizontal: 16,
     },
-    fieldContainerFocused: {
-        borderColor: COLORS.darkBlue,
-        backgroundColor: COLORS.white,
-        shadowColor: COLORS.darkBlue,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 1,
-    },
-    fieldIcon: {
-        marginRight: 10,
-    },
-    fieldInput: {
+    passwordInput: {
         flex: 1,
         fontSize: 16,
         color: COLORS.black,
@@ -356,7 +252,7 @@ const styles = StyleSheet.create({
     },
     forgotPasswordText: {
         color: COLORS.darkBlue,
-        fontWeight: '700',
+        fontWeight: '600',
         fontSize: 14,
     },
     loginButton: {
@@ -367,20 +263,20 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         shadowColor: COLORS.darkBlue,
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
+        shadowOpacity: 0.25,
         shadowRadius: 8,
-        elevation: 3,
+        elevation: 4,
     },
     loginButtonText: {
         color: COLORS.white,
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: 'bold',
     },
     dividerContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 20,
-        marginTop: 6,
+        marginBottom: 24,
+        marginTop: 10,
     },
     dividerLine: {
         flex: 1,
@@ -390,29 +286,29 @@ const styles = StyleSheet.create({
     dividerText: {
         marginHorizontal: 16,
         color: '#94A3B8',
-        fontSize: 13,
+        fontSize: 14,
     },
     socialContainer: {
         flexDirection: 'row',
         gap: 16,
-        marginBottom: 32,
+        marginBottom: 40,
     },
     socialButton: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        height: 50,
-        borderWidth: 1.5,
+        height: 52,
+        borderWidth: 1,
         borderColor: '#E2E8F0',
-        borderRadius: 14,
+        borderRadius: 12,
         backgroundColor: COLORS.white,
     },
     socialButtonText: {
         marginLeft: 8,
         color: COLORS.black,
-        fontWeight: '700',
-        fontSize: 15,
+        fontWeight: '600',
+        fontSize: 16,
     },
     footer: {
         flexDirection: 'row',
@@ -424,7 +320,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     footerLink: {
-        color: COLORS.orange,
+        color: COLORS.primary || '#007AFF',
         fontWeight: 'bold',
         fontSize: 14,
     },

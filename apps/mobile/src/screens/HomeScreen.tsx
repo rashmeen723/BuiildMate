@@ -240,7 +240,7 @@ const HomeScreen = () => {
                                     <View style={styles.proStats}>
                                         <View style={styles.proStatItem}>
                                             <Ionicons name="star" size={14} color={COLORS.orange} />
-                                            <Text style={styles.proStatText}>{Number(tool.rating || 5.0).toFixed(1)}</Text>
+                                            <Text style={styles.proStatText}>{tool.rating && tool.rating > 0 ? Number(tool.rating).toFixed(1) : 'New'}</Text>
                                         </View>
                                         <View style={styles.proDivider} />
                                         <View style={styles.proStatItem}>
@@ -376,7 +376,7 @@ const HomeScreen = () => {
                                     <View style={styles.proStats}>
                                         <View style={styles.proStatItem}>
                                             <Ionicons name="star" size={14} color={COLORS.orange} />
-                                            <Text style={styles.proStatText}>{person.rating}</Text>
+                                            <Text style={styles.proStatText}>{person.rating && person.rating > 0 ? Number(person.rating).toFixed(1) : 'New'}</Text>
                                         </View>
                                         <View style={styles.proDivider} />
                                         <View style={styles.proStatItem}>

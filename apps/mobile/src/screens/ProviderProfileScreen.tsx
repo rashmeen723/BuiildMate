@@ -229,7 +229,7 @@ const ProviderProfileScreen = () => {
                         <Text style={styles.providerName}>{provider.name}</Text>
 
                         <View style={styles.ratingRow}>
-                            <Text style={styles.ratingValue}>{provider.rating}</Text>
+                            <Text style={styles.ratingValue}>{provider.rating && provider.rating > 0 ? Number(provider.rating).toFixed(1) : 'New'}</Text>
                             <View style={styles.starsContainer}>{renderStars(provider.rating)}</View>
                             <Text style={styles.reviewCount}>({provider.reviews} reviews)</Text>
                         </View>
@@ -237,10 +237,12 @@ const ProviderProfileScreen = () => {
                         {/* Badges Section */}
                         {provider.badges?.length > 0 && (
                             <View style={styles.badgeRow}>
-                                {provider.badges.includes('IDENTITY_VERIFIED') && (
+                                {(provider.badges.includes('ADDRESS_VERIFIED') || provider.badges.includes('IDENTITY_VERIFIED')) && (
                                     <View style={[styles.badge, { backgroundColor: '#10B981' }]}>
                                         <Ionicons name="checkmark-circle" size={12} color={COLORS.white} />
-                                        <Text style={styles.badgeText}>Identity Verified</Text>
+                                        <Text style={styles.badgeText}>
+                                            {provider.badges.includes('ADDRESS_VERIFIED') ? 'Address Verified' : 'Identity Verified'}
+                                        </Text>
                                     </View>
                                 )}
                                 {provider.badges.includes('CERTIFIED_PRO') && (

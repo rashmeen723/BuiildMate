@@ -204,7 +204,7 @@ const BookServiceScreen = () => {
                     <View style={styles.providerInfo}>
                         <Text style={styles.providerName}>{providerName}</Text>
                         <View style={styles.ratingRow}>
-                            <Text style={styles.ratingValue}>{providerRating}</Text>
+                            <Text style={styles.ratingValue}>{providerRating && providerRating > 0 ? Number(providerRating).toFixed(1) : 'New'}</Text>
                             <View style={styles.starsContainer}>{renderStars(providerRating)}</View>
                             <Text style={styles.reviewCount}>({providerReviews} reviews)</Text>
                         </View>

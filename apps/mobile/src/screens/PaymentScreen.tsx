@@ -104,19 +104,19 @@ const PaymentScreen = () => {
                         <Text style={styles.summaryValue}>{title}</Text>
                     </View>
 
-                    {type === 'SERVICE' && (baseAmount || additionalCharges) && (
+                    {type === 'SERVICE' && (baseAmount !== undefined || additionalCharges !== undefined) && (
                         <>
                             <View style={styles.summaryRow}>
                                 <Text style={styles.summaryLabel}>Base Labor Fee</Text>
-                                <Text style={styles.summaryValue}>LKR {baseAmount?.toLocaleString()}</Text>
+                                <Text style={styles.summaryValue}>LKR {Math.round(baseAmount || 0).toLocaleString()}</Text>
                             </View>
                             <View style={styles.summaryRow}>
                                 <Text style={styles.summaryLabel}>Materials/Extra</Text>
-                                <Text style={styles.summaryValue}>LKR {additionalCharges?.toLocaleString()}</Text>
+                                <Text style={styles.summaryValue}>LKR {Math.round(additionalCharges || 0).toLocaleString()}</Text>
                             </View>
                             <View style={styles.summaryRow}>
                                 <Text style={styles.summaryLabel}>BuildMate Service Fee</Text>
-                                <Text style={styles.summaryValue}>LKR {serviceFee || (amount - (amount / 1.05)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</Text>
+                                <Text style={styles.summaryValue}>LKR {Math.round(serviceFee || (amount - (amount / 1.05))).toLocaleString()}</Text>
                             </View>
                         </>
                     )}
@@ -131,7 +131,7 @@ const PaymentScreen = () => {
                     <View style={styles.divider} />
                     <View style={styles.summaryRow}>
                         <Text style={styles.totalLabel}>Total Payable</Text>
-                        <Text style={styles.totalValue}>LKR {amount.toLocaleString()}</Text>
+                        <Text style={styles.totalValue}>LKR {Math.round(amount).toLocaleString()}</Text>
                     </View>
                 </View>
 

@@ -17,11 +17,11 @@ const ServiceProviderDocumentsScreen = () => {
     const route = useRoute<ServiceProviderDocumentsRouteProp>();
     const { email, fullName, phone, role, professionalDetails, currentDocuments } = route.params;
 
-    const [idImage, setIdImage] = useState<string | null>(currentDocuments?.idImage || null);
+    const [utilityBill, setUtilityBill] = useState<string | null>(currentDocuments?.utilityBill || null);
     const [profileImage, setProfileImage] = useState<string | null>(currentDocuments?.profileImage || null);
     const [certificateImages, setCertificateImages] = useState<string[]>(currentDocuments?.certificateImages || []);
 
-    const pickImage = async (type: 'id' | 'profile') => {
+    const pickImage = async (type: 'utilityBill' | 'profile') => {
         // Request permissions
         const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -37,8 +37,8 @@ const ServiceProviderDocumentsScreen = () => {
         });
 
         if (!result.canceled) {
-            if (type === 'id') {
-                setIdImage(result.assets[0].uri);
+            if (type === 'utilityBill') {
+                setUtilityBill(result.assets[0].uri);
             } else if (type === 'profile') {
                 setProfileImage(result.assets[0].uri);
             }
@@ -74,8 +74,8 @@ const ServiceProviderDocumentsScreen = () => {
             return;
         }
 
-        if (!idImage) {
-            Alert.alert("Required", "Please upload your ID Card / Passport.");
+        if (!utilityBill) {
+            Alert.alert("Required", "Please upload your Utility Bill / Proof of Address.");
             return;
         }
 
@@ -86,7 +86,7 @@ const ServiceProviderDocumentsScreen = () => {
             role,
             professionalDetails,
             documents: {
-                idImage,
+                utilityBill,
                 profileImage,
                 certificateImages
             }
@@ -104,8 +104,8 @@ const ServiceProviderDocumentsScreen = () => {
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.title}>Verify your Identity</Text>
-                <Text style={styles.subtitle}>Upload documents to verify your professional status.</Text>
+                <Text style={styles.title}>Address Verification</Text>
+                <Text style={styles.subtitle}>Upload documents to verify your address and professional status.</Text>
 
                 {/* Profile Photo */}
                 <View style={styles.section}>
@@ -127,20 +127,21 @@ const ServiceProviderDocumentsScreen = () => {
                     )}
                 </View>
 
-                {/* National ID / Passport */}
+                {/* Utility Bill / Proof of Address */}
                 <View style={styles.section}>
-                    <Text style={styles.label}>National ID / Passport <Text style={styles.required}>*</Text></Text>
+                    <Text style={styles.label}>Utility Bill / Proof of Address <Text style={styles.required}>*</Text></Text>
+                    <Text style={styles.helperText}>Recent bill (Electricity, Water, or Telecom/Broadband) showing your name and base address.</Text>
 
-                    {!idImage ? (
-                        <TouchableOpacity style={styles.uploadBox} onPress={() => pickImage('id')}>
+                    {!utilityBill ? (
+                        <TouchableOpacity style={styles.uploadBox} onPress={() => pickImage('utilityBill')}>
                             <Ionicons name="cloud-upload-outline" size={40} color={COLORS.darkBlue} />
-                            <Text style={styles.uploadText}>Tap to Upload ID</Text>
+                            <Text style={styles.uploadText}>Tap to Upload Bill</Text>
                             <Text style={styles.uploadSubtext}>Supports JPG, PNG</Text>
                         </TouchableOpacity>
                     ) : (
                         <View style={styles.previewContainer}>
-                            <Image source={{ uri: idImage }} style={styles.previewImage} resizeMode="cover" />
-                            <TouchableOpacity style={styles.removeButton} onPress={() => setIdImage(null)}>
+                            <Image source={{ uri: utilityBill }} style={styles.previewImage} resizeMode="cover" />
+                            <TouchableOpacity style={styles.removeButton} onPress={() => setUtilityBill(null)}>
                                 <Ionicons name="close-circle" size={24} color={COLORS.error} />
                             </TouchableOpacity>
                             <View style={styles.successBadge}>

@@ -82,4 +82,26 @@ export class AdminController {
     async deleteUser(@Param('id') id: string) {
         return this.adminService.deleteUser(id);
     }
+
+    @Get('reports/monthly')
+    async getMonthlyReport() {
+        return this.adminService.getMonthlyReportData();
+    }
+
+    @Get('settings')
+    async getSettings() {
+        return this.adminService.getPlatformSettings();
+    }
+
+    @Post('settings')
+    async updateSettings(@Body() data: { commissionRate: number }) {
+        return this.adminService.updatePlatformSettings(data);
+    }
+
+    @Post('broadcast')
+    async broadcastAnnouncement(
+        @Body() data: { title: string; message: string; targetAudience: 'ALL' | 'SERVICE_PROVIDER' | 'RENTAL_OWNER' | 'HOUSEHOLD' }
+    ) {
+        return this.adminService.broadcastAnnouncement(data);
+    }
 }

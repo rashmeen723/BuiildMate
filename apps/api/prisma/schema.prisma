@@ -236,6 +236,9 @@ model Booking {
   endTime         String         // e.g. "10:00 AM"
   status          BookingStatus  @default(PENDING)
   totalAmount     Float
+  baseAmount      Float?
+  additionalCharges Float?       @default(0)
+  platformFee     Float?         @default(0)
   address         String
   latitude        Float?
   longitude       Float?
@@ -313,6 +316,7 @@ model ToolRental {
   endDate         DateTime
   status          BookingStatus  @default(PENDING)
   totalAmount     Float
+  platformFee     Float?         @default(0.0)
   pickupLocation  String?
   pickupLatitude  Float?
   pickupLongitude Float?

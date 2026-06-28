@@ -58,6 +58,8 @@ import ToolRatingsScreen from '../screens/ToolRatingsScreen';
 import ToolMapScreen from '../screens/ToolMapScreen';
 import ReportIssueScreen from '../screens/ReportIssueScreen';
 import SuspendedScreen from '../screens/SuspendedScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -128,7 +130,8 @@ const AppNavigator = () => {
                 <Stack.Screen name="ToolRatings" component={ToolRatingsScreen} />
                 <Stack.Screen name="ToolMap" component={ToolMapScreen} />
                 <Stack.Screen name="ReportIssue" component={ReportIssueScreen} />
-                {/* Add more screens here later */}
+                <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+                <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );

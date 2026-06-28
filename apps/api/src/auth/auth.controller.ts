@@ -31,6 +31,18 @@ export class AuthController {
         return this.authService.verifyOtp(verifyData.email, verifyData.code);
     }
 
+    @Post('forgot-password')
+    @HttpCode(HttpStatus.OK)
+    async forgotPassword(@Body('email') email: string) {
+        return this.authService.forgotPassword(email);
+    }
+
+    @Post('reset-password')
+    @HttpCode(HttpStatus.OK)
+    async resetPassword(@Body() body: { email: string; code: string; newPassword?: string }) {
+        return this.authService.resetPassword(body.email, body.code, body.newPassword);
+    }
+
     @UseGuards(JwtAuthGuard)
     @Get('profile')
     async getProfile(@Request() req) {
@@ -48,6 +60,13 @@ export class AuthController {
     @UseInterceptors(FileInterceptor('image'))
     async uploadProfileImage(@Request() req, @UploadedFile() file: Express.Multer.File) {
         return this.authService.setProfileImage(req.user.id, file);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Post('change-password')
+    @HttpCode(HttpStatus.OK)
+    async changePassword(@Request() req, @Body() body: { currentPassword?: string; newPassword?: string }) {
+        return this.authService.changePassword(req.user.id, body.currentPassword, body.newPassword);
     }
 
     @Post('upload-public')
