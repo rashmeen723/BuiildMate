@@ -107,6 +107,50 @@ export const authApi = {
         }
     },
 
+    forgotPassword: async (email: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.message || 'Failed to send reset code');
+            }
+
+            return result;
+        } catch (error: any) {
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+
+    resetPassword: async (data: { email: string; code: string; newPassword?: string }) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.message || 'Failed to reset password');
+            }
+
+            return result;
+        } catch (error: any) {
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+
     getProfile: async (token: string) => {
         try {
             const response = await fetch(`${API_BASE_URL}/auth/profile`, {
@@ -148,6 +192,30 @@ export const authApi = {
 
             return result;
         } catch (error: any) {
+            throw new Error(error.message || 'Connection error');
+        }
+    },
+
+    changePassword: async (token: string, currentPassword?: string, newPassword?: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ currentPassword, newPassword }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.message || 'Failed to change password');
+            }
+
+            return result;
+        } catch (error: any) {
+            console.error('Change Password API Error:', error);
             throw new Error(error.message || 'Connection error');
         }
     },
@@ -343,7 +411,7 @@ export const authApi = {
             throw new Error(error.message || 'Connection error');
         }
     },
-    updateBookingStatus: async (bookingId: string, status: string, additionalCharges?: number, reason?: string, cancelledBy?: string) => {
+    updateBookingStatus: async (bookingId: string, status: string, additionalCharges?: number, reason?: string, cancelledBy?: string, actualHours?: number) => {
         try {
             const bodyData: any = { bookingId, status };
             if (additionalCharges !== undefined) {
@@ -354,6 +422,9 @@ export const authApi = {
             }
             if (cancelledBy !== undefined) {
                 bodyData.cancelledBy = cancelledBy;
+            }
+            if (actualHours !== undefined) {
+                bodyData.actualHours = actualHours;
             }
             const response = await fetch(`${API_BASE_URL}/services/booking/status`, {
                 method: 'POST',

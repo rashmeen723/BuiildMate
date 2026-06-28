@@ -1,6 +1,7 @@
 {
     "name": "buildmate-monorepo",
     "private": true,
+    "packageManager": "npm@10.7.0",
     "workspaces": [
         "apps/*",
         "packages/*"

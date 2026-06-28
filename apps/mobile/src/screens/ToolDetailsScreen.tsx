@@ -296,7 +296,7 @@ const ToolDetailsScreen = () => {
 
     const renderOwner = () => {
         const badges = currentTool.owner?.user?.badges || [];
-        const isVerified = badges.includes('IDENTITY_VERIFIED');
+        const isVerified = badges.includes('ADDRESS_VERIFIED') || badges.includes('IDENTITY_VERIFIED');
         const isBusinessVerified = badges.includes('BUSINESS_VERIFIED');
         const isAddressVerified = badges.includes('ADDRESS_VERIFIED');
 
@@ -332,7 +332,7 @@ const ToolDetailsScreen = () => {
                     <View style={styles.ownerRating}>
                         <Ionicons name="star" size={14} color={COLORS.orange} />
                         <Text style={styles.ratingText}>
-                            {averageRating} ({reviews.length} rentals)
+                            {reviews.length > 0 ? `${averageRating} (${reviews.length} rentals)` : 'New (No rentals yet)'}
                         </Text>
                     </View>
                 </View>

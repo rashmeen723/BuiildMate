@@ -25,7 +25,7 @@ const RentToolScreen = () => {
 
     // Get price and other details correctly from passed tool
     const price = tool?.dailyRate || tool?.price || 0;
-    const rating = tool?.rating || 4.8;
+    const rating = tool?.rating && tool.rating > 0 ? Number(tool.rating).toFixed(1) : 'New';
     const reviewsCount = tool?.reviewCount || tool?.reviews || 0;
     const ownerName = tool?.owner?.user?.fullName || tool?.owner?.businessName || tool?.ownerName || 'Tool Owner';
     const ownerShop = tool?.owner?.businessName || tool?.ownerShop || `${ownerName}'s Location`;

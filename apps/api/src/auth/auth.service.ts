@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { MailerService } from '@nestjs-modules/mailer';
@@ -72,32 +72,18 @@ export class AuthService {
                     isEmailVerified: true,
                     documents: {
                         create: [
-                            ...(documents?.idImage ? [{
-                                documentType: 'ID_CARD',
-                                documentUrl: documents.idImage
+                            ...(documents?.utilityBill ? [{
+                                documentType: 'UTILITY_BILL',
+                                documentUrl: documents.utilityBill
                             }] : []),
-                            ...(documents?.idImageFront ? [{
-                                documentType: 'ID_CARD_FRONT',
-                                documentUrl: documents.idImageFront
-                            }] : []),
-                            ...(documents?.idImageBack ? [{
-                                documentType: 'ID_CARD_BACK',
-                                documentUrl: documents.idImageBack
+                            ...(documents?.businessDoc ? [{
+                                documentType: 'BUSINESS_PERMIT',
+                                documentUrl: documents.businessDoc
                             }] : []),
                             ...(role === 'SERVICE_PROVIDER' ? (documents?.certificateImages || []).map((url: string) => ({
                                 documentType: 'CERTIFICATE',
                                 documentUrl: url
-                            })) : []),
-                            ...(role === 'RENTAL_OWNER' ? [
-                                ...(documents?.businessDoc ? [{
-                                    documentType: 'BUSINESS_PERMIT',
-                                    documentUrl: documents.businessDoc
-                                }] : []),
-                                ...(documents?.utilityBill ? [{
-                                    documentType: 'UTILITY_BILL',
-                                    documentUrl: documents.utilityBill
-                                }] : [])
-                            ] : [])
+                            })) : [])
                         ]
                     },
                     // Handle specific profiles based on role
@@ -252,6 +238,81 @@ export class AuthService {
         }
     }
 
+    async forgotPassword(email: string) {
+        const user = await this.prisma.user.findUnique({
+            where: { email }
+        });
+
+        if (!user) {
+            throw new NotFoundException('No account associated with this email address');
+        }
+
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+
+        await this.prisma.otp.deleteMany({ where: { email } });
+        await this.prisma.otp.create({
+            data: {
+                email,
+                code: otpCode,
+                expiresAt,
+            }
+        });
+
+        try {
+            await this.mailerService.sendMail({
+                to: email,
+                subject: 'Reset Your BuildMate Password',
+                text: `Your password reset verification code is: ${otpCode}. It expires in 10 minutes.`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                        <h2 style="color: #14213D;">BuildMate Password Reset</h2>
+                        <p>We received a request to reset your password. Use the verification code below to proceed:</p>
+                        <div style="background-color: #F3F4F6; padding: 15px; border-radius: 8px; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 5px;">
+                            ${otpCode}
+                        </div>
+                        <p>This code will expire in 10 minutes.</p>
+                        <p>If you didn't request a password reset, please ignore this email.</p>
+                    </div>
+                `,
+            });
+            return { message: 'Password reset code sent successfully' };
+        } catch (error) {
+            console.error('Failed to send reset email:', error);
+            throw new BadRequestException('Failed to send reset email');
+        }
+    }
+
+    async resetPassword(email: string, code: string, newPassword?: string) {
+        if (!newPassword) {
+            throw new BadRequestException('New password is required');
+        }
+
+        const otp = await this.prisma.otp.findFirst({
+            where: { email, code }
+        });
+
+        if (!otp) {
+            throw new BadRequestException('Invalid verification code');
+        }
+
+        if (new Date() > otp.expiresAt) {
+            await this.prisma.otp.delete({ where: { id: otp.id } });
+            throw new BadRequestException('Verification code has expired');
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        
+        await this.prisma.user.update({
+            where: { email },
+            data: { password: hashedPassword }
+        });
+
+        await this.prisma.otp.delete({ where: { id: otp.id } });
+
+        return { success: true, message: 'Password reset successfully' };
+    }
+
     async verifyOtp(email: string, code: string) {
         const otp = await this.prisma.otp.findFirst({
             where: { email, code }
@@ -351,6 +412,33 @@ export class AuthService {
         });
 
         return { imageUrl };
+    }
+
+    async changePassword(userId: string, currentPassword?: string, newPassword?: string) {
+        if (!currentPassword || !newPassword) {
+            throw new BadRequestException('Current password and new password are required');
+        }
+
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId }
+        });
+
+        if (!user) {
+            throw new BadRequestException('User not found');
+        }
+
+        const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isPasswordValid) {
+            throw new BadRequestException('Invalid current password');
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { password: hashedPassword }
+        });
+
+        return { success: true, message: 'Password changed successfully' };
     }
 
     private extractCity(address: string): string {

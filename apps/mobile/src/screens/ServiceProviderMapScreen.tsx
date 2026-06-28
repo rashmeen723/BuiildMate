@@ -52,7 +52,7 @@ const ServiceProviderMapScreen = () => {
                                     <Text style={styles.calloutRole}>{provider.category}</Text>
                                     <View style={styles.calloutStats}>
                                         <Ionicons name="star" size={12} color={COLORS.orange} />
-                                        <Text style={styles.calloutRating}>{provider.rating}</Text>
+                                        <Text style={styles.calloutRating}>{provider.rating && provider.rating > 0 ? Number(provider.rating).toFixed(1) : 'New'}</Text>
                                         <Text style={styles.calloutDistance}> • {provider.distance} km</Text>
                                     </View>
                                 </View>

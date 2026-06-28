@@ -44,24 +44,27 @@ const FinalizeJobScreen = () => {
     const { serviceId, serviceType, serviceFee, customerName, arrivedAt, hourlyRate } = route.params;
 
     const [baseRate, setBaseRate] = useState(0);
+    const [actualHours, setActualHours] = useState('1');
 
     useEffect(() => {
-        const calculateBaseRate = () => {
-            if (arrivedAt && hourlyRate) {
-                const durationMs = new Date().getTime() - new Date(arrivedAt).getTime();
-                const durationHours = durationMs / (1000 * 60 * 60);
-                const calcBase = Math.max(1, durationHours) * hourlyRate;
-                setBaseRate(calcBase);
-            } else {
-                setBaseRate(serviceFee || 0);
-            }
-        };
+        if (arrivedAt) {
+            const durationMs = new Date().getTime() - new Date(arrivedAt).getTime();
+            const durationHours = Math.max(1, durationMs / (1000 * 60 * 60));
+            const suggestedHours = Math.round(durationHours * 10) / 10;
+            setActualHours(suggestedHours.toString());
+        } else {
+            setActualHours('1');
+        }
+    }, [arrivedAt]);
 
-        calculateBaseRate();
-
-        const interval = setInterval(calculateBaseRate, 10000);
-        return () => clearInterval(interval);
-    }, [arrivedAt, hourlyRate, serviceFee]);
+    useEffect(() => {
+        const hoursNum = parseFloat(actualHours) || 0;
+        if (hourlyRate) {
+            setBaseRate(hoursNum * hourlyRate);
+        } else {
+            setBaseRate(serviceFee || 0);
+        }
+    }, [actualHours, hourlyRate, serviceFee]);
 
     const [checklist, setChecklist] = useState<ChecklistItem[]>([
         { id: 1, label: 'Initial diagnosis carried out', checked: true },
@@ -136,7 +139,15 @@ const FinalizeJobScreen = () => {
     const handleCompleteJob = async () => {
         setLoading(true);
         try {
-            await authApi.updateBookingStatus(serviceId.toString(), 'COMPLETED', calculateTotalAdditional());
+            const hoursNum = parseFloat(actualHours) || 1;
+            await authApi.updateBookingStatus(
+                serviceId.toString(),
+                'COMPLETED',
+                calculateTotalAdditional(),
+                undefined,
+                undefined,
+                hoursNum
+            );
             Alert.alert(
                 "Job Completed",
                 "Invoice generated and job marked as completed successfully.",
@@ -198,6 +209,30 @@ const FinalizeJobScreen = () => {
                         </View>
                     ))}
                 </View>
+
+                {/* Hours Worked Section */}
+                {hourlyRate ? (
+                    <View style={styles.hoursWorkedSection}>
+                        <Text style={styles.sectionTitleHours}>ACTUAL LABOR HOURS</Text>
+                        <View style={styles.hoursInputContainer}>
+                            <Ionicons name="time-outline" size={20} color={COLORS.darkBlue} style={{ marginRight: 10 }} />
+                            <TextInput
+                                style={styles.hoursInput}
+                                keyboardType="numeric"
+                                value={actualHours}
+                                onChangeText={(text) => {
+                                    const cleanedText = text.replace(/[^0-9.]/g, '');
+                                    setActualHours(cleanedText);
+                                }}
+                                placeholder="Hours (e.g. 2.5)"
+                            />
+                            <Text style={styles.hoursRateLabel}>hrs × LKR {hourlyRate}/hr</Text>
+                        </View>
+                        <Text style={styles.hoursHelpText}>
+                            System calculated {arrivedAt ? (Math.max(1, (new Date().getTime() - new Date(arrivedAt).getTime()) / (1000 * 60 * 60)).toFixed(1)) : '1.0'} hours. Adjust if needed.
+                        </Text>
+                    </View>
+                ) : null}
 
                 {/* Additional Charges Section */}
                 <View style={styles.sectionHeader}>
@@ -651,6 +686,48 @@ const styles = StyleSheet.create({
     modalBtnTextAdd: {
         color: COLORS.white,
         fontWeight: '600',
+    },
+    hoursWorkedSection: {
+        marginTop: 20,
+        backgroundColor: '#F8F9FA',
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    sectionTitleHours: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#64748B',
+        letterSpacing: 0.5,
+        marginBottom: 8,
+    },
+    hoursInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: COLORS.white,
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        height: 48,
+    },
+    hoursInput: {
+        flex: 1,
+        fontSize: 16,
+        fontWeight: '600',
+        color: COLORS.black,
+    },
+    hoursRateLabel: {
+        fontSize: 14,
+        color: '#64748B',
+        fontWeight: '500',
+    },
+    hoursHelpText: {
+        fontSize: 12,
+        color: '#94A3B8',
+        marginTop: 6,
+        fontStyle: 'italic',
     },
 });
 

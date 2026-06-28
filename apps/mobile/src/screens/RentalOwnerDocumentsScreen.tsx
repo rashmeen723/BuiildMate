@@ -17,12 +17,10 @@ const RentalOwnerDocumentsScreen = () => {
     const route = useRoute<RentalOwnerDocumentsRouteProp>();
     const { email, fullName, phone, role, rentalDetails, currentDocuments } = route.params;
 
-    const [idImageFront, setIdImageFront] = useState<string | null>(currentDocuments?.idImageFront || null);
-    const [idImageBack, setIdImageBack] = useState<string | null>(currentDocuments?.idImageBack || null);
     const [profileImage, setProfileImage] = useState<string | null>(currentDocuments?.profileImage || null);
     const [businessDoc, setBusinessDoc] = useState<string | null>(currentDocuments?.businessDoc || null);
 
-    const pickImage = async (type: 'idFront' | 'idBack' | 'profile') => {
+    const pickImage = async (type: 'profile') => {
         const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (permissionResult.granted === false) {
             Alert.alert("Permission Required", "You've refused to allow this app to access your photos!");
@@ -36,11 +34,7 @@ const RentalOwnerDocumentsScreen = () => {
         });
 
         if (!result.canceled) {
-            if (type === 'idFront') {
-                setIdImageFront(result.assets[0].uri);
-            } else if (type === 'idBack') {
-                setIdImageBack(result.assets[0].uri);
-            } else if (type === 'profile') {
+            if (type === 'profile') {
                 setProfileImage(result.assets[0].uri);
             }
         }
@@ -66,14 +60,6 @@ const RentalOwnerDocumentsScreen = () => {
             Alert.alert("Required", "Please upload a professional profile photo.");
             return;
         }
-        if (!idImageFront) {
-            Alert.alert("Required", "Please upload the Front side of your National ID or Passport.");
-            return;
-        }
-        if (!idImageBack) {
-            Alert.alert("Required", "Please upload the Back side of your National ID or Passport.");
-            return;
-        }
 
         const isIndividual = rentalDetails?.ownerType === 'INDIVIDUAL';
         if (isIndividual && !businessDoc) {
@@ -92,8 +78,6 @@ const RentalOwnerDocumentsScreen = () => {
             role,
             rentalDetails,
             documents: {
-                idImageFront,
-                idImageBack,
                 profileImage,
                 ...(isIndividual ? { utilityBill: businessDoc } : { businessDoc })
             }
@@ -115,7 +99,7 @@ const RentalOwnerDocumentsScreen = () => {
             <ScrollView contentContainerStyle={styles.content}>
                 <Text style={styles.title}>Legal Documents</Text>
                 <Text style={styles.subtitle}>
-                    {isIndividual ? 'Upload formal identification and proof of home address.' : 'Upload formal identification and business permits.'}
+                    {isIndividual ? 'Upload proof of home address.' : 'Upload business permits.'}
                 </Text>
 
                 {/* Profile Photo */}
@@ -131,42 +115,6 @@ const RentalOwnerDocumentsScreen = () => {
                         <View style={styles.avatarPreviewContainer}>
                             <Image source={{ uri: profileImage }} style={styles.avatarPreview} />
                             <TouchableOpacity style={styles.removeButton} onPress={() => setProfileImage(null)}>
-                                <Ionicons name="close-circle" size={24} color={COLORS.error} />
-                            </TouchableOpacity>
-                        </View>
-                    )}
-                </View>
-
-                {/* National ID Front */}
-                <View style={styles.section}>
-                    <Text style={styles.label}>National ID / Passport (Front Side) <Text style={styles.required}>*</Text></Text>
-                    {!idImageFront ? (
-                        <TouchableOpacity style={styles.uploadBox} onPress={() => pickImage('idFront')}>
-                            <Ionicons name="person-outline" size={40} color={COLORS.darkBlue} />
-                            <Text style={styles.uploadText}>Upload Front Side Image</Text>
-                        </TouchableOpacity>
-                    ) : (
-                        <View style={styles.previewContainer}>
-                            <Image source={{ uri: idImageFront }} style={styles.previewImage} />
-                            <TouchableOpacity style={styles.removeButton} onPress={() => setIdImageFront(null)}>
-                                <Ionicons name="close-circle" size={24} color={COLORS.error} />
-                            </TouchableOpacity>
-                        </View>
-                    )}
-                </View>
-
-                {/* National ID Back */}
-                <View style={styles.section}>
-                    <Text style={styles.label}>National ID / Passport (Back Side) <Text style={styles.required}>*</Text></Text>
-                    {!idImageBack ? (
-                        <TouchableOpacity style={styles.uploadBox} onPress={() => pickImage('idBack')}>
-                            <Ionicons name="card-outline" size={40} color={COLORS.darkBlue} />
-                            <Text style={styles.uploadText}>Upload Back Side Image (Address Side)</Text>
-                        </TouchableOpacity>
-                    ) : (
-                        <View style={styles.previewContainer}>
-                            <Image source={{ uri: idImageBack }} style={styles.previewImage} />
-                            <TouchableOpacity style={styles.removeButton} onPress={() => setIdImageBack(null)}>
                                 <Ionicons name="close-circle" size={24} color={COLORS.error} />
                             </TouchableOpacity>
                         </View>

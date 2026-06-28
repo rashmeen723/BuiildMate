@@ -78,7 +78,7 @@ const ToolMapScreen = () => {
                                         <Text style={styles.calloutRole}>{tool.category}</Text>
                                         <View style={styles.calloutStats}>
                                             <Ionicons name="star" size={12} color={COLORS.orange} />
-                                            <Text style={styles.calloutRating}>{Number(tool.rating || 5.0).toFixed(1)}</Text>
+                                            <Text style={styles.calloutRating}>{tool.rating && tool.rating > 0 ? Number(tool.rating).toFixed(1) : 'New'}</Text>
                                             {tool.distance && <Text style={styles.calloutDistance}> • {tool.distance} km</Text>}
                                             <Text style={styles.calloutDistance}> • LKR {tool.dailyRate}/d</Text>
                                         </View>

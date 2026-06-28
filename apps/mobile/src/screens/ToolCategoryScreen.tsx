@@ -147,7 +147,7 @@ const ToolCategoryScreen = () => {
                 <Text style={styles.toolName} numberOfLines={2}>{item.name}</Text>
                 <View style={styles.ratingContainer}>
                     <Ionicons name="star" size={14} color={COLORS.orange} />
-                    <Text style={styles.ratingText}>{Number(item.rating || 5.0).toFixed(1)}</Text>
+                    <Text style={styles.ratingText}>{item.rating && item.rating > 0 ? Number(item.rating).toFixed(1) : 'New'}</Text>
                     {item.reviewCount > 0 && <Text style={{ fontSize: 10, color: COLORS.gray, marginLeft: 2 }}>({item.reviewCount})</Text>}
 
                     {item.distance && (

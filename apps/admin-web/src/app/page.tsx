@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { BarChart3, TrendingUp, ShieldAlert, Award, Clock, DollarSign, RefreshCw, Users, Box } from "lucide-react";
 import { adminApi } from "@/services/api";
+import { StatCard } from "../components/StatCard";
+import { ProgressStat } from "../components/ProgressStat";
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<any>(null);
@@ -87,10 +89,11 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard 
           icon={<Users size={20} className="text-sky-400" />}
-          title="Active Partners" 
-          value={stats.activePartners.toString()} 
-          change="Registered & verified" 
+          title="Registered Users" 
+          value={stats.registeredUsers.toString()} 
+          change="Total system accounts" 
           color="text-sky-400" 
+          glowClass="glow-sky"
         />
         <StatCard 
           icon={<Box size={20} className="text-emerald-400" />}
@@ -98,13 +101,15 @@ export default function DashboardPage() {
           value={stats.liveRentals.toString()} 
           change="Tools currently rented" 
           color="text-emerald-400" 
+          glowClass="glow-emerald"
         />
         <StatCard 
           icon={<DollarSign size={20} className="text-indigo-400" />}
-          title="Total Revenue" 
-          value={`Rs. ${stats.totalRevenue.toLocaleString()}`} 
-          change="Cumulative earnings" 
+          title="Monthly Revenue" 
+          value={`Rs. ${stats.monthlyRevenue.toLocaleString()}`} 
+          change="Current month earnings" 
           color="text-indigo-400" 
+          glowClass="glow-indigo"
         />
         <StatCard 
           icon={<ShieldAlert size={20} className="text-amber-400" />}
@@ -112,6 +117,7 @@ export default function DashboardPage() {
           value={stats.activeDisputes.toString()} 
           change="Under review" 
           color="text-amber-400" 
+          glowClass="glow-amber"
         />
       </div>
 
@@ -129,7 +135,7 @@ export default function DashboardPage() {
             <div className="flex gap-2">
               <span className="flex items-center gap-1.5 text-[11px] font-bold text-sky-400 bg-sky-500/10 px-2.5 py-1 rounded-full">
                 <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
-                Bookings
+                Bookings (Services & Rentals)
               </span>
               <span className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-full">
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
@@ -231,65 +237,6 @@ export default function DashboardPage() {
             <span className="font-semibold text-white">Live Node</span>
           </div>
         </div>
-      </div>
-
-      {/* Performance Highlights */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="glass-card p-5 border border-slate-800 space-y-2">
-          <div className="flex items-center gap-2 text-sky-400 font-bold text-sm">
-            <Clock size={16} />
-            Response Time
-          </div>
-          <div className="text-2xl font-bold text-white">{stats.averageResponseTime.toFixed(1)} Hours</div>
-          <p className="text-xs text-slate-500">Average dispute resolution speed.</p>
-        </div>
-
-        <div className="glass-card p-5 border border-slate-800 space-y-2">
-          <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm">
-            <Award size={16} />
-            Quality Rating
-          </div>
-          <div className="text-2xl font-bold text-white">{stats.averageRating.toFixed(2)} ★</div>
-          <p className="text-xs text-slate-500">Average customer feedback score.</p>
-        </div>
-
-        <div className="glass-card p-5 border border-slate-800 space-y-2">
-          <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
-            <DollarSign size={16} />
-            Ticket Average
-          </div>
-          <div className="text-2xl font-bold text-white">Rs. {Math.round(stats.averageTicket).toLocaleString()}</div>
-          <p className="text-xs text-slate-500">Average size of a tool rental transaction.</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ title, value, change, color, icon }: { title: string, value: string, change: string, color: string, icon: React.ReactNode }) {
-  return (
-    <div className="glass-card p-5 space-y-2 border border-slate-800 hover:border-slate-700 transition-colors flex justify-between items-start">
-      <div className="space-y-1">
-        <span className="text-[13px] font-semibold text-slate-500">{title}</span>
-        <div className={`text-2xl font-bold ${color}`}>{value}</div>
-        <div className="text-[11px] font-medium text-slate-500">{change}</div>
-      </div>
-      <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
-        {icon}
-      </div>
-    </div>
-  );
-}
-
-function ProgressStat({ label, value, percentage, color }: { label: string, value: string, percentage: number, color: string }) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex justify-between text-xs font-bold">
-        <span className="text-slate-400">{label}</span>
-        <span className="text-white">{value}</span>
-      </div>
-      <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
-        <div className={`h-full ${color}`} style={{ width: `${percentage}%` }}></div>
       </div>
     </div>
   );

@@ -99,40 +99,38 @@ export class AiVerificationService {
                     }
                 `;
             } else if (document.documentType === 'UTILITY_BILL') {
-                const address = document.user.rentalOwner?.formattedAddress || 'General Sri Lanka';
+                const address = document.user.serviceProvider?.formattedAddress || 
+                                document.user.rentalOwner?.formattedAddress || 
+                                'General Sri Lanka';
                 prompt = `
                     You are an expert document verification assistant for 'BuildMate', a marketplace in Sri Lanka.
-                    You are provided with up to three images:
+                    You are provided with one image:
                     1. A Utility Bill (mandatory)
-                    2. The Front side of the user's National Identity Card (NIC) (optional/if available, shows photo and full name)
-                    3. The Back side of the user's National Identity Card (NIC) (optional/if available, shows printed home address)
 
-                    Compare these documents with the user's profile:
+                    Compare this document with the user's profile:
                     - Registered Full Name: ${document.user.fullName}
                     - Registered Home Address (Google Maps location): ${address}
 
                     Tasks:
                     1. **Name Verification**:
-                       - Compare the name on the Utility Bill, the name on the National ID card Front side (if available), and the Registered Full Name.
-                       - Sri Lankan names often have abbreviations/initials (e.g. "R.K. Perera" vs "Rashmeen Kavindya Perera" or "Rashmeen K."). Allow flexible matching. Set "nameMatch" to true if they all reasonably refer to the same person, and false if there is a clear mismatch.
+                       - Compare the name on the Utility Bill with the Registered Full Name.
+                       - Sri Lankan names often have abbreviations/initials (e.g. "R.K. Perera" vs "Rashmeen Kavindya Perera" or "Rashmeen K."). Allow flexible matching. Set "nameMatch" to true if they reasonably refer to the same person, and false if there is a clear mismatch.
                     2. **Address Verification**:
-                       - Compare the address printed on the back of the National ID (if available), the address printed on the Utility Bill, and the Registered Home Address ("${address}").
-                       - Address formats in Sri Lanka vary greatly between postal addresses (utility bills/NICs using assessment numbers, sub-localities) and reverse-geocoded map addresses. Verify if they refer to the same geographical/spatial property (e.g. same street name, sub-district, city, or general location coordinates). Set "addressMatch" to true if they match or correlate geographically, and false if they refer to entirely different properties.
+                       - Compare the address printed on the Utility Bill and the Registered Home Address ("${address}").
+                       - Address formats in Sri Lanka vary greatly between postal addresses (utility bills using assessment numbers, sub-localities) and reverse-geocoded map addresses. Verify if they refer to the same geographical/spatial property (e.g. same street name, sub-district, city, or general location coordinates). Set "addressMatch" to true if they match or correlate geographically, and false if they refer to entirely different properties.
                     3. **Recency**:
                        - Check if the utility bill is recent (e.g., within 3-6 months. Look for billing date if visible).
                     4. **Authenticity**:
-                       - Look for signs of tampering, editing, or forgery across the documents. Set "looksAuthentic" to true if all provided documents appear to be genuine, and false otherwise.
+                       - Look for signs of tampering, editing, or forgery on the utility bill. Set "looksAuthentic" to true if the document appears to be genuine, and false otherwise.
 
                     Return ONLY a JSON object with this structure:
                     {
                         "status": "AI_PASSED" | "AI_FLAGGED",
                         "confidence": number (0-1),
-                        "reason": "short explanation of the findings, including details about name verification across ID and Utility Bill, and geographical correlation of the addresses",
+                        "reason": "short explanation of the findings, including details about name verification on the Utility Bill, and geographical correlation of the address",
                         "extractedData": {
                             "nameOnUtilityBill": "string",
-                            "nameOnIdCard": "string",
                             "addressOnUtilityBill": "string",
-                            "addressOnIdCard": "string",
                             "billDate": "string"
                         },
                         "checks": {
@@ -191,38 +189,6 @@ export class AiVerificationService {
                         mimeType: utilityBillData.mimeType
                     }
                 });
-
-                const idFrontDoc = document.user.documents.find(d => d.documentType === 'ID_CARD_FRONT');
-                if (idFrontDoc) {
-                    try {
-                        this.logger.log(`Fetching ID Front image: ${idFrontDoc.documentUrl}`);
-                        const idFrontData = await this.fetchImageAsBase64(idFrontDoc.documentUrl);
-                        parts.push({
-                            inlineData: {
-                                data: idFrontData.data,
-                                mimeType: idFrontData.mimeType
-                            }
-                        });
-                    } catch (err) {
-                        this.logger.warn(`Failed to fetch ID Front image ${idFrontDoc.documentUrl}: ${err.message}`);
-                    }
-                }
-
-                const idBackDoc = document.user.documents.find(d => d.documentType === 'ID_CARD_BACK');
-                if (idBackDoc) {
-                    try {
-                        this.logger.log(`Fetching ID Back image: ${idBackDoc.documentUrl}`);
-                        const idBackData = await this.fetchImageAsBase64(idBackDoc.documentUrl);
-                        parts.push({
-                            inlineData: {
-                                data: idBackData.data,
-                                mimeType: idBackData.mimeType
-                            }
-                        });
-                    } catch (err) {
-                        this.logger.warn(`Failed to fetch ID Back image ${idBackDoc.documentUrl}: ${err.message}`);
-                    }
-                }
             } else {
                 this.logger.log(`Fetching document image: ${document.documentUrl}`);
                 const docData = await this.fetchImageAsBase64(document.documentUrl);
@@ -275,12 +241,17 @@ export class AiVerificationService {
                 if (allPassed && !hasPendingOrFlagged && updatedUser.documents.length > 0) {
                     this.logger.log(`Auto-approving user: ${updatedUser.id} as all documents passed AI checks with high confidence.`);
                     
-                    const badgesToGrant: any[] = ['IDENTITY_VERIFIED'];
+                    const badgesToGrant: any[] = [];
                     
                     if (updatedUser.serviceProvider) {
                         const hasCertificate = updatedUser.documents.some(d => d.documentType === 'CERTIFICATE');
                         if (hasCertificate) {
                             badgesToGrant.push('CERTIFIED_PRO');
+                        }
+                        
+                        const hasUtilityBill = updatedUser.documents.some(d => d.documentType === 'UTILITY_BILL');
+                        if (hasUtilityBill) {
+                            badgesToGrant.push('ADDRESS_VERIFIED');
                         }
                         
                         await this.prisma.serviceProviderProfile.update({

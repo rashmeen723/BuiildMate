@@ -7,6 +7,7 @@ async function main() {
     console.log('Clearing existing database records...');
 
     // Clear in order of dependencies to avoid foreign key constraints
+    await prisma.dispute.deleteMany({});
     await prisma.review.deleteMany({});
     await prisma.toolRental.deleteMany({});
     await prisma.booking.deleteMany({});

@@ -71,8 +71,8 @@ export class ServicesController {
     }
 
     @Post('booking/status')
-    async updateBookingStatus(@Body() data: { bookingId: string, status: string, additionalCharges?: number, reason?: string, cancelledBy?: string }) {
-        return this.servicesService.updateBookingStatus(data.bookingId, data.status, data.additionalCharges, data.reason, data.cancelledBy);
+    async updateBookingStatus(@Body() data: { bookingId: string, status: string, additionalCharges?: number, reason?: string, cancelledBy?: string, actualHours?: number }) {
+        return this.servicesService.updateBookingStatus(data.bookingId, data.status, data.additionalCharges, data.reason, data.cancelledBy, data.actualHours);
     }
 
     @Get('user/:userId/notifications')

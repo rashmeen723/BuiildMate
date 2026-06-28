@@ -32,8 +32,6 @@ const RentalOwnerReviewScreen = () => {
             // 1. Upload Documents to Cloudinary
             console.log('Uploading rental owner documents to Cloudinary...');
 
-            const idFrontUrl = await authApi.uploadPublicFile(documents.idImageFront);
-            const idBackUrl = await authApi.uploadPublicFile(documents.idImageBack);
             const profileImageUrl = await authApi.uploadPublicFile(documents.profileImage);
             
             const isIndividual = rentalDetails?.ownerType === 'INDIVIDUAL';
@@ -55,8 +53,6 @@ const RentalOwnerReviewScreen = () => {
                 profileImage: profileImageUrl,
                 rentalDetails,
                 documents: {
-                    idImageFront: idFrontUrl,
-                    idImageBack: idBackUrl,
                     ...(isIndividual ? { utilityBill: utilityBillUrl } : { businessDoc: businessDocUrl })
                 },
                 location: {
@@ -133,8 +129,6 @@ const RentalOwnerReviewScreen = () => {
 
                 <Section title="Verification Documents" onEdit={handleEditDocuments}>
                     <Row label="Profile Photo" value="Attached" />
-                    <Row label="ID Front" value="Attached" />
-                    <Row label="ID Back" value="Attached" />
                     <Row label={isIndividual ? "Address Proof" : "Business Permit"} value="Attached" />
                 </Section>
 

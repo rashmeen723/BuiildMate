@@ -225,7 +225,7 @@ const ServiceCategoryScreen = () => {
                                 </View>
 
                                 <View style={styles.ratingRow}>
-                                    <Text style={styles.ratingValue}>{provider.rating}</Text>
+                                    <Text style={styles.ratingValue}>{provider.rating && provider.rating > 0 ? Number(provider.rating).toFixed(1) : 'New'}</Text>
                                     <View style={styles.starsContainer}>{renderStars(provider.rating)}</View>
                                 </View>
 

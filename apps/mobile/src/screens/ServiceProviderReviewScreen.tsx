@@ -65,8 +65,8 @@ const ServiceProviderReviewScreen = () => {
             // 1. Upload Documents to Cloudinary first
             console.log('Uploading documents to Cloudinary...');
 
-            // Upload ID Image
-            const idImageUrl = await authApi.uploadPublicFile(documents.idImage);
+            // Upload Utility Bill
+            const utilityBillUrl = await authApi.uploadPublicFile(documents.utilityBill);
 
             // Upload Profile Photo
             const profileImageUrl = await authApi.uploadPublicFile(documents.profileImage);
@@ -86,7 +86,7 @@ const ServiceProviderReviewScreen = () => {
                 profileImage: profileImageUrl,
                 professionalDetails,
                 documents: {
-                    idImage: idImageUrl,
+                    utilityBill: utilityBillUrl,
                     certificateImages: certImageUrls
                 },
                 serviceArea: {
@@ -172,7 +172,7 @@ const ServiceProviderReviewScreen = () => {
                 {/* Verification Documents */}
                 <Section title="Verification Documents" onEdit={handleEditDocuments}>
                     <Row label="Profile Photo" value={documents.profileImage ? "Attached" : "Missing"} />
-                    <Row label="ID Proof" value={documents.idImage ? "Attached" : "Missing"} />
+                    <Row label="Address Proof" value={documents.utilityBill ? "Attached" : "Missing"} />
 
                     <Row label="Certificates" value={`${documents.certificateImages.length} uploaded`} />
 
