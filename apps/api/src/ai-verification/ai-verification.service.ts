@@ -75,7 +75,7 @@ export class AiVerificationService {
                     - Document Type: CERTIFICATE
 
                     Tasks:
-                    1. Verify if the name on the certificate matches the profile name. Note that the match does NOT need to be an exact, character-for-character match. It should be a flexible match where the name on the ID card contains a significant part of the profile name, or is a variation/subset of it (e.g. "Rashmeen Kavindya" matches "Rashmeen Kavindya Perera", "R. Kavindya", or "Rashmeen K."). Set "nameMatch" to true if they match based on these flexible criteria, and false otherwise.
+                    1. Verify if the name on the certificate matches the registered profile name. Note that the match does NOT need to be an exact, character-for-character match. It should be a flexible match where the name on the certificate contains a significant part of the profile name, or is a variation/subset of it (e.g. "Rashmeen Kavindya" matches "Rashmeen Kavindya Perera", "R. Kavindya", or "Rashmeen K."). Set "nameMatch" to true if they match based on these flexible criteria, and false otherwise.
                     2. Check if the certificate is expired (if an expiry date is specified).
                     3. Look for signs of tampering or forgery.
                     4. Check if the certificate certifies skills relevant to the expected professional field ("${category}"). Set "looksAuthentic" to true if it is a relevant and authentic-looking certificate, and false if it is irrelevant or looks fake.
@@ -140,8 +140,40 @@ export class AiVerificationService {
                         }
                     }
                 `;
+            } else if (document.documentType === 'BUSINESS_PERMIT') {
+                const businessName = document.user.rentalOwner?.businessName || 'General Business';
+                const ownerName = document.user.fullName;
+                prompt = `
+                    You are an expert document verification assistant for 'BuildMate', a marketplace in Sri Lanka.
+                    Analyze the provided Business Permit / Registration document image and compare it with the following profile:
+                    - Registered Full Name (Owner): ${ownerName}
+                    - Registered Business Name: ${businessName}
+                    - Document Type: BUSINESS_PERMIT
+
+                    Tasks:
+                    1. Verify if the business name or owner name on the document matches the registered business name or owner name. Note that the match does NOT need to be an exact, character-for-character match. Set "nameMatch" to true if there is a reasonable match for either the business name or the owner name, and false otherwise.
+                    2. Check if the business permit is valid/not expired (if applicable).
+                    3. Look for signs of tampering or forgery.
+                    4. Extract key text: Business Name, Registration Number, Registered Address.
+
+                    Return ONLY a JSON object with this structure:
+                    {
+                        "status": "AI_PASSED" | "AI_FLAGGED",
+                        "confidence": number (0-1),
+                        "reason": "short explanation of the findings, including details about name/business name verification",
+                        "extractedData": {
+                            "businessName": "string",
+                            "registrationNumber": "string",
+                            "address": "string"
+                        },
+                        "checks": {
+                            "nameMatch": boolean,
+                            "notExpired": boolean,
+                            "looksAuthentic": boolean
+                        }
+                    }
+                `;
             } else {
-                const isIdBack = document.documentType === 'ID_CARD_BACK';
                 prompt = `
                     You are an expert document verification assistant for 'BuildMate', a marketplace in Sri Lanka.
                     Analyze the provided document image and compare it with the following user profile:
@@ -149,14 +181,10 @@ export class AiVerificationService {
                     - Document Type: ${document.documentType}
 
                     Tasks:
-                    ${isIdBack ? `
-                    1. Since this is the Back side of the identity card, it primarily contains address/other details rather than the name. Set "nameMatch" to true automatically since name verification is handled by the front card image.
-                    ` : `
-                    1. Verify if the name on the document matches the profile name. Note that the match does NOT need to be an exact, character-for-character match. It should be a flexible match where the name on the ID card contains a significant part of the profile name, or is a variation/subset of it (e.g. "Rashmeen Kavindya" matches "Rashmeen Kavindya Perera", "R. Kavindya", or "Rashmeen K."). Set "nameMatch" to true if they match based on these flexible criteria, and false otherwise.
-                    `}
+                    1. Verify if the name on the document matches the registered full name. Allow flexible matching. Set "nameMatch" to true if they match, and false otherwise.
                     2. Check if the document is expired (if applicable).
                     3. Look for signs of tampering or forgery.
-                    4. Extract all key text (Name, ID Number, Address, Expiry Date).
+                    4. Extract all key text.
 
                     Return ONLY a JSON object with this structure:
                     {
@@ -165,9 +193,8 @@ export class AiVerificationService {
                         "reason": "short explanation of the findings, including details about name verification",
                         "extractedData": {
                             "name": "string",
-                            "idNumber": "string",
-                            "address": "string",
-                            "expiryDate": "string"
+                            "documentId": "string",
+                            "address": "string"
                         },
                         "checks": {
                             "nameMatch": boolean,

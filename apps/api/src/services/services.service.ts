@@ -420,12 +420,14 @@ export class ServicesService implements OnModuleInit {
                 }
 
                 const totalBeforePlatformFee = baseAmount + additionalCharges;
-                let rateFactor = 0.05;
+                let rateFactor = 0.05; // Default to 5% for services
                 try {
                     const settingsPath = path.join(__dirname, '..', 'admin', 'platform-settings.json');
                     if (fs.existsSync(settingsPath)) {
                         const settingsData = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-                        if (typeof settingsData.commissionRate === 'number') {
+                        if (typeof settingsData.serviceCommissionRate === 'number') {
+                            rateFactor = settingsData.serviceCommissionRate / 100;
+                        } else if (typeof settingsData.commissionRate === 'number') {
                             rateFactor = settingsData.commissionRate / 100;
                         }
                     }

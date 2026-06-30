@@ -1,3 +1,4 @@
 {
-  "commissionRate": 5.0
+  "serviceCommissionRate": 5.0,
+  "rentalCommissionRate": 7.0
 }

@@ -229,12 +229,14 @@ export class RentalsService {
             throw new BadRequestException('This tool is currently not available for rent.');
         }
 
-        let rateFactor = 0.05;
+        let rateFactor = 0.07; // Default to 7% for rentals
         try {
             const settingsPath = path.join(__dirname, '..', 'admin', 'platform-settings.json');
             if (fs.existsSync(settingsPath)) {
                 const settingsData = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-                if (typeof settingsData.commissionRate === 'number') {
+                if (typeof settingsData.rentalCommissionRate === 'number') {
+                    rateFactor = settingsData.rentalCommissionRate / 100;
+                } else if (typeof settingsData.commissionRate === 'number') {
                     rateFactor = settingsData.commissionRate / 100;
                 }
             }

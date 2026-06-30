@@ -72,6 +72,9 @@ const NotificationScreen = () => {
             case 'REVIEW_RECEIVED':
             case 'REVIEW_REPLY':
                 return { icon: 'star', color: '#10B981', bg: '#ECFDF5', category: 'Reviews' };
+            case 'SYSTEM_BROADCAST':
+            case 'COMMISSION_UPDATE':
+                return { icon: 'megaphone', color: '#EC4899', bg: '#FDF2F8', category: 'Other' };
             default:
                 return { icon: 'information-circle', color: '#6B7280', bg: '#F3F4F6', category: 'Other' };
         }
@@ -113,10 +116,15 @@ const NotificationScreen = () => {
     const renderItem = ({ item }: { item: any }) => {
         const info = getIconInfo(item.type);
         const timeAgoStr = formatTimeAgo(new Date(item.createdAt));
+        const isBroadcast = item.type === 'SYSTEM_BROADCAST' || item.type === 'COMMISSION_UPDATE';
 
         return (
             <TouchableOpacity
-                style={[styles.notificationItem, !item.isRead && styles.unreadItem]}
+                style={[
+                    styles.notificationItem, 
+                    !item.isRead && styles.unreadItem,
+                    isBroadcast && styles.broadcastItem
+                ]}
                 onPress={() => handleNotificationPress(item)}
             >
                 <View style={[styles.iconContainer, { backgroundColor: info.bg }]}>
@@ -124,7 +132,14 @@ const NotificationScreen = () => {
                 </View>
                 <View style={styles.textContainer}>
                     <View style={styles.itemHeader}>
-                        <Text style={[styles.itemTitle, !item.isRead && { fontWeight: '800' }]}>{item.title}</Text>
+                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                            {isBroadcast && (
+                                <View style={styles.announcementBadge}>
+                                    <Text style={styles.announcementBadgeText}>BROADCAST</Text>
+                                </View>
+                            )}
+                            <Text style={[styles.itemTitle, !item.isRead && { fontWeight: '800' }]}>{item.title}</Text>
+                        </View>
                         <Text style={styles.timestamp}>{timeAgoStr}</Text>
                     </View>
                     <Text style={styles.itemDesc}>{item.message}</Text>
@@ -298,6 +313,24 @@ const styles = StyleSheet.create({
         height: 8,
         borderRadius: 4,
         backgroundColor: COLORS.orange,
+    },
+    broadcastItem: {
+        borderLeftWidth: 3,
+        borderLeftColor: '#EC4899',
+        backgroundColor: '#FFF5F5',
+    },
+    announcementBadge: {
+        backgroundColor: '#FCE7F3',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        marginRight: 2,
+    },
+    announcementBadgeText: {
+        color: '#DB2777',
+        fontSize: 8,
+        fontWeight: 'bold',
+        letterSpacing: 0.5,
     },
     separator: {
         height: 1,

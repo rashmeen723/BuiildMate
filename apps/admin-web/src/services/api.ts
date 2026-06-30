@@ -224,11 +224,11 @@ export const adminApi = {
         return response.json();
     },
 
-    updateSettings: async (commissionRate: number) => {
+    updateSettings: async (serviceCommissionRate: number, rentalCommissionRate: number) => {
         const response = await fetch(`${API_BASE_URL}/admin/settings`, {
             method: 'POST',
             headers: getHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ commissionRate }),
+            body: JSON.stringify({ serviceCommissionRate, rentalCommissionRate }),
         });
         if (!response.ok) {
             const errData = await response.json().catch(() => ({}));

@@ -180,7 +180,7 @@ model RentalOwnerProfile {
 // 5. Verification Documents
 model Document {
   id                String             @id @default(uuid())
-  documentType      String             // e.g., "ID_CARD", "LICENSE"
+  documentType      String             // e.g., "UTILITY_BILL", "BUSINESS_PERMIT", "CERTIFICATE"
   documentUrl       String             // URL to Cloud Storage
   
   userId            String

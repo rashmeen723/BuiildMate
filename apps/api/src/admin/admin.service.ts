@@ -7,19 +7,24 @@ import * as path from 'path';
 const customCategoriesPath = path.join(__dirname, 'custom_categories.json');
 const platformSettingsPath = path.join(__dirname, 'platform-settings.json');
 
-function readPlatformSettings(): { commissionRate: number } {
+function readPlatformSettings(): { serviceCommissionRate: number; rentalCommissionRate: number; commissionRate?: number } {
     try {
         if (fs.existsSync(platformSettingsPath)) {
             const data = fs.readFileSync(platformSettingsPath, 'utf-8');
-            return JSON.parse(data);
+            const parsed = JSON.parse(data);
+            return {
+                serviceCommissionRate: parsed.serviceCommissionRate ?? parsed.commissionRate ?? 5.0,
+                rentalCommissionRate: parsed.rentalCommissionRate ?? parsed.commissionRate ?? 7.0,
+                commissionRate: parsed.commissionRate
+            };
         }
     } catch (e) {
         console.error("Error reading platform settings:", e);
     }
-    return { commissionRate: 5.0 };
+    return { serviceCommissionRate: 5.0, rentalCommissionRate: 7.0 };
 }
 
-function writePlatformSettings(data: { commissionRate: number }) {
+function writePlatformSettings(data: { serviceCommissionRate: number; rentalCommissionRate: number; commissionRate?: number }) {
     try {
         fs.writeFileSync(platformSettingsPath, JSON.stringify(data, null, 2), 'utf-8');
     } catch (e) {
@@ -771,13 +776,14 @@ export class AdminService {
         });
 
         const platformSettings = readPlatformSettings();
-        const rateFactor = platformSettings.commissionRate / 100;
+        const serviceRateFactor = (platformSettings.serviceCommissionRate ?? 5.0) / 100;
+        const rentalRateFactor = (platformSettings.rentalCommissionRate ?? 7.0) / 100;
 
         const bookingsRevenue = bookings.reduce((sum, b) => sum + (b.totalAmount || 0), 0);
-        const bookingsProfit = bookings.reduce((sum, b) => sum + (b.platformFee || (b.totalAmount || 0) * rateFactor), 0);
+        const bookingsProfit = bookings.reduce((sum, b) => sum + (b.platformFee || (b.totalAmount || 0) * serviceRateFactor), 0);
 
         const rentalsRevenue = rentals.reduce((sum, r) => sum + (r.totalAmount || 0), 0);
-        const rentalsProfit = rentals.reduce((sum, r) => sum + ((r as any).platformFee || (r.totalAmount || 0) * rateFactor), 0);
+        const rentalsProfit = rentals.reduce((sum, r) => sum + ((r as any).platformFee || (r.totalAmount || 0) * rentalRateFactor), 0);
 
         // Payment Method splits
         const cashRentalsCount = rentals.filter(r => r.paymentMethod === 'CASH').length;
@@ -991,11 +997,23 @@ export class AdminService {
         return readPlatformSettings();
     }
 
-    async updatePlatformSettings(data: { commissionRate: number }) {
-        if (typeof data.commissionRate !== 'number' || data.commissionRate < 0 || data.commissionRate > 100) {
-            throw new BadRequestException('Commission rate must be a percentage value between 0 and 100.');
+    async updatePlatformSettings(data: { serviceCommissionRate?: number; rentalCommissionRate?: number; commissionRate?: number }) {
+        const current = readPlatformSettings();
+        
+        const serviceRate = data.serviceCommissionRate !== undefined ? data.serviceCommissionRate : (data.commissionRate ?? current.serviceCommissionRate);
+        const rentalRate = data.rentalCommissionRate !== undefined ? data.rentalCommissionRate : (data.commissionRate ?? current.rentalCommissionRate);
+
+        if (typeof serviceRate !== 'number' || serviceRate < 0 || serviceRate > 100) {
+            throw new BadRequestException('Service commission rate must be a percentage value between 0 and 100.');
         }
-        writePlatformSettings(data);
+        if (typeof rentalRate !== 'number' || rentalRate < 0 || rentalRate > 100) {
+            throw new BadRequestException('Rental commission rate must be a percentage value between 0 and 100.');
+        }
+
+        writePlatformSettings({
+            serviceCommissionRate: serviceRate,
+            rentalCommissionRate: rentalRate
+        });
 
         // Notify all active system users of commission adjustments
         try {
@@ -1009,7 +1027,7 @@ export class AdminService {
             const notificationsData = users.map(user => ({
                 userId: user.id,
                 title: 'Marketplace Commission Adjusted',
-                message: `Please be advised that the platform transaction commission fee has been updated to ${data.commissionRate.toFixed(1)}% per completed order.`,
+                message: `Please be advised that the platform commission fees have been updated: Service booking fee is now ${serviceRate.toFixed(1)}% and Equipment rental fee is ${rentalRate.toFixed(1)}% per completed transaction.`,
                 type: 'COMMISSION_UPDATE'
             }));
 

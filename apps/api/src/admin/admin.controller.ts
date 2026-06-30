@@ -94,7 +94,7 @@ export class AdminController {
     }
 
     @Post('settings')
-    async updateSettings(@Body() data: { commissionRate: number }) {
+    async updateSettings(@Body() data: { serviceCommissionRate?: number; rentalCommissionRate?: number; commissionRate?: number }) {
         return this.adminService.updatePlatformSettings(data);
     }
 
