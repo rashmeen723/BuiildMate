@@ -37,6 +37,12 @@ Traditional methods of hiring local handymen and renting tools are often fragmen
 * System Settings & Fee Controls: Configure marketplace commission percentages and dispatch system-wide announcement broadcast updates.
 * Reports Center: Export financial ledger profits and marketing diagnostics as CSVs or scoped printable PDFs.
 * Android and iOS Status Bar Support: Context-aware safe area handling for notch compatibility.
+* Recent Core Upgrades:
+  * Timezone-Aligned Booking Validation: Blocks past date-time slots for today dynamically using `Asia/Colombo` timezone.
+  * Sri Lankan Rate Normalization: Seeded context-appropriate daily and hourly rates matching typical Sri Lankan market expectations.
+  * Gemini AI Verification pipeline: Automated OCR-checking of business permits and utility bills.
+  * Weighted Trust Score engine: Computes reliability dynamically and suspends low-score users.
+  * Dynamic Role Redirects: Instantly logs in different user roles to their correct screens without flashes.
 
 ## Technology Stack
 

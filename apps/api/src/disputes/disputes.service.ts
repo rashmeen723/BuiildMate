@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DisputeStatus } from '@prisma/client';
+import { recalculateUserTrustScore } from '../utils/trust-score';
 
 @Injectable()
 export class DisputesService {
@@ -207,14 +208,13 @@ export class DisputesService {
             });
 
             if (reportedUser) {
-                const currentScore = reportedUser.trustScore;
-                const newScore = Math.max(0.0, currentScore - penaltyAmount);
+                // Call the weighted recalculator which factors in reviews, completions, and disputes
+                const newScore = await recalculateUserTrustScore(this.prisma, dispute.reportedId);
                 const shouldSuspend = newScore < 2.0;
 
                 await this.prisma.user.update({
                     where: { id: dispute.reportedId },
                     data: {
-                        trustScore: newScore,
                         isSuspended: shouldSuspend ? true : reportedUser.isSuspended,
                         suspensionReason: shouldSuspend 
                             ? "Trust score fell below safety threshold (2.0)" 

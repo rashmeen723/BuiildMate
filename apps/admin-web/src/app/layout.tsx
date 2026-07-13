@@ -17,13 +17,24 @@ export default function RootLayout({
   const isLoginPage = pathname === "/login";
 
   useEffect(() => {
+    const token = localStorage.getItem("admin_token");
+    const userJson = localStorage.getItem("admin_user");
+
     if (isLoginPage) {
+      if (token && userJson) {
+        try {
+          const user = JSON.parse(userJson);
+          if (user.role === "ADMIN") {
+            router.replace("/");
+            return;
+          }
+        } catch {
+          // ignore parsing error and let them log in
+        }
+      }
       setAuthorized(true);
       return;
     }
-
-    const token = localStorage.getItem("admin_token");
-    const userJson = localStorage.getItem("admin_user");
 
     if (!token || !userJson) {
       setAuthorized(false);

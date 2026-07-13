@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { VerificationStatus } from '@prisma/client';
+import { MailerService } from '@nestjs-modules/mailer';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -54,7 +55,10 @@ function writeCustomCategories(data: { services: string[], rentals: string[], de
 
 @Injectable()
 export class AdminService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private mailerService: MailerService,
+    ) { }
 
     async getStats() {
         // 1. Registered Users (all non-admin accounts)
@@ -599,7 +603,7 @@ export class AdminService {
         return user;
     }
 
-    async updateVerificationStatus(userId: string, status: VerificationStatus) {
+    async updateVerificationStatus(userId: string, status: VerificationStatus, reason?: string) {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
             include: { 
@@ -617,10 +621,6 @@ export class AdminService {
             const badgesToGrant: any[] = [];
             
             if (user.serviceProvider) {
-                const hasCertificate = user.documents.some(d => d.documentType === 'CERTIFICATE');
-                if (hasCertificate) {
-                    badgesToGrant.push('CERTIFIED_PRO');
-                }
                 const hasUtilityBill = user.documents.some(d => d.documentType === 'UTILITY_BILL');
                 if (hasUtilityBill) {
                     badgesToGrant.push('ADDRESS_VERIFIED');
@@ -645,6 +645,65 @@ export class AdminService {
                 data: { badges: updatedBadges as any[] }
             });
         }
+
+        // Notify user about status change
+        const isApproved = status === 'APPROVED';
+        const rejectionReason = reason || 'Your uploaded documents do not match your profile details or are invalid/blurry.';
+        const notificationTitle = isApproved ? 'Verification Approved! 🎉' : 'Verification Rejected ⚠️';
+        const notificationMessage = isApproved
+            ? 'Congratulations! Your document verification has been approved. You are now fully verified on BuildMate.'
+            : `Your document verification was rejected by the administrator. Reason: ${rejectionReason}`;
+
+        await this.prisma.notification.create({
+            data: {
+                userId,
+                title: notificationTitle,
+                message: notificationMessage,
+                type: 'STATUS_UPDATE',
+            }
+        }).catch(err => {
+            console.error(`Failed to create verification notification for user ${userId}:`, err);
+        });
+
+        // Send Email Notification
+        this.mailerService.sendMail({
+            to: user.email,
+            subject: `BuildMate Profile Verification: ${isApproved ? 'Approved' : 'Action Required'}`,
+            text: isApproved
+                ? `Hello ${user.fullName},\n\nWe are pleased to inform you that your document verification has been approved. Your profile is now active on the BuildMate platform.\n\nBest Regards,\nThe BuildMate Trust Team`
+                : `Hello ${user.fullName},\n\nWe regret to inform you that your document verification was rejected. Reason: ${rejectionReason}\n\nPlease review your profile, update your documents, and re-submit them.\n\nBest Regards,\nThe BuildMate Trust Team`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                    <h2 style="color: #14213D; border-bottom: 2px solid ${isApproved ? '#10B981' : '#EF4444'}; padding-bottom: 10px;">
+                        BuildMate Profile Verification Status
+                    </h2>
+                    <p>Hello <strong>${user.fullName}</strong>,</p>
+                    ${isApproved ? `
+                        <p>We are pleased to inform you that your document verification has been successfully approved! Your profile is now active, and you can start listing tools or accepting service bookings on BuildMate.</p>
+                        <div style="background-color: #ECFDF5; border-left: 4px solid #10B981; padding: 15px; border-radius: 4px; margin: 20px 0;">
+                            <strong style="color: #065F46;">Status: Verified & Approved</strong>
+                        </div>
+                    ` : `
+                        <p>We regret to inform you that your document verification was rejected by our review team. To list tools or services, please log into your account, check your details, and upload valid documents (such as utility bills or business permits).</p>
+                        <div style="background-color: #FEF2F2; border-left: 4px solid #EF4444; padding: 15px; border-radius: 4px; margin: 20px 0;">
+                            <strong style="color: #991B1B;">Status: Rejected & Awaiting Re-submission</strong><br/>
+                            <p style="margin: 8px 0 0 0; color: #7F1D1D; font-size: 14px;"><strong>Reason for Rejection:</strong> ${rejectionReason}</p>
+                        </div>
+                        <p style="background-color: #F8FAFC; padding: 12px; border-radius: 4px; border: 1px dashed #E2E8F0; font-size: 13px;">
+                            <strong>Need help?</strong> If you have any questions or concern regarding this verification rejection, please contact the BuildMate Support Team via email at <a href="mailto:support@buildmate.lk">support@buildmate.lk</a> or call our hotline at <strong>+94 11 234 5678</strong> (Weekdays 9 AM - 5 PM).
+                        </p>
+                    `}
+                    <p>Thank you for partnering with us to build a trusted community.</p>
+                    <br/>
+                    <p style="color: #6B7280; font-size: 12px; border-top: 1px solid #E5E7EB; padding-top: 15px;">
+                        Best Regards,<br/>
+                        <strong>The BuildMate Trust Team</strong>
+                    </p>
+                </div>
+            `
+        }).catch(err => {
+            console.error(`Failed to send verification status email to user ${user.email}:`, err);
+        });
 
         if (user.serviceProvider) {
             return this.prisma.serviceProviderProfile.update({

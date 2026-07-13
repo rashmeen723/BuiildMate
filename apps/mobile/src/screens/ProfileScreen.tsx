@@ -43,12 +43,9 @@ const ProfileScreen = () => {
         { id: 1, title: 'Personal Information', icon: 'person', route: 'EditProfile' },
         { id: 2, title: 'Change Password', icon: 'lock-closed', route: 'ChangePassword' },
         { id: 4, title: 'Order History', icon: 'time', route: 'OrderHistory' },
-        { id: 5, title: 'Notification Settings', icon: 'notifications', route: 'NotificationSettings' },
     ];
 
-    if (user?.role === 'RENTAL_OWNER') {
-        menuItems.push({ id: 6, title: 'My Store Ratings & Reviews', icon: 'star', route: 'RentalOwnerRatings' as any });
-    }
+
 
     const renderMenuItem = (item: any) => (
         <TouchableOpacity
@@ -131,12 +128,6 @@ const ProfileScreen = () => {
                                         <Text style={styles.badgeText}>
                                             {user.badges.includes('ADDRESS_VERIFIED') ? 'Address Verified' : 'Identity Verified'}
                                         </Text>
-                                    </View>
-                                )}
-                                {user.badges.includes('CERTIFIED_PRO') && (
-                                    <View style={[styles.badge, { backgroundColor: COLORS.orange }]}>
-                                        <Ionicons name="ribbon" size={12} color={COLORS.white} />
-                                        <Text style={styles.badgeText}>Certified Pro</Text>
                                     </View>
                                 )}
                             </View>

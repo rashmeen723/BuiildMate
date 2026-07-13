@@ -106,6 +106,16 @@ const ServiceCategoryScreen = () => {
         }
         if (date) {
             setSelectedDate(date);
+            const today = new Date();
+            if (date.toDateString() === today.toDateString()) {
+                const timeMinutes = selectedTime.getHours() * 60 + selectedTime.getMinutes();
+                const currentMinutes = today.getHours() * 60 + today.getMinutes();
+                if (timeMinutes < currentMinutes) {
+                    const newTime = new Date();
+                    newTime.setMinutes(newTime.getMinutes() + 15);
+                    setSelectedTime(newTime);
+                }
+            }
         }
     };
 
@@ -114,6 +124,16 @@ const ServiceCategoryScreen = () => {
             setShowTimePicker(false);
         }
         if (time) {
+            const today = new Date();
+            const isToday = selectedDate.toDateString() === today.toDateString();
+            if (isToday) {
+                const timeMinutes = time.getHours() * 60 + time.getMinutes();
+                const currentMinutes = today.getHours() * 60 + today.getMinutes();
+                if (timeMinutes < currentMinutes) {
+                    Alert.alert('Invalid Time', 'Cannot select a time in the past for today.');
+                    return;
+                }
+            }
             setSelectedTime(time);
         }
     };
@@ -230,8 +250,8 @@ const ServiceCategoryScreen = () => {
                                 </View>
 
                                 <View style={styles.priceRow}>
-                                    <Text style={styles.priceValue}>LKR {provider.yearsOfExperience * 500 + 1000}</Text>
-                                    <Text style={styles.priceUnit}>/ per task</Text>
+                                    <Text style={styles.priceValue}>LKR {provider.hourlyRate || (Number(provider.yearsOfExperience) * 200 + 600)}</Text>
+                                    <Text style={styles.priceUnit}>/ per hour</Text>
                                 </View>
 
                                 <View style={styles.actionRow}>

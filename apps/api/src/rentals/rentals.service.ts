@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { recalculateUserTrustScore } from '../utils/trust-score';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -285,7 +286,7 @@ export class RentalsService {
     async updateRentalStatus(rentalId: string, status: string, pickupPhotos?: string[], returnPhotos?: string[]) {
         const existingRental = await this.prisma.toolRental.findUnique({
             where: { id: rentalId },
-            include: { tool: true }
+            include: { tool: { include: { owner: true } } }
         });
 
         if (!existingRental) {
@@ -342,6 +343,13 @@ export class RentalsService {
             });
         } catch (error) {
             console.error('Error creating notification:', error);
+        }
+
+        // Recalculate trust score for the tool owner if rental is completed, paid, or cancelled
+        if (existingRental && ['COMPLETED', 'PAID', 'CANCELLED'].includes(status)) {
+            await recalculateUserTrustScore(this.prisma, existingRental.tool.owner.userId).catch(err => {
+                console.error(`Failed to recalculate trust score for tool owner ${existingRental.tool.owner.userId}:`, err);
+            });
         }
 
         return rental;

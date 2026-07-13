@@ -225,8 +225,7 @@ export type RootStackParamList = {
     Notification: undefined;
     Profile: undefined;
     EditProfile: { selectedLocation?: any; selectedAddress?: string } | undefined;
-    OrderHistory: undefined;
-    NotificationSettings: undefined;
+    OrderHistory: undefined,
     ChangePassword: undefined;
     ForgotPassword: undefined;
     WriteReview: {

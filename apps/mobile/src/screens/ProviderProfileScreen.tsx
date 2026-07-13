@@ -35,6 +35,8 @@ const ProviderProfileScreen = () => {
         image: initialImage || 'https://via.placeholder.com/150',
         experience: '0 years',
         skills: [],
+        certificates: [],
+        trustScore: 5.0,
     });
 
     useEffect(() => {
@@ -56,6 +58,8 @@ const ProviderProfileScreen = () => {
                     experience: `${data.yearsOfExperience}+ years`,
                     skills: data.skills || [],
                     badges: data.badges || [],
+                    certificates: data.certificates || [],
+                    trustScore: data.trustScore || 5.0,
                 });
             } catch (error) {
                 console.error('Error fetching provider details:', error);
@@ -234,6 +238,13 @@ const ProviderProfileScreen = () => {
                             <Text style={styles.reviewCount}>({provider.reviews} reviews)</Text>
                         </View>
 
+                        {/* Trust Score Display */}
+                        <View style={styles.trustScoreRow}>
+                            <Ionicons name="shield-checkmark" size={16} color="#3B82F6" style={{ marginRight: 6 }} />
+                            <Text style={styles.trustScoreLabel}>Trust Score: </Text>
+                            <Text style={styles.trustScoreValue}>{Number(provider.trustScore || 5.0).toFixed(1)} / 5.0</Text>
+                        </View>
+
                         {/* Badges Section */}
                         {provider.badges?.length > 0 && (
                             <View style={styles.badgeRow}>
@@ -243,12 +254,6 @@ const ProviderProfileScreen = () => {
                                         <Text style={styles.badgeText}>
                                             {provider.badges.includes('ADDRESS_VERIFIED') ? 'Address Verified' : 'Identity Verified'}
                                         </Text>
-                                    </View>
-                                )}
-                                {provider.badges.includes('CERTIFIED_PRO') && (
-                                    <View style={[styles.badge, { backgroundColor: COLORS.orange }]}>
-                                        <Ionicons name="ribbon" size={12} color={COLORS.white} />
-                                        <Text style={styles.badgeText}>Certified Pro</Text>
                                     </View>
                                 )}
                             </View>
@@ -288,6 +293,20 @@ const ProviderProfileScreen = () => {
                             ))}
                         </View>
                     </View>
+
+                    {/* Professional Certificates */}
+                    {provider.certificates && provider.certificates.length > 0 && (
+                        <View style={styles.certificatesSection}>
+                            <Text style={styles.sectionTitle}>Certificates :</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.certScrollContainer}>
+                                {provider.certificates.map((url: string, index: number) => (
+                                    <View key={index} style={styles.certCard}>
+                                        <Image source={{ uri: url }} style={styles.certImage} resizeMode="cover" />
+                                    </View>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
 
                     {/* Availability Calendar */}
                     <Text style={styles.sectionTitle}>Availability :</Text>
@@ -505,6 +524,27 @@ const styles = StyleSheet.create({
     reviewCount: {
         fontSize: 14,
         color: COLORS.gray,
+    },
+    trustScoreRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+        backgroundColor: '#EFF6FF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#BFDBFE',
+    },
+    trustScoreLabel: {
+        fontSize: 14,
+        color: '#1E40AF',
+        fontWeight: '600',
+    },
+    trustScoreValue: {
+        fontSize: 14,
+        color: '#1E40AF',
+        fontWeight: 'bold',
     },
     contactRow: {
         flexDirection: 'row',
@@ -782,6 +822,32 @@ const styles = StyleSheet.create({
         fontSize: 10,
         marginTop: 4,
         color: COLORS.gray,
+    },
+    certificatesSection: {
+        marginBottom: 20,
+        paddingHorizontal: 4,
+    },
+    certScrollContainer: {
+        paddingVertical: 8,
+    },
+    certCard: {
+        width: 140,
+        height: 95,
+        borderRadius: 12,
+        marginRight: 12,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        backgroundColor: '#F8FAFC',
+        elevation: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+    },
+    certImage: {
+        width: '100%',
+        height: '100%',
     },
 });
 
