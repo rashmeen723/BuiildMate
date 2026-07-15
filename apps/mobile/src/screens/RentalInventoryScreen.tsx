@@ -19,6 +19,7 @@ import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { rentalsApi } from '../services/api';
+import BottomNavBar from '../components/BottomNavBar';
 
 type InventoryNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AddTool'>;
 
@@ -161,6 +162,8 @@ const RentalInventoryScreen = () => {
             >
                 <Ionicons name="add" size={30} color={COLORS.white} />
             </TouchableOpacity>
+
+            <BottomNavBar />
         </SafeAreaView>
     );
 };
@@ -367,7 +370,7 @@ const styles = StyleSheet.create({
     },
     fab: {
         position: 'absolute',
-        bottom: 30,
+        bottom: 95,
         right: 30,
         width: 60,
         height: 60,

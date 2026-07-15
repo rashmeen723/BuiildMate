@@ -27,6 +27,7 @@ const ProviderRatingsScreen = () => {
     const [likedReviews, setLikedReviews] = useState<string[]>([]);
 
     const targetId = providerId || user?.id;
+    const isOwnReviews = !providerId || providerId === user?.id;
 
     const filters = ['Latest', 'Highest Rated', 'Critical', 'With Photos'];
 
@@ -203,7 +204,9 @@ const ProviderRatingsScreen = () => {
 
             {item.reply && (
                 <View style={[styles.responseBox, { borderLeftColor: COLORS.orange, borderLeftWidth: 4 }]}>
-                    <Text style={[styles.responseTitle, { color: COLORS.orange }]}>Your Response:</Text>
+                    <Text style={[styles.responseTitle, { color: COLORS.orange }]}>
+                        {isOwnReviews ? "Your Response:" : "Provider Response:"}
+                    </Text>
                     <Text style={styles.responseText}>"{item.reply}"</Text>
                 </View>
             )}
@@ -338,7 +341,7 @@ const ProviderRatingsScreen = () => {
                 </View>
             </Modal>
 
-            <BottomNavBar />
+            {(!providerId || providerId === user?.id) && <BottomNavBar />}
         </SafeAreaView>
     );
 };

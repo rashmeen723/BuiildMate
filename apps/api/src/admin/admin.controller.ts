@@ -60,9 +60,10 @@ export class AdminController {
     @Post('verify/:id')
     async updateStatus(
         @Param('id') id: string,
-        @Body('status') status: VerificationStatus
+        @Body('status') status: VerificationStatus,
+        @Body('reason') reason?: string
     ) {
-        return this.adminService.updateVerificationStatus(id, status);
+        return this.adminService.updateVerificationStatus(id, status, reason);
     }
 
     @Post('user/:id/suspend')
@@ -94,7 +95,7 @@ export class AdminController {
     }
 
     @Post('settings')
-    async updateSettings(@Body() data: { commissionRate: number }) {
+    async updateSettings(@Body() data: { serviceCommissionRate?: number; rentalCommissionRate?: number; commissionRate?: number }) {
         return this.adminService.updatePlatformSettings(data);
     }
 

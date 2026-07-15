@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { recalculateUserTrustScore } from '../utils/trust-score';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -229,12 +230,14 @@ export class RentalsService {
             throw new BadRequestException('This tool is currently not available for rent.');
         }
 
-        let rateFactor = 0.05;
+        let rateFactor = 0.07; // Default to 7% for rentals
         try {
             const settingsPath = path.join(__dirname, '..', 'admin', 'platform-settings.json');
             if (fs.existsSync(settingsPath)) {
                 const settingsData = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-                if (typeof settingsData.commissionRate === 'number') {
+                if (typeof settingsData.rentalCommissionRate === 'number') {
+                    rateFactor = settingsData.rentalCommissionRate / 100;
+                } else if (typeof settingsData.commissionRate === 'number') {
                     rateFactor = settingsData.commissionRate / 100;
                 }
             }
@@ -283,7 +286,7 @@ export class RentalsService {
     async updateRentalStatus(rentalId: string, status: string, pickupPhotos?: string[], returnPhotos?: string[]) {
         const existingRental = await this.prisma.toolRental.findUnique({
             where: { id: rentalId },
-            include: { tool: true }
+            include: { tool: { include: { owner: true } } }
         });
 
         if (!existingRental) {
@@ -340,6 +343,13 @@ export class RentalsService {
             });
         } catch (error) {
             console.error('Error creating notification:', error);
+        }
+
+        // Recalculate trust score for the tool owner if rental is completed, paid, or cancelled
+        if (existingRental && ['COMPLETED', 'PAID', 'CANCELLED'].includes(status)) {
+            await recalculateUserTrustScore(this.prisma, existingRental.tool.owner.userId).catch(err => {
+                console.error(`Failed to recalculate trust score for tool owner ${existingRental.tool.owner.userId}:`, err);
+            });
         }
 
         return rental;

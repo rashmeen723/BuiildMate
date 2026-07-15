@@ -47,11 +47,23 @@ const LoginScreen = () => {
             // Save user and token in Context
             await login(result.user, result.token);
 
-            // Navigate to Home
-            navigation.reset({
-                index: 0,
-                routes: [{ name: 'Home' }],
-            });
+            // Navigate to appropriate screen depending on role
+            if (result.user.role === 'SERVICE_PROVIDER') {
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'ServiceProviderDashboard' }],
+                });
+            } else if (result.user.role === 'RENTAL_OWNER') {
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'RentalOwnerDashboard' }],
+                });
+            } else {
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Home' }],
+                });
+            }
         } catch (error: any) {
             Alert.alert("Login Failed", error.message);
         } finally {

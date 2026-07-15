@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { VerificationStatus } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
+import { recalculateUserTrustScore } from '../utils/trust-score';
 
 @Injectable()
 export class ServicesService implements OnModuleInit {
@@ -193,10 +194,11 @@ export class ServicesService implements OnModuleInit {
                     latitude: sp.latitude,
                     longitude: sp.longitude,
                     yearsOfExperience: sp.yearsOfExperience,
+                    hourlyRate: sp.hourlyRate,
                     isAvailable: isAvailableToday && isWithinHours && isAvailableSlot
                 };
             })
-            .filter(p => p.distance <= radius)
+            .filter(p => p.distance <= radius && p.isAvailable)
             .sort((a, b) => {
                 // Primary sort: Available first
                 if (a.isAvailable && !b.isAvailable) return -1;
@@ -212,7 +214,8 @@ export class ServicesService implements OnModuleInit {
             where: { id },
             include: {
                 serviceProvider: true,
-                reviewsReceived: true
+                reviewsReceived: true,
+                documents: true
             }
         }) as any;
 
@@ -223,6 +226,12 @@ export class ServicesService implements OnModuleInit {
         const avgRating = user.reviewsReceived.length > 0
             ? user.reviewsReceived.reduce((sum: number, r: any) => sum + r.rating, 0) / user.reviewsReceived.length
             : 0;
+
+        const certificates = user.documents
+            ? user.documents
+                .filter((d: any) => d.documentType === 'CERTIFICATE')
+                .map((d: any) => d.documentUrl)
+            : [];
 
         return {
             id: user.id,
@@ -238,7 +247,10 @@ export class ServicesService implements OnModuleInit {
             workingHoursStart: user.serviceProvider.workingHoursStart,
             workingHoursEnd: user.serviceProvider.workingHoursEnd,
             rating: parseFloat(avgRating.toFixed(1)) || 0,
-            reviews: user.reviewsReceived.length || 0
+            reviews: user.reviewsReceived.length || 0,
+            badges: user.badges || [],
+            trustScore: parseFloat((user.trustScore || 5.0).toFixed(1)),
+            certificates
         };
     }
 
@@ -294,14 +306,44 @@ export class ServicesService implements OnModuleInit {
             }
         });
 
+        // Helper to parse time string like '09:00 AM' into minutes from midnight
+        const parseTimeString = (t: string) => {
+            const normalized = t.replace(/\s+/g, ' ').replace(/\u202f/g, ' ').trim();
+            const [time, modifier] = normalized.split(' ');
+            let [hours, minutes] = time.split(':').map(Number);
+            if (modifier === 'PM' && hours < 12) hours += 12;
+            if (modifier === 'AM' && hours === 12) hours = 0;
+            return hours * 60 + minutes;
+        };
+
+        const today = new Date();
+        const slDateString = today.toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' }); // YYYY-MM-DD in LK
+        const datePartStr = dateStr.split('T')[0];
+        const isToday = datePartStr === slDateString;
+
+        const slTimeString = today.toLocaleTimeString('en-US', { timeZone: 'Asia/Colombo', hour12: false }); // HH:MM:SS in LK
+        const [slHours, slMinutes] = slTimeString.split(':').map(Number);
+        const currentMinutes = slHours * 60 + slMinutes;
+
         // Map availability
         const availability = (slots as any[]).map(slot => {
             const isBooked = bookings.some((b: any) => {
                 return b.startTime === slot.start;
             });
+            
+            let status = isBooked ? 'not available' : 'available';
+            
+            // If the selected date is today and the slot start time has already passed in LK, mark it unavailable
+            if (isToday) {
+                const slotStartMinutes = parseTimeString(slot.start);
+                if (slotStartMinutes < currentMinutes) {
+                    status = 'not available';
+                }
+            }
+
             return {
                 time: `${slot.start} - ${slot.end}`,
-                status: isBooked ? 'not available' : 'available'
+                status
             };
         });
 
@@ -420,12 +462,14 @@ export class ServicesService implements OnModuleInit {
                 }
 
                 const totalBeforePlatformFee = baseAmount + additionalCharges;
-                let rateFactor = 0.05;
+                let rateFactor = 0.05; // Default to 5% for services
                 try {
                     const settingsPath = path.join(__dirname, '..', 'admin', 'platform-settings.json');
                     if (fs.existsSync(settingsPath)) {
                         const settingsData = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-                        if (typeof settingsData.commissionRate === 'number') {
+                        if (typeof settingsData.serviceCommissionRate === 'number') {
+                            rateFactor = settingsData.serviceCommissionRate / 100;
+                        } else if (typeof settingsData.commissionRate === 'number') {
                             rateFactor = settingsData.commissionRate / 100;
                         }
                     }
@@ -529,6 +573,13 @@ export class ServicesService implements OnModuleInit {
             }
         }
 
+        // Recalculate trust score if status changes to COMPLETED, PAID, or CANCELLED
+        if (existingBooking && ['COMPLETED', 'PAID', 'CANCELLED'].includes(status)) {
+            await recalculateUserTrustScore(this.prisma, existingBooking.providerId).catch(err => {
+                console.error(`Failed to recalculate trust score for provider ${existingBooking.providerId}:`, err);
+            });
+        }
+
         return updatedBooking;
     }
 
@@ -616,6 +667,11 @@ export class ServicesService implements OnModuleInit {
 
         const review = await (this.prisma as any).review.create({
             data
+        });
+
+        // Recalculate trust score for the reviewee
+        await recalculateUserTrustScore(this.prisma, data.revieweeId).catch(err => {
+            console.error(`Failed to recalculate trust score for reviewee ${data.revieweeId}:`, err);
         });
 
         // Notify person who received the review

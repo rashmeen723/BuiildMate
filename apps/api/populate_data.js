@@ -1057,26 +1057,26 @@ async function main() {
     await prisma.document.create({
         data: {
             userId: provider1.id,
-            documentType: 'ID_CARD',
+            documentType: 'UTILITY_BILL',
             documentUrl: 'https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?q=80&w=800',
             status: VerificationStatus.APPROVED,
             aiConfidence: 0.98,
-            aiResult: { status: 'AI_PASSED', confidence: 0.98, reason: 'Face matches ID photo, name matches profile details.' }
+            aiResult: { status: 'AI_PASSED', confidence: 0.98, reason: 'Utility bill name and address match profile details.' }
         }
     });
 
-    // provider1 has a pending NVQ certificate flagged by AI to test the verification dashboard!
+    // provider1 has an NVQ certificate accepted automatically
     await prisma.document.create({
         data: {
             userId: provider1.id,
             documentType: 'CERTIFICATE',
             documentUrl: 'https://images.unsplash.com/photo-1589330694653-ded6df03f754?q=80&w=800',
-            status: VerificationStatus.PENDING,
-            aiConfidence: 0.45,
+            status: VerificationStatus.APPROVED,
+            aiConfidence: 1.0,
             aiResult: { 
-                status: 'AI_FLAGGED', 
-                confidence: 0.45, 
-                reason: 'Name on diploma certificate reads "Kamal Silva Perera", which does not strictly match user profile "Kamal Perera". Verify identity match.' 
+                status: 'AI_PASSED', 
+                confidence: 1.0, 
+                reason: 'Certificates are accepted automatically.' 
             }
         }
     });
@@ -1085,11 +1085,11 @@ async function main() {
     await prisma.document.create({
         data: {
             userId: provider2.id,
-            documentType: 'ID_CARD',
+            documentType: 'UTILITY_BILL',
             documentUrl: 'https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?q=80&w=800',
             status: VerificationStatus.APPROVED,
             aiConfidence: 0.95,
-            aiResult: { status: 'AI_PASSED', confidence: 0.95, reason: 'ID card matches profile name Nimal Silva.' }
+            aiResult: { status: 'AI_PASSED', confidence: 0.95, reason: 'Utility bill matches profile name Nimal Silva.' }
         }
     });
 

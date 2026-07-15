@@ -123,11 +123,11 @@ export const adminApi = {
         return response.json();
     },
 
-    updateVerificationStatus: async (id: string, status: 'APPROVED' | 'REJECTED') => {
+    updateVerificationStatus: async (id: string, status: 'APPROVED' | 'REJECTED', reason?: string) => {
         const response = await fetch(`${API_BASE_URL}/admin/verify/${id}`, {
             method: 'POST',
             headers: getHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ status }),
+            body: JSON.stringify({ status, reason }),
         });
         if (!response.ok) throw new Error('Failed to update verification status');
         return response.json();
@@ -224,11 +224,11 @@ export const adminApi = {
         return response.json();
     },
 
-    updateSettings: async (commissionRate: number) => {
+    updateSettings: async (serviceCommissionRate: number, rentalCommissionRate: number) => {
         const response = await fetch(`${API_BASE_URL}/admin/settings`, {
             method: 'POST',
             headers: getHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ commissionRate }),
+            body: JSON.stringify({ serviceCommissionRate, rentalCommissionRate }),
         });
         if (!response.ok) {
             const errData = await response.json().catch(() => ({}));

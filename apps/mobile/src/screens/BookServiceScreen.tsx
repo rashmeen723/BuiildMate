@@ -77,14 +77,37 @@ const BookServiceScreen = () => {
 
     const handleDateChange = (event: any, date?: Date) => {
         if (Platform.OS === 'android') setShowDatePicker(false);
-        if (date) setSelectedDate(date);
+        if (date) {
+            setSelectedDate(date);
+            const today = new Date();
+            if (date.toDateString() === today.toDateString()) {
+                const startMinutes = startTime.getHours() * 60 + startTime.getMinutes();
+                const currentMinutes = today.getHours() * 60 + today.getMinutes();
+                if (startMinutes < currentMinutes) {
+                    const newStart = new Date();
+                    newStart.setMinutes(newStart.getMinutes() + 15);
+                    setStartTime(newStart);
+                    const newEnd = new Date(newStart.getTime() + 60 * 60 * 1000);
+                    setEndTime(newEnd);
+                }
+            }
+        }
     };
 
     const handleStartTimeChange = (event: any, time?: Date) => {
         if (Platform.OS === 'android') setShowStartTimePicker(false);
         if (time) {
+            const today = new Date();
+            const isToday = selectedDate.toDateString() === today.toDateString();
+            if (isToday) {
+                const timeMinutes = time.getHours() * 60 + time.getMinutes();
+                const currentMinutes = today.getHours() * 60 + today.getMinutes();
+                if (timeMinutes < currentMinutes) {
+                    Alert.alert('Invalid Time', 'Cannot select a start time in the past for today.');
+                    return;
+                }
+            }
             setStartTime(time);
-            // Auto-adjust end time if it's before start time
             if (endTime <= time) {
                 const newEnd = new Date(time.getTime() + 60 * 60 * 1000);
                 setEndTime(newEnd);
@@ -131,6 +154,18 @@ const BookServiceScreen = () => {
         if (!user) {
             Alert.alert('Authentication', 'Please log in to book a service');
             return;
+        }
+
+        // Final safety check: if selected date is today, ensure start time is not in the past
+        const today = new Date();
+        const isToday = selectedDate.toDateString() === today.toDateString();
+        if (isToday) {
+            const startMinutes = startTime.getHours() * 60 + startTime.getMinutes();
+            const currentMinutes = today.getHours() * 60 + today.getMinutes();
+            if (startMinutes < currentMinutes) {
+                Alert.alert('Invalid Time', 'Your selected start time is in the past. Please choose a future time.');
+                return;
+            }
         }
 
         setLoading(true);

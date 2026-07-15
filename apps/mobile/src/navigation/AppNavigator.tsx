@@ -46,7 +46,6 @@ import PaymentScreen from '../screens/PaymentScreen';
 import NotificationScreen from '../screens/NotificationScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
-import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
 import OrderHistoryScreen from '../screens/OrderHistoryScreen';
 import WriteReviewScreen from '../screens/WriteReviewScreen';
 import ServiceProviderMapScreen from '../screens/ServiceProviderMapScreen';
@@ -120,7 +119,6 @@ const AppNavigator = () => {
                 <Stack.Screen name="Profile" component={ProfileScreen} />
                 <Stack.Screen name="EditProfile" component={EditProfileScreen} />
                 <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
-                <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
                 <Stack.Screen name="WriteReview" component={WriteReviewScreen} />
                 <Stack.Screen name="ServiceProviderMap" component={ServiceProviderMapScreen} />
                 <Stack.Screen name="FinalizeJob" component={FinalizeJobScreen} />

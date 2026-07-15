@@ -21,9 +21,26 @@ export default function VerificationDetailPage({ params }: { params: Promise<{ i
     }, [id]);
 
     const handleAction = async (status: 'APPROVED' | 'REJECTED') => {
+        let reason = "";
+        if (status === 'REJECTED') {
+            const input = prompt(
+                "Please enter the reason for rejection:", 
+                "Your uploaded documents (utility bill/business permit) do not match your profile details or are invalid/blurry."
+            );
+            if (input === null) {
+                // User cancelled the prompt dialog
+                return;
+            }
+            reason = input.trim();
+            if (reason === "") {
+                alert("A rejection reason is required.");
+                return;
+            }
+        }
+
         setActionLoading(true);
         try {
-            await adminApi.updateVerificationStatus(id, status);
+            await adminApi.updateVerificationStatus(id, status, reason);
             router.push("/");
             router.refresh();
         } catch (error) {
@@ -137,14 +154,14 @@ export default function VerificationDetailPage({ params }: { params: Promise<{ i
                     </div>
 
                     {/* AI Verification Section */}
-                    {user.documents?.some((d: any) => d.aiResult) && (
+                    {user.documents?.some((d: any) => d.aiResult && d.documentType !== 'CERTIFICATE') && (
                         <div className="glass-card p-6 border-sky-500/20 bg-sky-500/5">
                             <h3 className="font-bold flex items-center gap-2 mb-4 text-sky-400">
                                 <BrainCircuit size={18} />
                                 AI Insights
                             </h3>
                             <div className="space-y-4">
-                                {user.documents.filter((d: any) => d.aiResult).map((doc: any, i: number) => {
+                                {user.documents.filter((d: any) => d.aiResult && d.documentType !== 'CERTIFICATE').map((doc: any, i: number) => {
                                     const ai = doc.aiResult;
                                     return (
                                         <div key={i} className="p-3 rounded-lg bg-slate-900/50 border border-slate-800">
@@ -158,6 +175,9 @@ export default function VerificationDetailPage({ params }: { params: Promise<{ i
                                             
                                             <div className="mt-3 space-y-1.5">
                                                 <AiCheck label="Name Match" passed={ai.checks?.nameMatch} />
+                                                {ai.checks?.addressMatch !== undefined && (
+                                                    <AiCheck label="Address Match" passed={ai.checks?.addressMatch} />
+                                                )}
                                                 <AiCheck label="Not Expired" passed={ai.checks?.notExpired} />
                                                 <AiCheck label="Authentic" passed={ai.checks?.looksAuthentic} />
                                             </div>
@@ -174,9 +194,9 @@ export default function VerificationDetailPage({ params }: { params: Promise<{ i
                     {/* Documents */}
                     <div className="glass-card p-8">
                         <h3 className="text-xl font-bold mb-6">Verification Documents</h3>
-                        {user.documents && user.documents.length > 0 ? (
+                        {user.documents && user.documents.filter((d: any) => d.documentType !== 'CERTIFICATE').length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {user.documents.map((doc: any, i: number) => (
+                                {user.documents.filter((d: any) => d.documentType !== 'CERTIFICATE').map((doc: any, i: number) => (
                                     <div key={i} className="group relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900/50 p-2">
                                         <div className="aspect-video bg-slate-800 rounded-xl flex items-center justify-center mb-4 overflow-hidden">
                                             {doc.documentUrl.match(/\.(jpeg|jpg|gif|png)$/) ? (
