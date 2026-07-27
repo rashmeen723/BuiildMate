@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Search, Filter, ShieldCheck, CheckCircle2, AlertCircle, Clock, Trash2 } from "lucide-react";
+import { Users, Search, Filter, ShieldCheck, CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import { adminApi } from "@/services/api";
 import { SuspendModal } from "../../components/modals/SuspendModal";
 import { UnsuspendModal } from "../../components/modals/UnsuspendModal";
-import { DeleteUserModal } from "../../components/modals/DeleteUserModal";
 
 export default function ProvidersPage() {
     const [providers, setProviders] = useState<any[]>([]);
@@ -46,10 +45,7 @@ export default function ProvidersPage() {
     const [showUnsuspendModal, setShowUnsuspendModal] = useState(false);
     const [unsuspendUserId, setUnsuspendUserId] = useState<string | null>(null);
 
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
-    const [deleteUserName, setDeleteUserName] = useState("");
-    const [isDoubleConfirm, setIsDoubleConfirm] = useState(false);
+
 
     const fetchProviders = () => {
         setLoading(true);
@@ -99,26 +95,6 @@ export default function ProvidersPage() {
         }
     };
 
-    const handleDeleteClick = (id: string, name: string) => {
-        setDeleteUserId(id);
-        setDeleteUserName(name);
-        setIsDoubleConfirm(false);
-        setShowDeleteModal(true);
-    };
-
-    const confirmDelete = async () => {
-        if (!deleteUserId) return;
-        try {
-            await adminApi.deleteUser(deleteUserId);
-            setShowDeleteModal(false);
-            setDeleteUserId(null);
-            setDeleteUserName("");
-            setIsDoubleConfirm(false);
-            fetchProviders();
-        } catch (err: any) {
-            alert(`Failed to delete user: ${err.message}`);
-        }
-    };
 
     if (loading) {
         return (
@@ -262,13 +238,6 @@ export default function ProvidersPage() {
                                                 Suspend
                                             </button>
                                         )}
-                                        <button
-                                            onClick={() => handleDeleteClick(provider.id, provider.fullName)}
-                                            className="text-rose-500 hover:text-rose-400 p-1 rounded hover:bg-rose-500/10 transition-colors"
-                                            title="Delete User"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -302,19 +271,6 @@ export default function ProvidersPage() {
                     setUnsuspendUserId(null);
                 }}
                 onConfirm={confirmUnsuspend}
-            />
-
-            <DeleteUserModal 
-                isOpen={showDeleteModal}
-                userName={deleteUserName}
-                isDoubleConfirm={isDoubleConfirm}
-                onDoubleConfirmChange={setIsDoubleConfirm}
-                onClose={() => {
-                    setShowDeleteModal(false);
-                    setDeleteUserId(null);
-                    setDeleteUserName("");
-                }}
-                onConfirm={confirmDelete}
             />
         </div>
     );

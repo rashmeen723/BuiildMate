@@ -79,10 +79,6 @@ export class AdminController {
         return this.adminService.unsuspendUser(id);
     }
 
-    @Delete('user/:id')
-    async deleteUser(@Param('id') id: string) {
-        return this.adminService.deleteUser(id);
-    }
 
     @Get('reports/monthly')
     async getMonthlyReport() {

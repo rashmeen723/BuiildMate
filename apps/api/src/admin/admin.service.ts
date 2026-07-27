@@ -759,60 +759,6 @@ export class AdminService {
         });
     }
 
-    async deleteUser(userId: string) {
-        const user = await this.prisma.user.findUnique({
-            where: { id: userId },
-            include: {
-                serviceProvider: true,
-                rentalOwner: true,
-            }
-        });
-
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
-
-        return this.prisma.$transaction(async (tx) => {
-            // 1. Delete dependent records
-            await tx.notification.deleteMany({ where: { userId } });
-            await tx.address.deleteMany({ where: { userId } });
-            await tx.document.deleteMany({ where: { userId } });
-            
-            await tx.dispute.deleteMany({
-                where: { OR: [{ reporterId: userId }, { reportedId: userId }] }
-            });
-
-            await tx.review.deleteMany({
-                where: { OR: [{ reviewerId: userId }, { revieweeId: userId }] }
-            });
-
-            // 2. Delete role-specific data
-            if (user.serviceProvider) {
-                await tx.booking.deleteMany({
-                    where: { OR: [{ customerId: userId }, { providerId: userId }] }
-                });
-                await tx.serviceProviderProfile.delete({ where: { userId } });
-            }
-
-            if (user.rentalOwner) {
-                // Delete their tools and rentals
-                const tools = await tx.tool.findMany({ where: { ownerId: user.rentalOwner.id } });
-                const toolIds = tools.map(t => t.id);
-
-                await tx.toolRental.deleteMany({
-                    where: { OR: [{ customerId: userId }, { toolId: { in: toolIds } }] }
-                });
-
-                await tx.tool.deleteMany({ where: { ownerId: user.rentalOwner.id } });
-                await tx.rentalOwnerProfile.delete({ where: { userId } });
-            }
-
-            // 3. Delete the user
-            await tx.user.delete({ where: { id: userId } });
-
-            return { message: 'User and all associated data deleted successfully.' };
-        });
-    }
 
     async getMonthlyReportData() {
         const now = new Date();

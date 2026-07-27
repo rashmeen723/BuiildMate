@@ -186,14 +186,6 @@ export const adminApi = {
         return response.json();
     },
 
-    deleteUser: async (id: string) => {
-        const response = await fetch(`${API_BASE_URL}/admin/user/${id}`, {
-            method: 'DELETE',
-            headers: getHeaders()
-        });
-        if (!response.ok) throw new Error('Failed to delete user');
-        return response.json();
-    },
 
     getMonthlyReport: async () => {
         const response = await fetch(`${API_BASE_URL}/admin/reports/monthly`, {
