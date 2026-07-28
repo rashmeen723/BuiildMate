@@ -8,6 +8,16 @@ import * as path from 'path';
 const customCategoriesPath = path.join(__dirname, 'custom_categories.json');
 const platformSettingsPath = path.join(__dirname, 'platform-settings.json');
 
+const DEFAULT_SERVICES = [
+    'Electrician', 'Plumber', 'Carpenter', 'Painter', 'AC Technician', 
+    'Interior Design', 'Cleaning', 'Masonry', 'AC Repair'
+];
+
+const DEFAULT_RENTALS = [
+    'Power Tools', 'Ladders', 'Painting Equipment', 'Plumbing Equipment', 
+    'Cleaning Equipment', 'Safety Gear', 'Gardening Tools', 'Scaffolding', 'Other'
+];
+
 function readPlatformSettings(): { serviceCommissionRate: number; rentalCommissionRate: number; commissionRate?: number } {
     try {
         if (fs.existsSync(platformSettingsPath)) {
@@ -288,22 +298,12 @@ export class AdminService {
             }
         });
 
-        const defaultServices = [
-            'Electrician', 'Plumber', 'Carpenter', 'Painter', 'AC Technician', 
-            'Interior Design', 'Cleaning', 'Masonry', 'AC Repair'
-        ];
-
-        const defaultRentals = [
-            'Power Tools', 'Ladders', 'Painting Equipment', 'Plumbing Equipment', 
-            'Cleaning Equipment', 'Safety Gear', 'Gardening Tools', 'Scaffolding', 'Other'
-        ];
-
         const customCats = readCustomCategories();
         const deletedServices = customCats.deletedServices || [];
         const deletedRentals = customCats.deletedRentals || [];
 
-        const activeDefaultServices = defaultServices.filter(s => !deletedServices.includes(s));
-        const activeDefaultRentals = defaultRentals.filter(r => !deletedRentals.includes(r));
+        const activeDefaultServices = DEFAULT_SERVICES.filter(s => !deletedServices.includes(s));
+        const activeDefaultRentals = DEFAULT_RENTALS.filter(r => !deletedRentals.includes(r));
 
         // Map service counts
         const serviceCounts = new Map<string, number>();
@@ -348,18 +348,8 @@ export class AdminService {
         const trimmedName = name.trim();
         const customCats = readCustomCategories();
         
-        const defaultServices = [
-            'Electrician', 'Plumber', 'Carpenter', 'Painter', 'AC Technician', 
-            'Interior Design', 'Cleaning', 'Masonry', 'AC Repair'
-        ];
-
-        const defaultRentals = [
-            'Power Tools', 'Ladders', 'Painting Equipment', 'Plumbing Equipment', 
-            'Cleaning Equipment', 'Safety Gear', 'Gardening Tools', 'Scaffolding', 'Other'
-        ];
-
         if (type === 'service') {
-            const allServices = [...defaultServices, ...(customCats.services || [])];
+            const allServices = [...DEFAULT_SERVICES, ...(customCats.services || [])];
             if (allServices.some(s => s.toLowerCase() === trimmedName.toLowerCase())) {
                 throw new ConflictException(`Service category '${trimmedName}' already exists`);
             }
@@ -369,7 +359,7 @@ export class AdminService {
                 customCats.deletedServices = customCats.deletedServices.filter(s => s.toLowerCase() !== trimmedName.toLowerCase());
             }
         } else if (type === 'rental') {
-            const allRentals = [...defaultRentals, ...(customCats.rentals || [])];
+            const allRentals = [...DEFAULT_RENTALS, ...(customCats.rentals || [])];
             if (allRentals.some(r => r.toLowerCase() === trimmedName.toLowerCase())) {
                 throw new ConflictException(`Rental category '${trimmedName}' already exists`);
             }
@@ -403,23 +393,13 @@ export class AdminService {
 
         const customCats = readCustomCategories();
 
-        const defaultServices = [
-            'Electrician', 'Plumber', 'Carpenter', 'Painter', 'AC Technician', 
-            'Interior Design', 'Cleaning', 'Masonry', 'AC Repair'
-        ];
-
-        const defaultRentals = [
-            'Power Tools', 'Ladders', 'Painting Equipment', 'Plumbing Equipment', 
-            'Cleaning Equipment', 'Safety Gear', 'Gardening Tools', 'Scaffolding', 'Other'
-        ];
-
         if (type === 'service') {
-            const allServices = [...defaultServices, ...(customCats.services || [])];
+            const allServices = [...DEFAULT_SERVICES, ...(customCats.services || [])];
             if (allServices.some(s => s.toLowerCase() === trimmedNewName.toLowerCase() && s.toLowerCase() !== trimmedOldName.toLowerCase())) {
                 throw new ConflictException(`Service category '${trimmedNewName}' already exists`);
             }
 
-            const isDefault = defaultServices.some(s => s.toLowerCase() === trimmedOldName.toLowerCase());
+            const isDefault = DEFAULT_SERVICES.some(s => s.toLowerCase() === trimmedOldName.toLowerCase());
             if (isDefault) {
                 if (!customCats.deletedServices) customCats.deletedServices = [];
                 if (!customCats.deletedServices.includes(trimmedOldName)) {
@@ -447,12 +427,12 @@ export class AdminService {
             return { success: true, message: `Category '${trimmedOldName}' renamed to '${trimmedNewName}' successfully` };
 
         } else if (type === 'rental') {
-            const allRentals = [...defaultRentals, ...(customCats.rentals || [])];
+            const allRentals = [...DEFAULT_RENTALS, ...(customCats.rentals || [])];
             if (allRentals.some(r => r.toLowerCase() === trimmedNewName.toLowerCase() && r.toLowerCase() !== trimmedOldName.toLowerCase())) {
                 throw new ConflictException(`Rental category '${trimmedNewName}' already exists`);
             }
 
-            const isDefault = defaultRentals.some(r => r.toLowerCase() === trimmedOldName.toLowerCase());
+            const isDefault = DEFAULT_RENTALS.some(r => r.toLowerCase() === trimmedOldName.toLowerCase());
             if (isDefault) {
                 if (!customCats.deletedRentals) customCats.deletedRentals = [];
                 if (!customCats.deletedRentals.includes(trimmedOldName)) {
@@ -498,18 +478,8 @@ export class AdminService {
     async deleteCategory(type: string, name: string) {
         const customCats = readCustomCategories();
 
-        const defaultServices = [
-            'Electrician', 'Plumber', 'Carpenter', 'Painter', 'AC Technician', 
-            'Interior Design', 'Cleaning', 'Masonry', 'AC Repair'
-        ];
-
-        const defaultRentals = [
-            'Power Tools', 'Ladders', 'Painting Equipment', 'Plumbing Equipment', 
-            'Cleaning Equipment', 'Safety Gear', 'Gardening Tools', 'Scaffolding', 'Other'
-        ];
-
         if (type === 'service') {
-            const isDefault = defaultServices.includes(name);
+            const isDefault = DEFAULT_SERVICES.includes(name);
             if (isDefault) {
                 if (!customCats.deletedServices) customCats.deletedServices = [];
                 if (!customCats.deletedServices.includes(name)) {
@@ -528,7 +498,7 @@ export class AdminService {
             });
             return { message: `Service category '${name}' deleted successfully.` };
         } else if (type === 'rental') {
-            const isDefault = defaultRentals.includes(name);
+            const isDefault = DEFAULT_RENTALS.includes(name);
             if (isDefault) {
                 if (!customCats.deletedRentals) customCats.deletedRentals = [];
                 if (!customCats.deletedRentals.includes(name)) {
