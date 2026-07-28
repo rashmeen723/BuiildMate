@@ -9,12 +9,12 @@ const customCategoriesPath = path.join(__dirname, 'custom_categories.json');
 const platformSettingsPath = path.join(__dirname, 'platform-settings.json');
 
 const DEFAULT_SERVICES = [
-    'Electrician', 'Plumber', 'Carpenter', 'Painter', 'AC Technician', 
+    'Electrician', 'Plumber', 'Carpenter', 'Painter', 'AC Technician',
     'Interior Design', 'Cleaning', 'Masonry', 'AC Repair'
 ];
 
 const DEFAULT_RENTALS = [
-    'Power Tools', 'Ladders', 'Painting Equipment', 'Plumbing Equipment', 
+    'Power Tools', 'Ladders', 'Painting Equipment', 'Plumbing Equipment',
     'Cleaning Equipment', 'Safety Gear', 'Gardening Tools', 'Scaffolding', 'Other'
 ];
 
@@ -230,8 +230,8 @@ export class AdminService {
 
         const mapped = providers.map(user => {
             const status = user.serviceProvider?.status || user.rentalOwner?.status;
-            const aiStatus = user.documents.some(d => d.status === 'AI_FLAGGED') ? 'AI_FLAGGED' : 
-                             (user.documents.every(d => d.status === 'AI_PASSED') ? 'AI_PASSED' : 'PENDING');
+            const aiStatus = user.documents.some(d => d.status === 'AI_FLAGGED') ? 'AI_FLAGGED' :
+                (user.documents.every(d => d.status === 'AI_PASSED') ? 'AI_PASSED' : 'PENDING');
             return {
                 id: user.id,
                 fullName: user.fullName,
@@ -347,7 +347,7 @@ export class AdminService {
 
         const trimmedName = name.trim();
         const customCats = readCustomCategories();
-        
+
         if (type === 'service') {
             const allServices = [...DEFAULT_SERVICES, ...(customCats.services || [])];
             if (allServices.some(s => s.toLowerCase() === trimmedName.toLowerCase())) {
@@ -557,8 +557,8 @@ export class AdminService {
     async updateVerificationStatus(userId: string, status: VerificationStatus, reason?: string) {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
-            include: { 
-                serviceProvider: true, 
+            include: {
+                serviceProvider: true,
                 rentalOwner: true,
                 documents: true
             }
@@ -570,7 +570,7 @@ export class AdminService {
 
         if (status === 'APPROVED') {
             const badgesToGrant: any[] = [];
-            
+
             if (user.serviceProvider) {
                 const hasUtilityBill = user.documents.some(d => d.documentType === 'UTILITY_BILL');
                 if (hasUtilityBill) {
@@ -955,7 +955,7 @@ export class AdminService {
 
     async updatePlatformSettings(data: { serviceCommissionRate?: number; rentalCommissionRate?: number; commissionRate?: number }) {
         const current = readPlatformSettings();
-        
+
         const serviceRate = data.serviceCommissionRate !== undefined ? data.serviceCommissionRate : (data.commissionRate ?? current.serviceCommissionRate);
         const rentalRate = data.rentalCommissionRate !== undefined ? data.rentalCommissionRate : (data.commissionRate ?? current.rentalCommissionRate);
 
