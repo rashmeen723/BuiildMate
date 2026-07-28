@@ -126,14 +126,14 @@ export default function ReportsPage() {
                     <p className="text-slate-400 mt-1 text-sm">Generate visual PDF summaries or download raw CSV audit spreadsheets.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button 
+                    <button
                         onClick={() => printReport("all")}
                         className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 font-bold hover:bg-slate-800 transition-colors"
                     >
                         <Printer size={16} />
                         Print Full PDF Report
                     </button>
-                    <button 
+                    <button
                         onClick={fetchReport}
                         className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-500 hover:text-white transition-colors"
                     >
@@ -159,9 +159,8 @@ export default function ReportsPage() {
             {/* Main Content Area */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:grid-cols-1">
                 {/* Financial Performance Section */}
-                <div className={`glass-card p-6 border border-white/5 flex flex-col justify-between print:border-none print:shadow-none print:bg-white print:text-slate-900 print:p-0 ${
-                    printScope === "marketing" ? "print:hidden" : ""
-                }`}>
+                <div className={`glass-card p-6 border border-white/5 flex flex-col justify-between print:border-none print:shadow-none print:bg-white print:text-slate-900 print:p-0 ${printScope === "marketing" ? "print:hidden" : ""
+                    }`}>
                     <div className="space-y-6">
                         <div className="flex justify-between items-start print:border-b print:pb-2">
                             <div>
@@ -224,9 +223,8 @@ export default function ReportsPage() {
                 </div>
 
                 {/* Marketing & Activity Section */}
-                <div className={`glass-card p-6 border border-white/5 flex flex-col justify-between print:border-none print:shadow-none print:bg-white print:text-slate-900 print:p-0 print:mt-10 ${
-                    printScope === "financial" ? "print:hidden" : ""
-                }`}>
+                <div className={`glass-card p-6 border border-white/5 flex flex-col justify-between print:border-none print:shadow-none print:bg-white print:text-slate-900 print:p-0 print:mt-10 ${printScope === "financial" ? "print:hidden" : ""
+                    }`}>
                     <div className="space-y-6">
                         <div className="flex justify-between items-start print:border-b print:pb-2">
                             <div>

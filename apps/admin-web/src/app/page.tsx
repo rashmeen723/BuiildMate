@@ -120,7 +120,7 @@ export default function DashboardPage() {
   }
 
   const monthlyData = stats?.monthlyData || [];
-  
+
   // Calculate max values for mapping (fallback to safety values to avoid 0 division)
   const maxBookings = Math.max(...monthlyData.map((d: any) => d.bookings), 10);
   const maxRevenue = Math.max(...monthlyData.map((d: any) => d.revenue), 1000);
@@ -138,12 +138,12 @@ export default function DashboardPage() {
     return { x, y };
   });
 
-  const generateLinePath = (points: {x: number, y: number}[]) => {
+  const generateLinePath = (points: { x: number, y: number }[]) => {
     if (points.length === 0) return "";
     return `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(" ");
   };
 
-  const generateAreaPath = (points: {x: number, y: number}[]) => {
+  const generateAreaPath = (points: { x: number, y: number }[]) => {
     if (points.length === 0) return "";
     return `M 0 200 L ` + points.map(p => `${p.x} ${p.y}`).join(" L ") + ` L 600 200 Z`;
   };
@@ -160,7 +160,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold tracking-tight text-white">System Overview</h1>
           <p className="text-slate-400 text-sm mt-1">Real-time telemetry and marketplace performance metrics.</p>
         </div>
-        <button 
+        <button
           onClick={fetchStats}
           disabled={syncing}
           className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
@@ -172,36 +172,36 @@ export default function DashboardPage() {
 
       {/* Top Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        <StatCard 
+        <StatCard
           icon={<Users size={20} className="text-sky-400" />}
-          title="Registered Users" 
-          value={stats.registeredUsers.toString()} 
-          change="Total system accounts" 
-          color="text-sky-400" 
+          title="Registered Users"
+          value={stats.registeredUsers.toString()}
+          change="Total system accounts"
+          color="text-sky-400"
           glowClass="glow-sky"
         />
-        <StatCard 
+        <StatCard
           icon={<Box size={20} className="text-emerald-400" />}
-          title="Live Rentals" 
-          value={stats.liveRentals.toString()} 
-          change="Tools currently rented" 
-          color="text-emerald-400" 
+          title="Live Rentals"
+          value={stats.liveRentals.toString()}
+          change="Tools currently rented"
+          color="text-emerald-400"
           glowClass="glow-emerald"
         />
-        <StatCard 
+        <StatCard
           icon={<DollarSign size={20} className="text-indigo-400" />}
-          title="Monthly Revenue" 
-          value={`Rs. ${stats.monthlyRevenue.toLocaleString()}`} 
-          change="Current month earnings" 
-          color="text-indigo-400" 
+          title="Monthly Revenue"
+          value={`Rs. ${stats.monthlyRevenue.toLocaleString()}`}
+          change="Current month earnings"
+          color="text-indigo-400"
           glowClass="glow-indigo"
         />
-        <StatCard 
+        <StatCard
           icon={<ShieldAlert size={20} className="text-amber-400" />}
-          title="Active Disputes" 
-          value={stats.activeDisputes.toString()} 
-          change="Under review" 
-          color="text-amber-400" 
+          title="Active Disputes"
+          value={stats.activeDisputes.toString()}
+          change="Under review"
+          color="text-amber-400"
           glowClass="glow-amber"
         />
       </div>
@@ -236,16 +236,16 @@ export default function DashboardPage() {
               <line x1="0" y1="50" x2="600" y2="50" stroke="#1e293b" strokeDasharray="4 4" />
               <line x1="0" y1="100" x2="600" y2="100" stroke="#1e293b" strokeDasharray="4 4" />
               <line x1="0" y1="150" x2="600" y2="150" stroke="#1e293b" strokeDasharray="4 4" />
-              
+
               {/* Area/Gradients */}
               <defs>
                 <linearGradient id="gradient-sky" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.2"/>
-                  <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.0"/>
+                  <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.2" />
+                  <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.0" />
                 </linearGradient>
                 <linearGradient id="gradient-indigo" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#6366f1" stopOpacity="0.3"/>
-                  <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0"/>
+                  <stop offset="0%" stopColor="#6366f1" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
 
@@ -260,21 +260,21 @@ export default function DashboardPage() {
 
               {/* Bookings Line path */}
               {bookingsLinePath && (
-                <path 
-                  d={bookingsLinePath} 
-                  fill="none" 
-                  stroke="#38bdf8" 
-                  strokeWidth="3" 
+                <path
+                  d={bookingsLinePath}
+                  fill="none"
+                  stroke="#38bdf8"
+                  strokeWidth="3"
                   strokeLinecap="round"
                 />
               )}
               {/* Revenue Line path */}
               {revenueLinePath && (
-                <path 
-                  d={revenueLinePath} 
-                  fill="none" 
-                  stroke="#6366f1" 
-                  strokeWidth="3" 
+                <path
+                  d={revenueLinePath}
+                  fill="none"
+                  stroke="#6366f1"
+                  strokeWidth="3"
                   strokeLinecap="round"
                 />
               )}
@@ -287,7 +287,7 @@ export default function DashboardPage() {
                 <circle key={`r-${i}`} cx={p.x} cy={p.y} r={4} fill="#6366f1" />
               ))}
             </svg>
-            
+
             {/* Legend/Month Labels */}
             <div className="absolute bottom-0 left-0 right-0 flex justify-between px-2 text-[10px] font-bold text-slate-500 select-none">
               {monthlyData.map((d: any, idx: number) => (
@@ -305,7 +305,7 @@ export default function DashboardPage() {
               Service Efficiency
             </h3>
             <p className="text-xs text-slate-500">Key metrics monitoring marketplace health.</p>
-            
+
             <div className="space-y-3 pt-1.5">
               <ProgressStat label="Tool Utilization Rate" value={`${stats.toolUtilization.toFixed(1)}%`} percentage={stats.toolUtilization} color="bg-sky-500" />
               <ProgressStat label="User Return Rate" value={`${stats.userReturnRate.toFixed(1)}%`} percentage={stats.userReturnRate} color="bg-indigo-500" />
@@ -351,7 +351,7 @@ export default function DashboardPage() {
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Service Booking Fee (%)</label>
               <div className="relative">
-                <input 
+                <input
                   type="number"
                   step="0.1"
                   min="0"
@@ -368,7 +368,7 @@ export default function DashboardPage() {
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Equipment Rental Fee (%)</label>
               <div className="relative">
-                <input 
+                <input
                   type="number"
                   step="0.1"
                   min="0"
@@ -382,7 +382,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <button 
+            <button
               type="submit"
               disabled={settingsLoading}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-lg shadow-sky-600/10 transition-all disabled:opacity-50"
@@ -426,7 +426,7 @@ export default function DashboardPage() {
             {/* Target Audience selection */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Target Audience</label>
-              <select 
+              <select
                 value={targetAudience}
                 onChange={(e: any) => setTargetAudience(e.target.value)}
                 className="w-full bg-[#0a0d14] border border-white/5 rounded-xl px-4 py-2.5 text-[13px] text-white focus:outline-none focus:border-sky-500/50 transition-all font-semibold"
@@ -441,7 +441,7 @@ export default function DashboardPage() {
             {/* Broadcast Title */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Announcement Title</label>
-              <input 
+              <input
                 type="text"
                 required
                 value={broadcastTitle}
@@ -454,7 +454,7 @@ export default function DashboardPage() {
             {/* Broadcast Message Body */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Announcement Message</label>
-              <textarea 
+              <textarea
                 required
                 rows={4}
                 value={broadcastMessage}
@@ -466,7 +466,7 @@ export default function DashboardPage() {
 
             {/* Actions */}
             <div className="flex justify-end pt-2">
-              <button 
+              <button
                 type="submit"
                 disabled={broadcastLoading}
                 className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-lg shadow-sky-600/10 transition-all disabled:opacity-50"

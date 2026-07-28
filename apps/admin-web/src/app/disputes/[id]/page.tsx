@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Scale, User, Mail, Calendar, Hammer, AlertTriangle, ShieldCheck, XOctagon, CheckCircle2, FileText, ArrowRight } from "lucide-react";
+import { ChevronLeft, Scale, User, Mail, Phone, Calendar, Hammer, AlertTriangle, ShieldCheck, XOctagon, CheckCircle2, FileText, ArrowRight } from "lucide-react";
 import { adminApi } from "@/services/api";
 
 export default function DisputeDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -126,6 +126,10 @@ export default function DisputeDetailPage({ params }: { params: Promise<{ id: st
                                         <Mail size={12} />
                                         {reporter.email}
                                     </p>
+                                    <p className="text-xs text-slate-500 truncate flex items-center gap-1 mt-0.5">
+                                        <Phone size={12} />
+                                        {reporter.phone || 'N/A'}
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -151,6 +155,10 @@ export default function DisputeDetailPage({ params }: { params: Promise<{ id: st
                                         <Mail size={12} />
                                         {reported.email}
                                     </p>
+                                    <p className="text-xs text-slate-500 truncate flex items-center gap-1 mt-0.5">
+                                        <Phone size={12} />
+                                        {reported.phone || 'N/A'}
+                                    </p>
                                     <p className="text-[11px] text-slate-400 mt-1">
                                         Trust Score: <strong className="text-amber-500">{reported.trustScore.toFixed(1)} / 5.0</strong>
                                     </p>
@@ -174,7 +182,7 @@ export default function DisputeDetailPage({ params }: { params: Promise<{ id: st
                                 </div>
                                 <div className="flex justify-between items-center text-xs">
                                     <span className="text-slate-400">Payment</span>
-                                    <span className="font-bold text-white">LKR {booking.totalPrice.toLocaleString()}</span>
+                                    <span className="font-bold text-white">LKR {(booking.totalAmount ?? booking.totalPrice ?? 0).toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between items-center text-xs">
                                     <span className="text-slate-400">Scheduled At</span>
@@ -197,7 +205,7 @@ export default function DisputeDetailPage({ params }: { params: Promise<{ id: st
                                 </div>
                                 <div className="flex justify-between items-center text-xs">
                                     <span className="text-slate-400">Payment</span>
-                                    <span className="font-bold text-white">LKR {rental.totalPrice.toLocaleString()}</span>
+                                    <span className="font-bold text-white">LKR {(rental.totalAmount ?? rental.totalPrice ?? 0).toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between items-center text-xs">
                                     <span className="text-slate-400">Start Date</span>

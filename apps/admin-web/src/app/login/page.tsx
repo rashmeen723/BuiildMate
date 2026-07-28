@@ -8,7 +8,7 @@ type AuthMode = "LOGIN" | "FORGOT" | "RESET";
 
 export default function LoginPage() {
     const [mode, setMode] = useState<AuthMode>("LOGIN");
-    
+
     // Form Inputs
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -35,14 +35,14 @@ export default function LoginPage() {
 
         try {
             const data = await adminApi.login(email, password);
-            
+
             if (data.user.role !== "ADMIN") {
                 throw new Error("Access Denied: Only system administrators can access this portal.");
             }
 
             localStorage.setItem("admin_token", data.access_token);
             localStorage.setItem("admin_user", JSON.stringify(data.user));
-            
+
             window.location.href = "/";
         } catch (err: any) {
             setError(err.message || "Failed to sign in. Please verify your credentials.");
@@ -110,13 +110,13 @@ export default function LoginPage() {
 
             {/* Login Card */}
             <div className="w-full max-w-md p-8 glass-card border border-white/5 bg-slate-950/60 shadow-2xl relative z-10 space-y-6 mx-4">
-                
+
                 {/* Header Text Section */}
                 <div className="space-y-2 text-center">
                     <div className="inline-flex p-3 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-400 mb-2">
                         <KeyRound size={26} />
                     </div>
-                    
+
                     {mode === "LOGIN" && (
                         <>
                             <h1 className="text-2xl font-bold tracking-tight text-white">Admin Portal</h1>
@@ -158,7 +158,7 @@ export default function LoginPage() {
                             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Email Address</label>
                             <div className="relative">
                                 <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                                <input 
+                                <input
                                     type="email"
                                     required
                                     value={email}
@@ -172,8 +172,8 @@ export default function LoginPage() {
                         <div className="space-y-1.5">
                             <div className="flex justify-between items-center">
                                 <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Password</label>
-                                <button 
-                                    type="button" 
+                                <button
+                                    type="button"
                                     onClick={() => {
                                         setError(null);
                                         setSuccessMessage(null);
@@ -186,7 +186,7 @@ export default function LoginPage() {
                             </div>
                             <div className="relative">
                                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                                <input 
+                                <input
                                     type={showPassword ? "text" : "password"}
                                     required
                                     value={password}
@@ -204,7 +204,7 @@ export default function LoginPage() {
                             </div>
                         </div>
 
-                        <button 
+                        <button
                             type="submit"
                             disabled={loading}
                             className="w-full mt-4 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-lg shadow-sky-600/10 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50"
@@ -227,7 +227,7 @@ export default function LoginPage() {
                             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Email Address</label>
                             <div className="relative">
                                 <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                                <input 
+                                <input
                                     type="email"
                                     required
                                     value={email}
@@ -238,7 +238,7 @@ export default function LoginPage() {
                             </div>
                         </div>
 
-                        <button 
+                        <button
                             type="submit"
                             disabled={loading}
                             className="w-full mt-2 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-lg shadow-sky-600/10 transition-all"
@@ -253,8 +253,8 @@ export default function LoginPage() {
                             )}
                         </button>
 
-                        <button 
-                            type="button" 
+                        <button
+                            type="button"
                             onClick={handleBackToLogin}
                             className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-semibold transition-colors mt-2"
                         >
@@ -269,7 +269,7 @@ export default function LoginPage() {
                         {/* OTP Verification Code */}
                         <div className="space-y-1.5">
                             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">6-Digit Code</label>
-                            <input 
+                            <input
                                 type="text"
                                 required
                                 maxLength={6}
@@ -285,7 +285,7 @@ export default function LoginPage() {
                             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">New Password</label>
                             <div className="relative">
                                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                                <input 
+                                <input
                                     type={showNewPassword ? "text" : "password"}
                                     required
                                     value={newPassword}
@@ -308,7 +308,7 @@ export default function LoginPage() {
                             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Confirm New Password</label>
                             <div className="relative">
                                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                                <input 
+                                <input
                                     type={showConfirmPassword ? "text" : "password"}
                                     required
                                     value={confirmPassword}
@@ -326,7 +326,7 @@ export default function LoginPage() {
                             </div>
                         </div>
 
-                        <button 
+                        <button
                             type="submit"
                             disabled={loading}
                             className="w-full mt-2 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-lg shadow-sky-600/10 transition-all"
@@ -341,8 +341,8 @@ export default function LoginPage() {
                             )}
                         </button>
 
-                        <button 
-                            type="button" 
+                        <button
+                            type="button"
                             onClick={handleBackToLogin}
                             className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-semibold transition-colors mt-2"
                         >
