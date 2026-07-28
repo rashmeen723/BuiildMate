@@ -179,10 +179,16 @@ export class AdminService {
         const totalDocs = await this.prisma.document.count();
         const passedDocs = await this.prisma.document.count({ where: { status: 'AI_PASSED' } });
         const aiVerificationSuccess = totalDocs > 0 ? (passedDocs / totalDocs) * 100 : 0.0;
-        // 9. Escrow Payout Efficiency (Calculated dynamically)
+        // 9. Escrow Payout Efficiency (Calculated dynamically across both Bookings & Rentals)
         const paidRentals = await this.prisma.toolRental.count({ where: { isPaid: true } });
+        const paidBookings = await this.prisma.booking.count({ where: { status: 'PAID' } });
+
         const totalRentals = await this.prisma.toolRental.count();
-        const escrowEfficiency = totalRentals > 0 ? (paidRentals / totalRentals) * 100 : 0.0;
+        const totalBookings = await this.prisma.booking.count();
+
+        const totalTransactions = totalRentals + totalBookings;
+        const totalPaidTransactions = paidRentals + paidBookings;
+        const escrowEfficiency = totalTransactions > 0 ? (totalPaidTransactions / totalTransactions) * 100 : 0.0;
 
         return {
             registeredUsers,
