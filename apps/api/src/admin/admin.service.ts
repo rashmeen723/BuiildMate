@@ -179,34 +179,7 @@ export class AdminService {
         const totalDocs = await this.prisma.document.count();
         const passedDocs = await this.prisma.document.count({ where: { status: 'AI_PASSED' } });
         const aiVerificationSuccess = totalDocs > 0 ? (passedDocs / totalDocs) * 100 : 0.0;
-
-        // 9. Average Response Time
-        const resolvedDisputes = await this.prisma.dispute.findMany({
-            where: { status: 'RESOLVED' },
-            select: { createdAt: true, updatedAt: true }
-        });
-        let averageResponseTime = 0.0;
-        if (resolvedDisputes.length > 0) {
-            const totalHours = resolvedDisputes.reduce((acc, curr) => {
-                const diffMs = curr.updatedAt.getTime() - curr.createdAt.getTime();
-                return acc + (diffMs / (1000 * 60 * 60));
-            }, 0);
-            averageResponseTime = totalHours / resolvedDisputes.length;
-        }
-
-        // 10. Average Rating
-        const averageRatingResult = await this.prisma.review.aggregate({
-            _avg: { rating: true }
-        });
-        const averageRating = averageRatingResult._avg.rating || 0.0;
-
-        // 11. Ticket Average
-        const averageRentalResult = await this.prisma.toolRental.aggregate({
-            _avg: { totalAmount: true }
-        });
-        const averageTicket = averageRentalResult._avg.totalAmount || 0.0;
-
-        // 12. Escrow Payout Efficiency (Calculated dynamically)
+        // 9. Escrow Payout Efficiency (Calculated dynamically)
         const paidRentals = await this.prisma.toolRental.count({ where: { isPaid: true } });
         const totalRentals = await this.prisma.toolRental.count();
         const escrowEfficiency = totalRentals > 0 ? (paidRentals / totalRentals) * 100 : 0.0;
@@ -220,10 +193,7 @@ export class AdminService {
             toolUtilization,
             userReturnRate,
             aiVerificationSuccess,
-            escrowEfficiency,
-            averageResponseTime,
-            averageRating,
-            averageTicket
+            escrowEfficiency
         };
     }
 
