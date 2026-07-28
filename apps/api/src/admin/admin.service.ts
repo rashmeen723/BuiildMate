@@ -160,7 +160,7 @@ export class AdminService {
         // 6. Tool Utilization Rate
         const totalTools = await this.prisma.tool.count();
         const rentedTools = await this.prisma.tool.count({ where: { status: 'RENTED' } });
-        const toolUtilization = totalTools > 0 ? (rentedTools / totalTools) * 100 : 72.4;
+        const toolUtilization = totalTools > 0 ? (rentedTools / totalTools) * 100 : 0.0;
 
         // 7. User Return Rate
         const customersWithMultipleBookings = await this.prisma.booking.groupBy({
@@ -173,19 +173,19 @@ export class AdminService {
             }
         });
         const totalCustomers = await this.prisma.user.count({ where: { role: 'HOUSEHOLD' } });
-        const userReturnRate = totalCustomers > 0 ? (customersWithMultipleBookings.length / totalCustomers) * 100 : 88.2;
+        const userReturnRate = totalCustomers > 0 ? (customersWithMultipleBookings.length / totalCustomers) * 100 : 0.0;
 
         // 8. AI Verification Success
         const totalDocs = await this.prisma.document.count();
         const passedDocs = await this.prisma.document.count({ where: { status: 'AI_PASSED' } });
-        const aiVerificationSuccess = totalDocs > 0 ? (passedDocs / totalDocs) * 100 : 94.1;
+        const aiVerificationSuccess = totalDocs > 0 ? (passedDocs / totalDocs) * 100 : 0.0;
 
         // 9. Average Response Time
         const resolvedDisputes = await this.prisma.dispute.findMany({
             where: { status: 'RESOLVED' },
             select: { createdAt: true, updatedAt: true }
         });
-        let averageResponseTime = 14.2;
+        let averageResponseTime = 0.0;
         if (resolvedDisputes.length > 0) {
             const totalHours = resolvedDisputes.reduce((acc, curr) => {
                 const diffMs = curr.updatedAt.getTime() - curr.createdAt.getTime();
@@ -198,13 +198,18 @@ export class AdminService {
         const averageRatingResult = await this.prisma.review.aggregate({
             _avg: { rating: true }
         });
-        const averageRating = averageRatingResult._avg.rating || 4.85;
+        const averageRating = averageRatingResult._avg.rating || 0.0;
 
         // 11. Ticket Average
         const averageRentalResult = await this.prisma.toolRental.aggregate({
             _avg: { totalAmount: true }
         });
-        const averageTicket = averageRentalResult._avg.totalAmount || 3450;
+        const averageTicket = averageRentalResult._avg.totalAmount || 0.0;
+
+        // 12. Escrow Payout Efficiency (Calculated dynamically)
+        const paidRentals = await this.prisma.toolRental.count({ where: { isPaid: true } });
+        const totalRentals = await this.prisma.toolRental.count();
+        const escrowEfficiency = totalRentals > 0 ? (paidRentals / totalRentals) * 100 : 0.0;
 
         return {
             registeredUsers,
@@ -215,7 +220,7 @@ export class AdminService {
             toolUtilization,
             userReturnRate,
             aiVerificationSuccess,
-            escrowEfficiency: 99.4,
+            escrowEfficiency,
             averageResponseTime,
             averageRating,
             averageTicket
