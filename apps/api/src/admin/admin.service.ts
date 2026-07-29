@@ -8,6 +8,16 @@ import * as path from 'path';
 const customCategoriesPath = path.join(__dirname, 'custom_categories.json');
 const platformSettingsPath = path.join(__dirname, 'platform-settings.json');
 
+const DEFAULT_SERVICES = [
+    'Electrician', 'Plumber', 'Carpenter', 'Painter', 'AC Technician',
+    'Interior Design', 'Cleaning', 'Masonry', 'AC Repair'
+];
+
+const DEFAULT_RENTALS = [
+    'Power Tools', 'Ladders', 'Painting Equipment', 'Plumbing Equipment',
+    'Cleaning Equipment', 'Safety Gear', 'Gardening Tools', 'Scaffolding', 'Other'
+];
+
 function readPlatformSettings(): { serviceCommissionRate: number; rentalCommissionRate: number; commissionRate?: number } {
     try {
         if (fs.existsSync(platformSettingsPath)) {
@@ -160,7 +170,7 @@ export class AdminService {
         // 6. Tool Utilization Rate
         const totalTools = await this.prisma.tool.count();
         const rentedTools = await this.prisma.tool.count({ where: { status: 'RENTED' } });
-        const toolUtilization = totalTools > 0 ? (rentedTools / totalTools) * 100 : 72.4;
+        const toolUtilization = totalTools > 0 ? (rentedTools / totalTools) * 100 : 0.0;
 
         // 7. User Return Rate
         const customersWithMultipleBookings = await this.prisma.booking.groupBy({
@@ -173,38 +183,22 @@ export class AdminService {
             }
         });
         const totalCustomers = await this.prisma.user.count({ where: { role: 'HOUSEHOLD' } });
-        const userReturnRate = totalCustomers > 0 ? (customersWithMultipleBookings.length / totalCustomers) * 100 : 88.2;
+        const userReturnRate = totalCustomers > 0 ? (customersWithMultipleBookings.length / totalCustomers) * 100 : 0.0;
 
         // 8. AI Verification Success
         const totalDocs = await this.prisma.document.count();
         const passedDocs = await this.prisma.document.count({ where: { status: 'AI_PASSED' } });
-        const aiVerificationSuccess = totalDocs > 0 ? (passedDocs / totalDocs) * 100 : 94.1;
+        const aiVerificationSuccess = totalDocs > 0 ? (passedDocs / totalDocs) * 100 : 0.0;
+        // 9. Escrow Payout Efficiency (Calculated dynamically across both Bookings & Rentals)
+        const paidRentals = await this.prisma.toolRental.count({ where: { isPaid: true } });
+        const paidBookings = await this.prisma.booking.count({ where: { status: 'PAID' } });
 
-        // 9. Average Response Time
-        const resolvedDisputes = await this.prisma.dispute.findMany({
-            where: { status: 'RESOLVED' },
-            select: { createdAt: true, updatedAt: true }
-        });
-        let averageResponseTime = 14.2;
-        if (resolvedDisputes.length > 0) {
-            const totalHours = resolvedDisputes.reduce((acc, curr) => {
-                const diffMs = curr.updatedAt.getTime() - curr.createdAt.getTime();
-                return acc + (diffMs / (1000 * 60 * 60));
-            }, 0);
-            averageResponseTime = totalHours / resolvedDisputes.length;
-        }
+        const totalRentals = await this.prisma.toolRental.count();
+        const totalBookings = await this.prisma.booking.count();
 
-        // 10. Average Rating
-        const averageRatingResult = await this.prisma.review.aggregate({
-            _avg: { rating: true }
-        });
-        const averageRating = averageRatingResult._avg.rating || 4.85;
-
-        // 11. Ticket Average
-        const averageRentalResult = await this.prisma.toolRental.aggregate({
-            _avg: { totalAmount: true }
-        });
-        const averageTicket = averageRentalResult._avg.totalAmount || 3450;
+        const totalTransactions = totalRentals + totalBookings;
+        const totalPaidTransactions = paidRentals + paidBookings;
+        const escrowEfficiency = totalTransactions > 0 ? (totalPaidTransactions / totalTransactions) * 100 : 0.0;
 
         return {
             registeredUsers,
@@ -215,10 +209,7 @@ export class AdminService {
             toolUtilization,
             userReturnRate,
             aiVerificationSuccess,
-            escrowEfficiency: 99.4,
-            averageResponseTime,
-            averageRating,
-            averageTicket
+            escrowEfficiency
         };
     }
 
@@ -239,8 +230,8 @@ export class AdminService {
 
         const mapped = providers.map(user => {
             const status = user.serviceProvider?.status || user.rentalOwner?.status;
-            const aiStatus = user.documents.some(d => d.status === 'AI_FLAGGED') ? 'AI_FLAGGED' : 
-                             (user.documents.every(d => d.status === 'AI_PASSED') ? 'AI_PASSED' : 'PENDING');
+            const aiStatus = user.documents.some(d => d.status === 'AI_FLAGGED') ? 'AI_FLAGGED' :
+                (user.documents.every(d => d.status === 'AI_PASSED') ? 'AI_PASSED' : 'PENDING');
             return {
                 id: user.id,
                 fullName: user.fullName,
@@ -307,22 +298,12 @@ export class AdminService {
             }
         });
 
-        const defaultServices = [
-            'Electrician', 'Plumber', 'Carpenter', 'Painter', 'AC Technician', 
-            'Interior Design', 'Cleaning', 'Masonry', 'AC Repair'
-        ];
-
-        const defaultRentals = [
-            'Power Tools', 'Ladders', 'Painting Equipment', 'Plumbing Equipment', 
-            'Cleaning Equipment', 'Safety Gear', 'Gardening Tools', 'Scaffolding', 'Other'
-        ];
-
         const customCats = readCustomCategories();
         const deletedServices = customCats.deletedServices || [];
         const deletedRentals = customCats.deletedRentals || [];
 
-        const activeDefaultServices = defaultServices.filter(s => !deletedServices.includes(s));
-        const activeDefaultRentals = defaultRentals.filter(r => !deletedRentals.includes(r));
+        const activeDefaultServices = DEFAULT_SERVICES.filter(s => !deletedServices.includes(s));
+        const activeDefaultRentals = DEFAULT_RENTALS.filter(r => !deletedRentals.includes(r));
 
         // Map service counts
         const serviceCounts = new Map<string, number>();
@@ -366,19 +347,9 @@ export class AdminService {
 
         const trimmedName = name.trim();
         const customCats = readCustomCategories();
-        
-        const defaultServices = [
-            'Electrician', 'Plumber', 'Carpenter', 'Painter', 'AC Technician', 
-            'Interior Design', 'Cleaning', 'Masonry', 'AC Repair'
-        ];
-
-        const defaultRentals = [
-            'Power Tools', 'Ladders', 'Painting Equipment', 'Plumbing Equipment', 
-            'Cleaning Equipment', 'Safety Gear', 'Gardening Tools', 'Scaffolding', 'Other'
-        ];
 
         if (type === 'service') {
-            const allServices = [...defaultServices, ...(customCats.services || [])];
+            const allServices = [...DEFAULT_SERVICES, ...(customCats.services || [])];
             if (allServices.some(s => s.toLowerCase() === trimmedName.toLowerCase())) {
                 throw new ConflictException(`Service category '${trimmedName}' already exists`);
             }
@@ -388,7 +359,7 @@ export class AdminService {
                 customCats.deletedServices = customCats.deletedServices.filter(s => s.toLowerCase() !== trimmedName.toLowerCase());
             }
         } else if (type === 'rental') {
-            const allRentals = [...defaultRentals, ...(customCats.rentals || [])];
+            const allRentals = [...DEFAULT_RENTALS, ...(customCats.rentals || [])];
             if (allRentals.some(r => r.toLowerCase() === trimmedName.toLowerCase())) {
                 throw new ConflictException(`Rental category '${trimmedName}' already exists`);
             }
@@ -422,23 +393,13 @@ export class AdminService {
 
         const customCats = readCustomCategories();
 
-        const defaultServices = [
-            'Electrician', 'Plumber', 'Carpenter', 'Painter', 'AC Technician', 
-            'Interior Design', 'Cleaning', 'Masonry', 'AC Repair'
-        ];
-
-        const defaultRentals = [
-            'Power Tools', 'Ladders', 'Painting Equipment', 'Plumbing Equipment', 
-            'Cleaning Equipment', 'Safety Gear', 'Gardening Tools', 'Scaffolding', 'Other'
-        ];
-
         if (type === 'service') {
-            const allServices = [...defaultServices, ...(customCats.services || [])];
+            const allServices = [...DEFAULT_SERVICES, ...(customCats.services || [])];
             if (allServices.some(s => s.toLowerCase() === trimmedNewName.toLowerCase() && s.toLowerCase() !== trimmedOldName.toLowerCase())) {
                 throw new ConflictException(`Service category '${trimmedNewName}' already exists`);
             }
 
-            const isDefault = defaultServices.some(s => s.toLowerCase() === trimmedOldName.toLowerCase());
+            const isDefault = DEFAULT_SERVICES.some(s => s.toLowerCase() === trimmedOldName.toLowerCase());
             if (isDefault) {
                 if (!customCats.deletedServices) customCats.deletedServices = [];
                 if (!customCats.deletedServices.includes(trimmedOldName)) {
@@ -466,12 +427,12 @@ export class AdminService {
             return { success: true, message: `Category '${trimmedOldName}' renamed to '${trimmedNewName}' successfully` };
 
         } else if (type === 'rental') {
-            const allRentals = [...defaultRentals, ...(customCats.rentals || [])];
+            const allRentals = [...DEFAULT_RENTALS, ...(customCats.rentals || [])];
             if (allRentals.some(r => r.toLowerCase() === trimmedNewName.toLowerCase() && r.toLowerCase() !== trimmedOldName.toLowerCase())) {
                 throw new ConflictException(`Rental category '${trimmedNewName}' already exists`);
             }
 
-            const isDefault = defaultRentals.some(r => r.toLowerCase() === trimmedOldName.toLowerCase());
+            const isDefault = DEFAULT_RENTALS.some(r => r.toLowerCase() === trimmedOldName.toLowerCase());
             if (isDefault) {
                 if (!customCats.deletedRentals) customCats.deletedRentals = [];
                 if (!customCats.deletedRentals.includes(trimmedOldName)) {
@@ -517,18 +478,8 @@ export class AdminService {
     async deleteCategory(type: string, name: string) {
         const customCats = readCustomCategories();
 
-        const defaultServices = [
-            'Electrician', 'Plumber', 'Carpenter', 'Painter', 'AC Technician', 
-            'Interior Design', 'Cleaning', 'Masonry', 'AC Repair'
-        ];
-
-        const defaultRentals = [
-            'Power Tools', 'Ladders', 'Painting Equipment', 'Plumbing Equipment', 
-            'Cleaning Equipment', 'Safety Gear', 'Gardening Tools', 'Scaffolding', 'Other'
-        ];
-
         if (type === 'service') {
-            const isDefault = defaultServices.includes(name);
+            const isDefault = DEFAULT_SERVICES.includes(name);
             if (isDefault) {
                 if (!customCats.deletedServices) customCats.deletedServices = [];
                 if (!customCats.deletedServices.includes(name)) {
@@ -547,7 +498,7 @@ export class AdminService {
             });
             return { message: `Service category '${name}' deleted successfully.` };
         } else if (type === 'rental') {
-            const isDefault = defaultRentals.includes(name);
+            const isDefault = DEFAULT_RENTALS.includes(name);
             if (isDefault) {
                 if (!customCats.deletedRentals) customCats.deletedRentals = [];
                 if (!customCats.deletedRentals.includes(name)) {
@@ -606,8 +557,8 @@ export class AdminService {
     async updateVerificationStatus(userId: string, status: VerificationStatus, reason?: string) {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
-            include: { 
-                serviceProvider: true, 
+            include: {
+                serviceProvider: true,
                 rentalOwner: true,
                 documents: true
             }
@@ -619,7 +570,7 @@ export class AdminService {
 
         if (status === 'APPROVED') {
             const badgesToGrant: any[] = [];
-            
+
             if (user.serviceProvider) {
                 const hasUtilityBill = user.documents.some(d => d.documentType === 'UTILITY_BILL');
                 if (hasUtilityBill) {
@@ -1004,7 +955,7 @@ export class AdminService {
 
     async updatePlatformSettings(data: { serviceCommissionRate?: number; rentalCommissionRate?: number; commissionRate?: number }) {
         const current = readPlatformSettings();
-        
+
         const serviceRate = data.serviceCommissionRate !== undefined ? data.serviceCommissionRate : (data.commissionRate ?? current.serviceCommissionRate);
         const rentalRate = data.rentalCommissionRate !== undefined ? data.rentalCommissionRate : (data.commissionRate ?? current.rentalCommissionRate);
 
