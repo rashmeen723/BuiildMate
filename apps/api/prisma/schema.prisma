@@ -239,6 +239,7 @@ model Booking {
   baseAmount      Float?
   additionalCharges Float?       @default(0)
   platformFee     Float?         @default(0)
+  paymentId       String?
   address         String
   latitude        Float?
   longitude       Float?
@@ -322,6 +323,7 @@ model ToolRental {
   pickupLongitude Float?
   paymentMethod   String?        @default("CASH")
   isPaid          Boolean        @default(false)
+  paymentId       String?
   
   extensionDays   Int?
   extensionStatus String?
