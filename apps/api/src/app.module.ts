@@ -12,6 +12,7 @@ import { ConfigModule } from '@nestjs/config';
 import { RentalsModule } from './rentals/rentals.module';
 import { AiVerificationModule } from './ai-verification/ai-verification.module';
 import { DisputesModule } from './disputes/disputes.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -43,7 +44,8 @@ import { DisputesModule } from './disputes/disputes.module';
     CloudinaryModule,
     RentalsModule,
     AiVerificationModule,
-    DisputesModule
+    DisputesModule,
+    PaymentModule
   ],
   controllers: [AppController],
   providers: [AppService],

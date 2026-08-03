@@ -119,7 +119,7 @@ export default function RootLayout({
                 <NavItem href="/" icon={<LayoutDashboard size={16} />} label="Dashboard Overview" active={pathname === "/"} />
                 <NavItem href="/verifications" icon={<ShieldCheck size={16} />} label="Identity Verification" active={pathname.startsWith("/verifications")} />
                 <NavItem href="/providers" icon={<Users size={16} />} label="System Users" active={pathname.startsWith("/providers")} />
-                <NavItem href="/services" icon={<Wrench size={16} />} label="Marketplace Services" active={pathname.startsWith("/services")} />
+                <NavItem href="/categories" icon={<Wrench size={16} />} label="Marketplace Categories" active={pathname.startsWith("/categories")} />
                 <NavItem href="/disputes" icon={<AlertTriangle size={16} />} label="Customer Disputes" active={pathname.startsWith("/disputes")} />
                 <NavItem href="/reports" icon={<FileText size={16} />} label="Reports Center" active={pathname.startsWith("/reports")} />
                 <NavItem href="/settings" icon={<Settings size={16} />} label="System Settings" active={pathname.startsWith("/settings")} />

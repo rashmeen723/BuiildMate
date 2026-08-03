@@ -550,7 +550,24 @@ export const authApi = {
             console.error('Unsuspend User Error:', error);
             throw new Error(error.message || 'Connection error');
         }
-    }
+    },
+    getPayHereCheckoutParams: async (orderId: string, orderType: 'booking' | 'rental') => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/payment/checkout`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ orderId, orderType }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to generate checkout signature');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Checkout Params Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
 };
 
 export const rentalsApi = {

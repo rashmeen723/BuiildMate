@@ -45,7 +45,7 @@ export class AiVerificationService {
         });
 
         if (updatedUser) {
-            const allPassed = updatedUser.documents.every(d => d.status === 'AI_PASSED' && (d.aiConfidence || 0) > 0.85);
+            const allPassed = updatedUser.documents.every(d => (d.status === 'AI_PASSED' && (d.aiConfidence || 0) > 0.85) || d.status === 'APPROVED');
             const hasPendingOrFlagged = updatedUser.documents.some(d => d.status === 'PENDING' || d.status === 'AI_FLAGGED');
             
             if (allPassed && !hasPendingOrFlagged && updatedUser.documents.length > 0) {
@@ -155,17 +155,17 @@ export class AiVerificationService {
             await this.prisma.document.update({
                 where: { id: documentId },
                 data: {
-                    status: 'AI_PASSED',
+                    status: 'APPROVED',
                     aiConfidence: 1.0,
                     aiResult: { 
-                        status: 'AI_PASSED', 
+                        status: 'APPROVED', 
                         confidence: 1.0, 
                         reason: 'Certificates are accepted automatically.' 
                     } as any,
                 },
             });
             await this.checkUserAutoApproval(document.userId);
-            return { status: 'AI_PASSED', confidence: 1.0, reason: 'Certificates are accepted automatically.' };
+            return { status: 'APPROVED', confidence: 1.0, reason: 'Certificates are accepted automatically.' };
         }
 
         if (!this.genAI) {

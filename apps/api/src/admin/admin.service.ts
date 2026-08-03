@@ -231,7 +231,7 @@ export class AdminService {
         const mapped = providers.map(user => {
             const status = user.serviceProvider?.status || user.rentalOwner?.status;
             const aiStatus = user.documents.some(d => d.status === 'AI_FLAGGED') ? 'AI_FLAGGED' :
-                (user.documents.every(d => d.status === 'AI_PASSED') ? 'AI_PASSED' : 'PENDING');
+                (user.documents.every(d => d.status === 'AI_PASSED' || d.status === 'APPROVED') ? 'AI_PASSED' : 'PENDING');
             return {
                 id: user.id,
                 fullName: user.fullName,

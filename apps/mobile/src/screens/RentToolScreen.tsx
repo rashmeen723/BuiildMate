@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, Alert, ActivityIndicator, Modal } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
-import { rentalsApi } from '../services/api';
+import { rentalsApi, authApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 type RentToolScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'RentTool'>;
@@ -22,6 +23,8 @@ const RentToolScreen = () => {
 
     const [loading, setLoading] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
+    const [showCheckout, setShowCheckout] = useState(false);
+    const [checkoutUrlParams, setCheckoutUrlParams] = useState<any>(null);
 
     // Get price and other details correctly from passed tool
     const price = tool?.dailyRate || tool?.price || 0;
@@ -42,8 +45,7 @@ const RentToolScreen = () => {
 
         setLoading(true);
         try {
-            // 1. Create the rental in the database
-            await rentalsApi.createRental({
+            const createdRental = await rentalsApi.createRental({
                 toolId: tool.id,
                 customerId: user.id,
                 startDate: startDate || new Date().toISOString(),
@@ -54,15 +56,20 @@ const RentToolScreen = () => {
                 isPaid: false
             });
 
-            // 2. Proceed to Booking Confirmation
-            navigation.navigate('BookingConfirmed', {
-                providerName: ownerName,
-                serviceType: `Rent: ${tool?.name}`,
-                date: startDate && endDate ? `${startDate} - ${endDate}` : 'Nov 21 - Nov 23, 2025',
-                time: 'Pickup: 10:00 AM',
-                address: ownerAddress,
-                estimatedTotal: `LKR ${displayTotal.toLocaleString()}`
-            });
+            if (paymentMethod === 'card') {
+                const payhereParams = await authApi.getPayHereCheckoutParams(createdRental.id, 'rental');
+                setCheckoutUrlParams(payhereParams);
+                setShowCheckout(true);
+            } else {
+                navigation.navigate('BookingConfirmed', {
+                    providerName: ownerName,
+                    serviceType: `Rent: ${tool?.name}`,
+                    date: startDate && endDate ? `${startDate} - ${endDate}` : 'Nov 21 - Nov 23, 2025',
+                    time: 'Pickup: 10:00 AM',
+                    address: ownerAddress,
+                    estimatedTotal: `LKR ${displayTotal.toLocaleString()}`
+                });
+            }
         } catch (error: any) {
             Alert.alert('Error', error.message || 'Failed to process rental request');
         } finally {
@@ -220,6 +227,82 @@ const RentToolScreen = () => {
 
                 <View style={{ height: 100 }} />
             </ScrollView>
+
+            {/* PayHere Sandbox Checkout Modal */}
+            {showCheckout && checkoutUrlParams && (
+                <Modal
+                    visible={showCheckout}
+                    animationType="slide"
+                    onRequestClose={() => {
+                        setShowCheckout(false);
+                        Alert.alert('Payment Cancelled', 'You cancelled the card checkout.');
+                    }}
+                >
+                    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+                        <View style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            paddingHorizontal: 20,
+                            paddingVertical: 15,
+                            borderBottomWidth: 1,
+                            borderBottomColor: '#F3F4F6',
+                        }}>
+                            <Text style={{ fontSize: 16, fontWeight: 'bold', color: COLORS.black }}>PayHere Sandbox Checkout</Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setShowCheckout(false);
+                                    Alert.alert('Payment Cancelled', 'You cancelled the card checkout.');
+                                }}
+                                style={{ padding: 5 }}
+                            >
+                                <Ionicons name="close" size={24} color={COLORS.black} />
+                            </TouchableOpacity>
+                        </View>
+                        <WebView
+                            source={{
+                                uri: `${checkoutUrlParams.checkoutUrl}?merchant_id=${checkoutUrlParams.merchantId}&return_url=https://buildmate.lk/success&cancel_url=https://buildmate.lk/cancel&notify_url=https://buildmate-api.onrender.com/payment/notify&order_id=${checkoutUrlParams.orderId}&items=${encodeURIComponent(checkoutUrlParams.description)}&currency=LKR&amount=${checkoutUrlParams.amount}&first_name=${encodeURIComponent(checkoutUrlParams.customerName.split(' ')[0] || 'Customer')}&last_name=${encodeURIComponent(checkoutUrlParams.customerName.split(' ')[1] || 'Name')}&email=${checkoutUrlParams.customerEmail}&phone=${checkoutUrlParams.customerPhone}&address=Colombo&city=Colombo&country=Sri+Lanka&hash=${checkoutUrlParams.hash}`
+                            }}
+                            onNavigationStateChange={(navState) => {
+                                console.log('WebView Navigation State:', navState.url);
+                                if (navState.url.includes('success')) {
+                                    setShowCheckout(false);
+                                    Alert.alert('Payment Confirmed', 'Your card payment has been successfully authorized via PayHere.');
+                                    navigation.navigate('BookingConfirmed', {
+                                        providerName: ownerName,
+                                        serviceType: `Rent: ${tool?.name}`,
+                                        date: startDate && endDate ? `${startDate} - ${endDate}` : 'Nov 21 - Nov 23, 2025',
+                                        time: 'Pickup: 10:00 AM',
+                                        address: ownerAddress,
+                                        estimatedTotal: `LKR ${displayTotal.toLocaleString()}`
+                                    });
+                                } else if (navState.url.includes('cancel')) {
+                                    setShowCheckout(false);
+                                    Alert.alert('Payment Cancelled', 'You cancelled the card checkout.');
+                                }
+                            }}
+                            javaScriptEnabled={true}
+                            domStorageEnabled={true}
+                            startInLoadingState={true}
+                            renderLoading={() => (
+                                <ActivityIndicator
+                                    color={COLORS.primary || '#007AFF'}
+                                    size="large"
+                                    style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        justifyContent: 'center',
+                                        alignItems: 'center'
+                                    }}
+                                />
+                            )}
+                        />
+                    </SafeAreaView>
+                </Modal>
+            )}
         </SafeAreaView>
     );
 };
