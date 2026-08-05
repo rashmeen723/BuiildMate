@@ -17,8 +17,11 @@ export class PaymentService {
     }
 
     async generateCheckoutParams(orderId: string, orderType: 'booking' | 'rental') {
-        const merchantId = this.configService.get<string>('PAYHERE_MERCHANT_ID') || '1211149'; // Default PayHere Sandbox ID
-        const merchantSecret = this.configService.get<string>('PAYHERE_MERCHANT_SECRET') || '4SU429P58p4428q1tN398845O12x432857418731'; // Default Sandbox Secret
+        const rawMerchantId = this.configService.get<string>('PAYHERE_MERCHANT_ID') || '1211149';
+        const rawMerchantSecret = this.configService.get<string>('PAYHERE_MERCHANT_SECRET') || '4SU429P58p4428q1tN398845O12x432857418731';
+        
+        const merchantId = rawMerchantId.replace(/"/g, '').trim();
+        const merchantSecret = rawMerchantSecret.replace(/"/g, '').trim();
         
         let amount = 0;
         let description = '';
@@ -84,7 +87,8 @@ export class PaymentService {
         const statusCode = body.status_code; // 2 = Success, 0 = Pending, -1 = Cancelled, -2 = Failed
         const md5sig = body.md5sig;
 
-        const merchantSecret = this.configService.get<string>('PAYHERE_MERCHANT_SECRET') || '4SU429P58p4428q1tN398845O12x432857418731';
+        const rawMerchantSecret = this.configService.get<string>('PAYHERE_MERCHANT_SECRET') || '4SU429P58p4428q1tN398845O12x432857418731';
+        const merchantSecret = rawMerchantSecret.replace(/"/g, '').trim();
         
         // PayHere Webhook verification format:
         // md5sig = uppercase(md5(merchant_id + order_id + payhere_amount + payhere_currency + status_code + uppercase(md5(merchant_secret))))
