@@ -14,7 +14,19 @@ export default function RootLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
+  const [adminUser, setAdminUser] = useState<any>(null);
   const isLoginPage = pathname === "/login";
+
+  useEffect(() => {
+    const userJson = localStorage.getItem("admin_user");
+    if (userJson) {
+      try {
+        setAdminUser(JSON.parse(userJson));
+      } catch (err) {
+        console.error("Error parsing admin profile:", err);
+      }
+    }
+  }, [pathname]);
 
   useEffect(() => {
     const token = localStorage.getItem("admin_token");
@@ -128,10 +140,14 @@ export default function RootLayout({
 
             {/* Bottom Profile Widget */}
             <div className="p-4 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-sky-400 to-indigo-500 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-indigo-500/10">R</div>
-                <div>
-                  <p className="text-[12px] font-bold text-white">Rashmeen</p>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-sky-400 to-indigo-500 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-indigo-500/10 flex-shrink-0">
+                  {adminUser?.fullName ? adminUser.fullName.charAt(0).toUpperCase() : "A"}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-bold text-white truncate" title={adminUser?.fullName || "Admin"}>
+                    {adminUser?.fullName || "Admin"}
+                  </p>
                   <p className="text-[10px] text-slate-500">Super Admin</p>
                 </div>
               </div>

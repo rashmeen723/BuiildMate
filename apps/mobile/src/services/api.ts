@@ -312,6 +312,17 @@ export const authApi = {
             throw new Error(error.message || 'Connection error');
         }
     },
+    getCategories: async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/admin/services`);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch categories');
+            return result;
+        } catch (error: any) {
+            console.error('Fetch Categories Error:', error);
+            throw new Error(error.message || 'Connection error');
+        }
+    },
     getProviderDetails: async (id: string) => {
         try {
             const response = await fetch(`${API_BASE_URL}/services/provider/${id}`);

@@ -87,7 +87,7 @@ export default function SettingsPage() {
                         <div className="space-y-4">
                             <div>
                                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Full Name</span>
-                                <span className="text-xs font-semibold text-white mt-0.5 block">{adminUser?.fullName || "Rashmeen Admin"}</span>
+                                <span className="text-xs font-semibold text-white mt-0.5 block">{adminUser?.fullName || "Administrator"}</span>
                             </div>
                             <div>
                                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Email Address</span>

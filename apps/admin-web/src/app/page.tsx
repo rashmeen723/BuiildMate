@@ -69,6 +69,7 @@ export default function DashboardPage() {
     try {
       const data = await adminApi.updateSettings(Number(serviceCommissionRate), Number(rentalCommissionRate));
       setSettingsSuccess("Commission rates updated successfully!");
+      fetchStats(); // Refresh the dynamic stats/earnings card
       if (data.settings) {
         if (typeof data.settings.serviceCommissionRate === "number") {
           setServiceCommissionRate(data.settings.serviceCommissionRate);
@@ -190,9 +191,9 @@ export default function DashboardPage() {
         />
         <StatCard
           icon={<DollarSign size={20} className="text-indigo-400" />}
-          title="Monthly Revenue"
-          value={`Rs. ${stats.monthlyRevenue.toLocaleString()}`}
-          change="Current month earnings"
+          title="Commission Earnings"
+          value={`Rs. ${stats.monthlyCommission ? stats.monthlyCommission.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0.0'}`}
+          change={`Gross Vol: Rs. ${stats.monthlyRevenue.toLocaleString()}`}
           color="text-indigo-400"
           glowClass="glow-indigo"
         />
@@ -310,7 +311,6 @@ export default function DashboardPage() {
               <ProgressStat label="Tool Utilization Rate" value={`${stats.toolUtilization.toFixed(1)}%`} percentage={stats.toolUtilization} color="bg-sky-500" />
               <ProgressStat label="User Return Rate" value={`${stats.userReturnRate.toFixed(1)}%`} percentage={stats.userReturnRate} color="bg-indigo-500" />
               <ProgressStat label="AI Verification Success" value={`${stats.aiVerificationSuccess.toFixed(1)}%`} percentage={stats.aiVerificationSuccess} color="bg-emerald-500" />
-              <ProgressStat label="Escrow Payout Efficiency" value={`${stats.escrowEfficiency.toFixed(1)}%`} percentage={stats.escrowEfficiency} color="bg-violet-500" />
             </div>
           </div>
 

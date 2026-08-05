@@ -16,6 +16,10 @@ export default function ServicesPage() {
     const [editCategoryOldName, setEditCategoryOldName] = useState("");
     const [editCategoryNewName, setEditCategoryNewName] = useState("");
 
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteCategoryName, setDeleteCategoryName] = useState("");
+    const [deleteCategoryType, setDeleteCategoryType] = useState<'service' | 'rental'>('service');
+
     const fetchCategories = () => {
         setLoading(true);
         adminApi.getServices()
@@ -64,12 +68,16 @@ export default function ServicesPage() {
         fetchCategories();
     }, []);
 
-    const handleDeleteCategory = async (type: 'service' | 'rental', name: string) => {
-        const confirmDelete = window.confirm(`Are you sure you want to delete the ${type === 'service' ? 'service provider' : 'rental tool'} category "${name}"?\nActive providers/tools in this category will be remapped to "Other".`);
-        if (!confirmDelete) return;
+    const handleDeleteCategory = (type: 'service' | 'rental', name: string) => {
+        setDeleteCategoryType(type);
+        setDeleteCategoryName(name);
+        setShowDeleteModal(true);
+    };
 
+    const confirmDeleteCategory = async () => {
         try {
-            await adminApi.deleteCategory(type, name);
+            await adminApi.deleteCategory(deleteCategoryType, deleteCategoryName);
+            setShowDeleteModal(false);
             fetchCategories();
         } catch (err: any) {
             alert(`Failed to delete category: ${err.message}`);
@@ -261,6 +269,43 @@ export default function ServicesPage() {
                                 className="px-4 py-2.5 rounded-xl text-[13px] font-bold text-white bg-sky-500 hover:bg-sky-600 shadow-lg shadow-sky-500/20 transition-all"
                             >
                                 Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Category Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-slate-900 border border-slate-850 rounded-2xl max-w-md w-full p-6 space-y-6 shadow-2xl relative">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500">
+                                <Trash2 size={20} />
+                            </div>
+                            <h3 className="text-xl font-bold text-white">Delete Category</h3>
+                        </div>
+                        
+                        <p className="text-slate-300 text-sm leading-relaxed">
+                            Are you sure you want to delete the {deleteCategoryType === 'service' ? 'service provider' : 'rental tool'} category <strong className="text-white">"{deleteCategoryName}"</strong>?
+                            <br /><br />
+                            <span className="text-amber-400 font-medium bg-amber-500/5 border border-amber-500/10 rounded-lg p-2.5 block">
+                                ⚠️ Active {deleteCategoryType === 'service' ? 'providers' : 'tools'} in this category will be remapped to "Other".
+                            </span>
+                        </p>
+
+                        <div className="flex justify-end gap-3 pt-2">
+                            <button
+                                onClick={() => setShowDeleteModal(false)}
+                                className="px-4 py-2.5 rounded-xl text-[13px] font-bold text-slate-400 hover:text-white bg-slate-850 hover:bg-slate-850/80 transition-all active:scale-95"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmDeleteCategory}
+                                className="px-4 py-2.5 rounded-xl text-[13px] font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-600/20 transition-all active:scale-95"
+                            >
+                                Delete Category
                             </button>
                         </div>
                     </div>

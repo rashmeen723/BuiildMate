@@ -14,6 +14,45 @@ const { width } = Dimensions.get('window');
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
+const getServiceIcon = (name: string) => {
+    switch (name.toLowerCase()) {
+        case 'electrician': return 'flash';
+        case 'plumber': return 'water';
+        case 'painter': return 'color-palette';
+        case 'carpenter': return 'hammer';
+        case 'home cleaner':
+        case 'house cleaner':
+        case 'cleaning':
+            return 'sparkles';
+        case 'ac technician':
+        case 'ac repair':
+            return 'snow'; // Cooling/AC icon representation
+        case 'gardener': return 'leaf';
+        case 'mason':
+        case 'masonry':
+            return 'construct';
+        case 'pest control': return 'bug';
+        case 'welder': return 'flame';
+        case 'interior design': return 'color-filter'; // Color/design icon
+        default: return 'build';
+    }
+};
+
+const getToolIcon = (name: string) => {
+    const lowercaseName = name.toLowerCase();
+    if (lowercaseName.includes('power tool')) return 'hammer';
+    if (lowercaseName.includes('ladder')) return 'reorder-four';
+    if (lowercaseName.includes('paint')) return 'brush';
+    if (lowercaseName.includes('plumb')) return 'water';
+    if (lowercaseName.includes('clean')) return 'sparkles';
+    if (lowercaseName.includes('safety')) return 'shield-checkmark';
+    if (lowercaseName.includes('garden')) return 'leaf';
+    if (lowercaseName.includes('scaffold')) return 'grid';
+    if (lowercaseName.includes('construct')) return 'construct';
+    if (lowercaseName.includes('hand tool')) return 'build';
+    return 'hammer';
+};
+
 const HomeScreen = () => {
     const navigation = useNavigation<HomeScreenNavigationProp>();
     const { user } = useAuth();
@@ -23,6 +62,20 @@ const HomeScreen = () => {
     const [nearbyTools, setNearbyTools] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [dbServices, setDbServices] = useState<any[]>([]);
+    const [dbRentals, setDbRentals] = useState<any[]>([]);
+
+    // Fetch dynamic categories
+    useEffect(() => {
+        authApi.getCategories()
+            .then(res => {
+                if (res) {
+                    if (res.services) setDbServices(res.services);
+                    if (res.rentals) setDbRentals(res.rentals);
+                }
+            })
+            .catch(err => console.error('Error fetching categories from backend:', err));
+    }, []);
 
     // Fetch nearby providers based on user's default address
     useEffect(() => {
@@ -124,16 +177,20 @@ const HomeScreen = () => {
     );
 
     const renderToolsContent = () => {
-        const toolCategories = [
-            { id: 1, name: 'Power Tools', icon: 'hammer' },
-            { id: 2, name: 'Ladders', icon: 'reorder-four' },
-            { id: 3, name: 'Painting', icon: 'brush' },
-            { id: 4, name: 'Plumbing', icon: 'water' },
-            { id: 5, name: 'Cleaning', icon: 'sparkles' },
-            { id: 6, name: 'Safety Gear', icon: 'shield-checkmark' },
-            { id: 7, name: 'Gardening', icon: 'leaf' },
-            { id: 8, name: 'Scaffolding', icon: 'grid' },
+        const defaultTools = [
+            { name: 'Power Tools', icon: 'hammer' },
+            { name: 'Ladders', icon: 'reorder-four' },
+            { name: 'Painting', icon: 'brush' },
+            { name: 'Plumbing', icon: 'water' },
+            { name: 'Cleaning', icon: 'sparkles' },
+            { name: 'Safety Gear', icon: 'shield-checkmark' },
+            { name: 'Gardening', icon: 'leaf' },
+            { name: 'Scaffolding', icon: 'grid' },
         ];
+
+        const toolCategories = dbRentals.length > 0
+            ? dbRentals.map((r, idx) => ({ id: idx + 1, name: r.name, icon: getToolIcon(r.name) }))
+            : defaultTools.map((t, idx) => ({ id: idx + 1, ...t }));
 
         const filteredToolCategories = toolCategories.filter(cat =>
             cat.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -264,16 +321,20 @@ const HomeScreen = () => {
     };
 
     const renderServicesContent = () => {
-        const serviceCategories = [
-            { id: 1, name: 'Electrician', icon: 'flash' },
-            { id: 2, name: 'Plumber', icon: 'water' },
-            { id: 3, name: 'Painter', icon: 'color-palette' },
-            { id: 4, name: 'Carpenter', icon: 'hammer' },
-            { id: 5, name: 'Home Cleaner', icon: 'sparkles' },
-            { id: 6, name: 'AC Technician', icon: 'thermometer' },
-            { id: 7, name: 'Gardener', icon: 'leaf' },
-            { id: 8, name: 'Mason', icon: 'construct' },
+        const defaultServices = [
+            { name: 'Electrician', icon: 'flash' },
+            { name: 'Plumber', icon: 'water' },
+            { name: 'Painter', icon: 'color-palette' },
+            { name: 'Carpenter', icon: 'hammer' },
+            { name: 'Home Cleaner', icon: 'sparkles' },
+            { name: 'AC Technician', icon: 'thermometer' },
+            { name: 'Gardener', icon: 'leaf' },
+            { name: 'Mason', icon: 'construct' },
         ];
+
+        const serviceCategories = dbServices.length > 0 
+            ? dbServices.map((s, idx) => ({ id: idx + 1, name: s.name, icon: getServiceIcon(s.name) }))
+            : defaultServices.map((s, idx) => ({ id: idx + 1, ...s }));
 
         const filteredServiceCategories = serviceCategories.filter(cat =>
             cat.name.toLowerCase().includes(searchQuery.toLowerCase())

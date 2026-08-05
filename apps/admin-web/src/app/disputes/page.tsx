@@ -2,12 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ChevronRight, Scale, Clock, CheckCircle2, XOctagon } from "lucide-react";
+import { AlertTriangle, ChevronRight, Scale, Clock, CheckCircle2, XOctagon, Search, Filter } from "lucide-react";
 import { adminApi } from "@/services/api";
 
 export default function DisputesPage() {
     const [disputes, setDisputes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Filter states
+    const [searchQuery, setSearchQuery] = useState("");
+    const [typeFilter, setTypeFilter] = useState("ALL");
+    const [statusFilter, setStatusFilter] = useState("ALL");
 
     useEffect(() => {
         adminApi.getDisputes()
@@ -15,6 +20,26 @@ export default function DisputesPage() {
             .catch(err => console.error("Error fetching disputes:", err))
             .finally(() => setLoading(false));
     }, []);
+
+    // Filter logic
+    const filteredDisputes = disputes.filter((item) => {
+        const matchesSearch = 
+            item.reason?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.reporter?.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.reported?.fullName?.toLowerCase().includes(searchQuery.toLowerCase());
+
+        const matchesType = 
+            typeFilter === "ALL" || 
+            (typeFilter === "BOOKING" && item.bookingId) || 
+            (typeFilter === "RENTAL" && !item.bookingId);
+
+        const matchesStatus = 
+            statusFilter === "ALL" || 
+            item.status === statusFilter;
+
+        return matchesSearch && matchesType && matchesStatus;
+    });
 
     if (loading) {
         return (
@@ -26,17 +51,65 @@ export default function DisputesPage() {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-700">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                    <AlertTriangle className="text-rose-500" size={26} />
-                    Disputes & Trust
-                </h1>
-                <p className="text-slate-400 mt-1 text-sm">Investigate reported issues, manage merchant claims, and apply penalties.</p>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                        <AlertTriangle className="text-rose-500" size={26} />
+                        Disputes & Trust
+                    </h1>
+                    <p className="text-slate-400 mt-1 text-sm">Investigate reported issues, manage merchant claims, and apply penalties.</p>
+                </div>
             </div>
 
+            {/* Filters panel */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-5">
+                <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                    <input 
+                        type="text" 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search disputes by reason, description, user..." 
+                        className="w-full bg-white/5 border border-white/5 rounded-xl pl-10 pr-4 py-2.5 text-[13px] text-white focus:outline-none focus:border-sky-500/50 placeholder-slate-500 transition-all"
+                    />
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-3">
+                    {/* Type Filter */}
+                    <div className="flex items-center gap-2 bg-white/5 border border-white/5 rounded-xl px-3 py-1.5">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase">Type:</span>
+                        <select 
+                            value={typeFilter}
+                            onChange={(e) => setTypeFilter(e.target.value)}
+                            className="bg-transparent text-[13px] font-semibold text-slate-300 focus:outline-none cursor-pointer"
+                        >
+                            <option value="ALL">All Types</option>
+                            <option value="BOOKING">Service Bookings</option>
+                            <option value="RENTAL">Tool Rentals</option>
+                        </select>
+                    </div>
+
+                    {/* Status Filter */}
+                    <div className="flex items-center gap-2 bg-white/5 border border-white/5 rounded-xl px-3 py-1.5">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase">Status:</span>
+                        <select 
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="bg-transparent text-[13px] font-semibold text-slate-300 focus:outline-none cursor-pointer"
+                        >
+                            <option value="ALL">All Statuses</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="RESOLVED">Resolved</option>
+                            <option value="DISMISSED">Dismissed</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            {/* List panel */}
             <div className="grid grid-cols-1 gap-4">
-                {disputes.length > 0 ? (
-                    disputes.map((item) => (
+                {filteredDisputes.length > 0 ? (
+                    filteredDisputes.map((item) => (
                         <Link 
                             key={item.id} 
                             href={`/disputes/${item.id}`}
@@ -83,12 +156,31 @@ export default function DisputesPage() {
                         </Link>
                     ))
                 ) : (
-                    <div className="text-center py-20 bg-slate-900/50 border border-dashed border-slate-800 rounded-3xl">
+                    <div className="text-center py-20 bg-slate-900/50 border border-dashed border-slate-800 rounded-3xl animate-in fade-in duration-300">
                         <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-600">
                             <AlertTriangle size={32} />
                         </div>
-                        <h3 className="text-xl font-bold text-white">No active disputes!</h3>
-                        <p className="text-slate-500 mt-1">Excellent! The marketplace is running smoothly with no reported claims.</p>
+                        {disputes.length > 0 ? (
+                            <>
+                                <h3 className="text-xl font-bold text-white">No matching disputes found</h3>
+                                <p className="text-slate-500 mt-1">Try resetting your filters or adjusting your search term.</p>
+                                <button
+                                    onClick={() => {
+                                        setSearchQuery("");
+                                        setTypeFilter("ALL");
+                                        setStatusFilter("ALL");
+                                    }}
+                                    className="mt-5 px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl text-xs font-bold transition-all active:scale-95 shadow-lg shadow-sky-500/10"
+                                >
+                                    Reset Filters
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <h3 className="text-xl font-bold text-white">No active disputes!</h3>
+                                <p className="text-slate-500 mt-1">Excellent! The marketplace is running smoothly with no reported claims.</p>
+                            </>
+                        )}
                     </div>
                 )}
             </div>

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Alert, Platform, ActivityIndicator, Modal } from 'react-native';
-import { WebView } from 'react-native-webview';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Alert, Platform, ActivityIndicator } from 'react-native';
 import BottomNavBar from '../components/BottomNavBar';
 import { useAuth } from '../context/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -49,8 +48,6 @@ const BookServiceScreen = () => {
     const [address, setAddress] = useState(initialAddress || 'Loading address...');
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
     const [loading, setLoading] = useState(false);
-    const [showCheckout, setShowCheckout] = useState(false);
-    const [checkoutUrlParams, setCheckoutUrlParams] = useState<any>(null);
 
     useEffect(() => {
         if (user?.addresses && !initialAddress) {
@@ -189,22 +186,16 @@ const BookServiceScreen = () => {
                 issueImage: issuePhoto || undefined
             };
 
-            const createdBooking = await authApi.createBooking(bookingData);
+            await authApi.createBooking(bookingData);
 
-            if (paymentMethod === 'card') {
-                const payhereParams = await authApi.getPayHereCheckoutParams(createdBooking.id, 'booking');
-                setCheckoutUrlParams(payhereParams);
-                setShowCheckout(true);
-            } else {
-                navigation.navigate('BookingConfirmed', {
-                    providerName,
-                    serviceType: role,
-                    date: formatDate(selectedDate),
-                    time: `${formatTime(startTime)} - ${formatTime(endTime)}`,
-                    address,
-                    estimatedTotal: `LKR ${estimatedTotal.toLocaleString()}`,
-                });
-            }
+            navigation.navigate('BookingConfirmed', {
+                providerName,
+                serviceType: role,
+                date: formatDate(selectedDate),
+                time: `${formatTime(startTime)} - ${formatTime(endTime)}`,
+                address,
+                estimatedTotal: `LKR ${estimatedTotal.toLocaleString()}`,
+            });
         } catch (error: any) {
             console.error('Booking Error:', error);
             Alert.alert('Booking Failed', error.message || 'Please try again later');
@@ -469,82 +460,6 @@ const BookServiceScreen = () => {
 
             {/* Bottom Navigation */}
             <BottomNavBar />
-
-            {/* PayHere Sandbox Checkout Modal */}
-            {showCheckout && checkoutUrlParams && (
-                <Modal
-                    visible={showCheckout}
-                    animationType="slide"
-                    onRequestClose={() => {
-                        setShowCheckout(false);
-                        Alert.alert('Payment Cancelled', 'You cancelled the card checkout.');
-                    }}
-                >
-                    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-                        <View style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            paddingHorizontal: 20,
-                            paddingVertical: 15,
-                            borderBottomWidth: 1,
-                            borderBottomColor: '#F3F4F6',
-                        }}>
-                            <Text style={{ fontSize: 16, fontWeight: 'bold', color: COLORS.black }}>PayHere Sandbox Checkout</Text>
-                            <TouchableOpacity
-                                onPress={() => {
-                                    setShowCheckout(false);
-                                    Alert.alert('Payment Cancelled', 'You cancelled the card checkout.');
-                                }}
-                                style={{ padding: 5 }}
-                            >
-                                <Ionicons name="close" size={24} color={COLORS.black} />
-                            </TouchableOpacity>
-                        </View>
-                        <WebView
-                            source={{
-                                uri: `${checkoutUrlParams.checkoutUrl}?merchant_id=${checkoutUrlParams.merchantId}&return_url=https://buildmate.lk/success&cancel_url=https://buildmate.lk/cancel&notify_url=https://buildmate-api.onrender.com/payment/notify&order_id=${checkoutUrlParams.orderId}&items=${encodeURIComponent(checkoutUrlParams.description)}&currency=LKR&amount=${checkoutUrlParams.amount}&first_name=${encodeURIComponent(checkoutUrlParams.customerName.split(' ')[0] || 'Customer')}&last_name=${encodeURIComponent(checkoutUrlParams.customerName.split(' ')[1] || 'Name')}&email=${checkoutUrlParams.customerEmail}&phone=${checkoutUrlParams.customerPhone}&address=Colombo&city=Colombo&country=Sri+Lanka&hash=${checkoutUrlParams.hash}`
-                            }}
-                            onNavigationStateChange={(navState) => {
-                                console.log('WebView Navigation State:', navState.url);
-                                if (navState.url.includes('success')) {
-                                    setShowCheckout(false);
-                                    Alert.alert('Payment Confirmed', 'Your card payment has been successfully authorized via PayHere.');
-                                    navigation.navigate('BookingConfirmed', {
-                                        providerName,
-                                        serviceType: role,
-                                        date: formatDate(selectedDate),
-                                        time: `${formatTime(startTime)} - ${formatTime(endTime)}`,
-                                        address,
-                                        estimatedTotal: `LKR ${estimatedTotal.toLocaleString()}`,
-                                    });
-                                } else if (navState.url.includes('cancel')) {
-                                    setShowCheckout(false);
-                                    Alert.alert('Payment Cancelled', 'You cancelled the card checkout.');
-                                }
-                            }}
-                            javaScriptEnabled={true}
-                            domStorageEnabled={true}
-                            startInLoadingState={true}
-                            renderLoading={() => (
-                                <ActivityIndicator
-                                    color={COLORS.primary || '#007AFF'}
-                                    size="large"
-                                    style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        bottom: 0,
-                                        justifyContent: 'center',
-                                        alignItems: 'center'
-                                    }}
-                                />
-                            )}
-                        />
-                    </SafeAreaView>
-                </Modal>
-            )}
         </SafeAreaView>
     );
 };

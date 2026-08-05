@@ -162,11 +162,13 @@ async function main() {
     // 3. Create Service Providers (150 users)
     console.log('Seeding 150 Service Providers...');
     const providers: any[] = [];
+    // Exactly 2 AI-flagged providers (indices 2, 3), others approved
     const verificationStatuses = [
-        ...Array(120).fill(VerificationStatus.APPROVED), // 80%
-        ...Array(15).fill(VerificationStatus.PENDING),   // 10%
-        ...Array(8).fill(VerificationStatus.AI_FLAGGED),  // 5%
-        ...Array(7).fill(VerificationStatus.REJECTED)    // 5%
+        VerificationStatus.APPROVED,   // Index 0 (provider1 demo account)
+        VerificationStatus.APPROVED,   // Index 1 (Set to approved to remove pending)
+        VerificationStatus.AI_FLAGGED, // Index 2 (AI Flagged #1)
+        VerificationStatus.AI_FLAGGED, // Index 3 (AI Flagged #2)
+        ...Array(146).fill(VerificationStatus.APPROVED)
     ];
 
     for (let i = 1; i <= 150; i++) {
@@ -264,11 +266,8 @@ async function main() {
     // 4. Create Rental Owners (50 users)
     console.log('Seeding 50 Rental Owners & Tools...');
     const rentalOwners: any[] = [];
-    const ownerVerificationStatuses = [
-        ...Array(40).fill(VerificationStatus.APPROVED), // 80%
-        ...Array(5).fill(VerificationStatus.PENDING),   // 10%
-        ...Array(5).fill(VerificationStatus.AI_FLAGGED)  // 10%
-    ];
+    // All rental owners approved to keep list clean
+    const ownerVerificationStatuses = Array(50).fill(VerificationStatus.APPROVED);
 
     const hardwareNames = ['Lanka', 'Ravi', 'Moratuwa', 'Galle', 'Apex', 'Pro-Rent', 'BuildStore', 'Dynamic', 'Pioneer', 'Metro'];
     const hardwareSufix = ['Hardware', 'Tool Renters', 'Equipments', 'Machineries', 'Builders Depot'];

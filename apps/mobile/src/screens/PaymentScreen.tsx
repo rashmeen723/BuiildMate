@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, TextInput, Alert, Modal, ActivityIndicator } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -29,33 +30,20 @@ const PaymentScreen = () => {
     const [expiry, setExpiry] = useState('');
     const [cvv, setCvv] = useState('');
     const [nameOnCard, setNameOnCard] = useState('');
+    const [showCheckout, setShowCheckout] = useState(false);
+    const [checkoutUrlParams, setCheckoutUrlParams] = useState<any>(null);
+    const [loading, setLoading] = useState(false);
 
     const handlePayment = async () => {
-        if (paymentMethod === 'CARD') {
-            if (!cardNumber || !expiry || !cvv || !nameOnCard) {
-                Alert.alert('Missing Information', 'Please fill in all card details.');
-                return;
-            }
-            // Mock card validation
-            if (cardNumber.length < 16) {
-                Alert.alert('Invalid Card', 'Please enter a valid card number.');
-                return;
-            }
-        }
-
+        setLoading(true);
         try {
-            if (type === 'SERVICE') {
-                if (paymentMethod === 'CARD') {
-                    // Digital payment is immediate
-                    await authApi.updateBookingStatus(id.toString(), 'PAID');
-                    Alert.alert(
-                        'Payment Successful',
-                        `You have successfully paid LKR ${amount.toLocaleString()} for ${title} using Card.`,
-                        [
-                            { text: 'OK', onPress: () => navigation.navigate('Activity', { updatedRentalId: undefined, newStatus: 'PAID' }) }
-                        ]
-                    );
-                } else {
+            if (paymentMethod === 'CARD') {
+                const orderType = type === 'SERVICE' ? 'booking' : 'rental';
+                const payhereParams = await authApi.getPayHereCheckoutParams(id.toString(), orderType);
+                setCheckoutUrlParams(payhereParams);
+                setShowCheckout(true);
+            } else {
+                if (type === 'SERVICE') {
                     // Cash payment needs provider confirmation
                     Alert.alert(
                         'Cash Payment Notified',
@@ -64,13 +52,7 @@ const PaymentScreen = () => {
                             { text: 'OK', onPress: () => navigation.goBack() }
                         ]
                     );
-                }
-            } else if (type === 'RENTAL') {
-                if (paymentMethod === 'CARD') {
-                    await rentalsApi.updateRentalStatus(id.toString(), 'PAID');
-                    Alert.alert('Payment Successful', `Payment for ${title} processed via Card.`);
-                    navigation.navigate('Activity', { updatedRentalId: Number(id), newStatus: 'PAID' });
-                } else {
+                } else if (type === 'RENTAL') {
                     Alert.alert(
                         'Cash Payment Selected',
                         `Please pay LKR ${amount.toLocaleString()} in cash directly to the rental owner.`,
@@ -78,8 +60,11 @@ const PaymentScreen = () => {
                     );
                 }
             }
-        } catch (error) {
-            Alert.alert('Payment Failed', 'Failed to process payment. Try again.');
+        } catch (error: any) {
+            console.error('Payment Error:', error);
+            Alert.alert('Payment Failed', error.message || 'Failed to process payment. Try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -156,49 +141,11 @@ const PaymentScreen = () => {
 
                 {/* Conditional Rendering based on Method */}
                 {paymentMethod === 'CARD' ? (
-                    <View style={styles.cardForm}>
-                        <Text style={styles.inputLabel}>Card Number</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="0000 0000 0000 0000"
-                            keyboardType="numeric"
-                            maxLength={16}
-                            value={cardNumber}
-                            onChangeText={setCardNumber}
-                        />
-
-                        <View style={styles.row}>
-                            <View style={[styles.column, { marginRight: 10 }]}>
-                                <Text style={styles.inputLabel}>Expiry Date</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="MM/YY"
-                                    maxLength={5}
-                                    value={expiry}
-                                    onChangeText={setExpiry}
-                                />
-                            </View>
-                            <View style={styles.column}>
-                                <Text style={styles.inputLabel}>CVV</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="123"
-                                    keyboardType="numeric"
-                                    maxLength={3}
-                                    secureTextEntry
-                                    value={cvv}
-                                    onChangeText={setCvv}
-                                />
-                            </View>
-                        </View>
-
-                        <Text style={styles.inputLabel}>Cardholder Name</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="John Doe"
-                            value={nameOnCard}
-                            onChangeText={setNameOnCard}
-                        />
+                    <View style={styles.cashMsgBox}>
+                        <Ionicons name="shield-checkmark-outline" size={24} color={COLORS.primary || '#007AFF'} />
+                        <Text style={styles.cashMsgText}>
+                            Your card transaction is secured. You will be redirected to the secure **PayHere Sandbox Gateway** checkout page to complete the payment.
+                        </Text>
                     </View>
                 ) : (
                     <View style={styles.cashMsgBox}>
@@ -210,15 +157,86 @@ const PaymentScreen = () => {
                 )}
             </ScrollView>
 
-            {/* Pay Button - Only for Card */}
-            {paymentMethod === 'CARD' && (
-                <View style={styles.footer}>
-                    <TouchableOpacity style={styles.payButton} onPress={handlePayment}>
+            {/* Pay Button */}
+            <View style={styles.footer}>
+                <TouchableOpacity style={styles.payButton} onPress={handlePayment} disabled={loading}>
+                    {loading ? (
+                        <ActivityIndicator color={COLORS.white} />
+                    ) : (
                         <Text style={styles.payButtonText}>
-                            Pay LKR {amount.toLocaleString()}
+                            {paymentMethod === 'CARD' ? `Pay LKR ${Math.round(amount).toLocaleString()}` : 'Confirm Cash Payment'}
                         </Text>
-                    </TouchableOpacity>
-                </View>
+                    )}
+                </TouchableOpacity>
+            </View>
+
+            {/* PayHere Sandbox Checkout Modal */}
+            {showCheckout && checkoutUrlParams && (
+                <Modal
+                    visible={showCheckout}
+                    animationType="slide"
+                    onRequestClose={() => {
+                        setShowCheckout(false);
+                        Alert.alert('Payment Cancelled', 'You cancelled the card checkout.');
+                    }}
+                >
+                    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+                        <View style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            paddingHorizontal: 20,
+                            paddingVertical: 15,
+                            borderBottomWidth: 1,
+                            borderBottomColor: '#F3F4F6',
+                        }}>
+                            <Text style={{ fontSize: 16, fontWeight: 'bold', color: COLORS.black }}>PayHere Sandbox Checkout</Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setShowCheckout(false);
+                                    Alert.alert('Payment Cancelled', 'You cancelled the card checkout.');
+                                }}
+                                style={{ padding: 5 }}
+                            >
+                                <Ionicons name="close" size={24} color={COLORS.black} />
+                            </TouchableOpacity>
+                        </View>
+                        <WebView
+                            source={{
+                                uri: `${checkoutUrlParams.checkoutUrl}?merchant_id=${checkoutUrlParams.merchantId}&return_url=https://buildmate.lk/success&cancel_url=https://buildmate.lk/cancel&notify_url=https://buildmate-api.onrender.com/payment/notify&order_id=${checkoutUrlParams.orderId}&items=${encodeURIComponent(checkoutUrlParams.description)}&currency=LKR&amount=${checkoutUrlParams.amount}&first_name=${encodeURIComponent(checkoutUrlParams.customerName.split(' ')[0] || 'Customer')}&last_name=${encodeURIComponent(checkoutUrlParams.customerName.split(' ')[1] || 'Name')}&email=${checkoutUrlParams.customerEmail}&phone=${checkoutUrlParams.customerPhone}&address=Colombo&city=Colombo&country=Sri+Lanka&hash=${checkoutUrlParams.hash}`
+                            }}
+                            onNavigationStateChange={(navState) => {
+                                console.log('WebView Navigation State:', navState.url);
+                                if (navState.url.includes('success')) {
+                                    setShowCheckout(false);
+                                    Alert.alert('Payment Successful', 'Your card payment has been successfully authorized via PayHere.');
+                                    navigation.navigate('Activity', { updatedRentalId: type === 'RENTAL' ? Number(id) : undefined, newStatus: 'PAID' });
+                                } else if (navState.url.includes('cancel')) {
+                                    setShowCheckout(false);
+                                    Alert.alert('Payment Cancelled', 'You cancelled the card checkout.');
+                                }
+                            }}
+                            javaScriptEnabled={true}
+                            domStorageEnabled={true}
+                            startInLoadingState={true}
+                            renderLoading={() => (
+                                <ActivityIndicator
+                                    color={COLORS.primary || '#007AFF'}
+                                    size="large"
+                                    style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        justifyContent: 'center',
+                                        alignItems: 'center'
+                                    }}
+                                />
+                            )}
+                        />
+                    </SafeAreaView>
+                </Modal>
             )}
         </SafeAreaView>
     );

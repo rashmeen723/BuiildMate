@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Modal, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -6,6 +6,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS, SIZES } from '../constants/theme';
+import { authApi } from '../services/api';
 
 type ServiceProviderDetailsNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ServiceProviderDetails'>;
 type ServiceProviderDetailsRouteProp = RouteProp<RootStackParamList, 'ServiceProviderDetails'>;
@@ -38,9 +39,27 @@ const ServiceProviderDetailsScreen = () => {
     const [yearsOfExperience, setYearsOfExperience] = useState(initialExperience);
     const [selectedSkills, setSelectedSkills] = useState<string[]>(initialSkills);
     const [hourlyRate, setHourlyRate] = useState(initialHourlyRate);
+    const [dbCategories, setDbCategories] = useState<string[]>([]);
+
+    useEffect(() => {
+        authApi.getCategories()
+            .then(res => {
+                if (res && res.services) {
+                    const serviceNames = res.services.map((s: any) => s.name);
+                    setDbCategories(serviceNames);
+                }
+            })
+            .catch(err => console.error('Error fetching service categories:', err));
+    }, []);
+
+    const serviceCategories = dbCategories.length > 0
+        ? dbCategories
+        : ['Electrician', 'Plumber', 'Carpenter', 'Painter', 'AC Technician', 'Mason', 'Gardener', 'House Cleaner', 'Other'];
 
     // Derived state for available skills based on selected category
-    const availableSkills = selectedCategory ? (SKILLS_BY_CATEGORY[selectedCategory] || []) : [];
+    const availableSkills = selectedCategory 
+        ? (SKILLS_BY_CATEGORY[selectedCategory] || ['General Work', 'Installation', 'Maintenance', 'Consultation', 'Repair']) 
+        : [];
 
     const toggleCategory = (category: string) => {
         if (selectedCategory === category) {
@@ -106,7 +125,7 @@ const ServiceProviderDetailsScreen = () => {
                 <View style={styles.section}>
                     <Text style={styles.label}>Service Category</Text>
                     <View style={styles.chipContainer}>
-                        {SERVICE_CATEGORIES.map(cat => (
+                        {serviceCategories.map(cat => (
                             <TouchableOpacity
                                 key={cat}
                                 style={[styles.chip, selectedCategory === cat && styles.chipSelected]}

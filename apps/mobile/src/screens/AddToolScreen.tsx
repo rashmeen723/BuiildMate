@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -38,7 +38,22 @@ const AddToolScreen = () => {
         dailyRate: toolToEdit?.dailyRate?.toString() || '',
     });
 
-    const categories = ['Power Tools', 'Hand Tools', 'Ladders', 'Painting', 'Construction', 'Gardening', 'Cleaning', 'Safety Gear', 'Scaffolding', 'Other'];
+    const [dbCategories, setDbCategories] = useState<string[]>([]);
+
+    useEffect(() => {
+        authApi.getCategories()
+            .then(res => {
+                if (res && res.rentals) {
+                    const rentalNames = res.rentals.map((r: any) => r.name);
+                    setDbCategories(rentalNames);
+                }
+            })
+            .catch(err => console.error('Error fetching tool categories:', err));
+    }, []);
+
+    const categories = dbCategories.length > 0 
+        ? dbCategories 
+        : ['Power Tools', 'Hand Tools', 'Ladders', 'Painting', 'Construction', 'Gardening', 'Cleaning', 'Safety Gear', 'Scaffolding', 'Other'];
 
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();

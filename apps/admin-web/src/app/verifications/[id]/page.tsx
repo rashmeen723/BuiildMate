@@ -69,8 +69,22 @@ export default function VerificationDetailPage({ params }: { params: Promise<{ i
     }
 
     const profile = user.serviceProvider || user.rentalOwner;
-    const roleLabel = user.serviceProvider ? "Service Provider" : "Rental Owner";
-    const subRole = user.serviceProvider ? profile.category : profile.businessName;
+    const isHousehold = user.role === "HOUSEHOLD";
+    const defaultAddress = user.addresses?.find((a: any) => a.isDefault) || user.addresses?.[0];
+    const formattedAddress = defaultAddress ? `${defaultAddress.addressLine1 || ''}, ${defaultAddress.city || ''}`.trim().replace(/^,\s*/, '') : '';
+    const userLocation = profile?.formattedAddress || formattedAddress || "N/A";
+
+    const roleLabel = isHousehold
+        ? "Household Customer"
+        : user.serviceProvider
+        ? "Service Provider"
+        : "Rental Owner";
+
+    const subRole = isHousehold
+        ? "Customer"
+        : user.serviceProvider
+        ? profile?.category
+        : profile?.businessName;
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -86,24 +100,26 @@ export default function VerificationDetailPage({ params }: { params: Promise<{ i
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => handleAction('REJECTED')}
-                        disabled={actionLoading}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-500 font-bold hover:bg-rose-500/20 transition-all disabled:opacity-50"
-                    >
-                        <XCircle size={18} />
-                        Reject
-                    </button>
-                    <button
-                        onClick={() => handleAction('APPROVED')}
-                        disabled={actionLoading}
-                        className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
-                    >
-                        <CheckCircle size={18} />
-                        Approve Provider
-                    </button>
-                </div>
+                {!isHousehold && (
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => handleAction('REJECTED')}
+                            disabled={actionLoading}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-500 font-bold hover:bg-rose-500/20 transition-all disabled:opacity-50"
+                        >
+                            <XCircle size={18} />
+                            Reject
+                        </button>
+                        <button
+                            onClick={() => handleAction('APPROVED')}
+                            disabled={actionLoading}
+                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                        >
+                            <CheckCircle size={18} />
+                            Approve Provider
+                        </button>
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -128,7 +144,7 @@ export default function VerificationDetailPage({ params }: { params: Promise<{ i
                             <InfoRow icon={<Mail size={16} />} label="Email" value={user.email} />
                             <InfoRow icon={<Phone size={16} />} label="Phone" value={user.phone || "N/A"} />
                             <InfoRow icon={<Calendar size={16} />} label="Registered" value={new Date(user.createdAt).toLocaleDateString()} />
-                            <InfoRow icon={<MapPin size={16} />} label="Location" value={profile?.formattedAddress || "N/A"} />
+                            <InfoRow icon={<MapPin size={16} />} label="Location" value={userLocation} />
                         </div>
                     </div>
 
@@ -146,10 +162,12 @@ export default function VerificationDetailPage({ params }: { params: Promise<{ i
                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
                                 Account created successfully
                             </li>
-                            <li className="flex items-center gap-2 text-slate-300">
-                                <div className={`w-1.5 h-1.5 rounded-full ${profile?.status === 'PENDING' ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
-                                Profile status: {profile?.status}
-                            </li>
+                            {!isHousehold && (
+                                <li className="flex items-center gap-2 text-slate-300">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${profile?.status === 'PENDING' ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
+                                    Profile status: {profile?.status}
+                                </li>
+                            )}
                         </ul>
                     </div>
 
@@ -222,39 +240,61 @@ export default function VerificationDetailPage({ params }: { params: Promise<{ i
                         )}
                     </div>
 
-                    {/* Profile Details (Experience, Skills, etc.) */}
+                    {/* Profile Details (Experience, Skills, etc. or Customer Address List) */}
                     <div className="glass-card p-8">
                         <h3 className="text-xl font-bold mb-6">Profile Information</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div>
-                                <h4 className="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">Experience</h4>
-                                <p className="text-lg font-bold">{profile?.yearsOfExperience || profile?.yearsInBusiness} Years</p>
+                        {isHousehold ? (
+                            <div className="space-y-4">
+                                <div>
+                                    <h4 className="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">Addresses</h4>
+                                    {user.addresses && user.addresses.length > 0 ? (
+                                        <div className="space-y-2">
+                                            {user.addresses.map((addr: any, i: number) => (
+                                                <div key={i} className="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-sm text-slate-300">
+                                                    <span className="font-bold block text-xs text-slate-500 mb-1">
+                                                        {addr.isDefault ? "DEFAULT ADDRESS" : `ADDRESS ${i + 1}`}
+                                                    </span>
+                                                    {addr.addressLine1}, {addr.city}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-slate-500 italic text-sm">No registered addresses found.</p>
+                                    )}
+                                </div>
                             </div>
-                            {user.serviceProvider && (
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div>
-                                    <h4 className="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">Skills</h4>
-                                    <div className="flex flex-wrap gap-2">
-                                        {profile?.skills.map((skill: string, i: number) => (
-                                            <span key={i} className="px-2 py-1 rounded-md bg-slate-800 border border-slate-700 text-xs text-slate-300">
-                                                {skill}
-                                            </span>
-                                        ))}
-                                    </div>
+                                    <h4 className="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">Experience</h4>
+                                    <p className="text-lg font-bold">{profile?.yearsOfExperience || profile?.yearsInBusiness} Years</p>
                                 </div>
-                            )}
-                            {user.rentalOwner && (
-                                <div>
-                                    <h4 className="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">Tool Categories</h4>
-                                    <div className="flex flex-wrap gap-2">
-                                        {profile?.toolCategories.map((cat: string, i: number) => (
-                                            <span key={i} className="px-2 py-1 rounded-md bg-slate-800 border border-slate-700 text-xs text-slate-300">
-                                                {cat}
-                                            </span>
-                                        ))}
+                                {user.serviceProvider && (
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">Skills</h4>
+                                        <div className="flex flex-wrap gap-2">
+                                            {profile?.skills.map((skill: string, i: number) => (
+                                                <span key={i} className="px-2 py-1 rounded-md bg-slate-800 border border-slate-700 text-xs text-slate-300">
+                                                    {skill}
+                                                </span>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            )}
-                        </div>
+                                )}
+                                {user.rentalOwner && (
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">Tool Categories</h4>
+                                        <div className="flex flex-wrap gap-2">
+                                            {profile?.toolCategories.map((cat: string, i: number) => (
+                                                <span key={i} className="px-2 py-1 rounded-md bg-slate-800 border border-slate-700 text-xs text-slate-300">
+                                                    {cat}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

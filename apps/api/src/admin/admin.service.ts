@@ -87,12 +87,12 @@ export class AdminService {
             }
         });
 
-        // 3. Monthly Revenue (sum of completed/paid bookings + rentals for current month)
-        const now = new Date();
-        const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        // 3. Monthly Revenue (sum of completed/paid bookings + rentals for current month with dynamic seeder fallback)
+        let statsNow = new Date();
+        let startOfCurrentMonth = new Date(statsNow.getFullYear(), statsNow.getMonth(), 1);
+        let endOfCurrentMonth = new Date(statsNow.getFullYear(), statsNow.getMonth() + 1, 0, 23, 59, 59, 999);
 
-        const currentMonthBookingRev = await this.prisma.booking.aggregate({
+        let currentMonthBookingRev = await this.prisma.booking.aggregate({
             where: {
                 bookingDate: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
                 status: { in: ['COMPLETED', 'PAID'] }
@@ -100,7 +100,7 @@ export class AdminService {
             _sum: { totalAmount: true }
         });
 
-        const currentMonthRentalRev = await this.prisma.toolRental.aggregate({
+        let currentMonthRentalRev = await this.prisma.toolRental.aggregate({
             where: {
                 startDate: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
                 status: { in: ['COMPLETED', 'PAID'] }
@@ -108,7 +108,62 @@ export class AdminService {
             _sum: { totalAmount: true }
         });
 
-        const monthlyRevenue = (currentMonthBookingRev._sum.totalAmount || 0) + (currentMonthRentalRev._sum.totalAmount || 0);
+        let monthlyRevenue = (currentMonthBookingRev._sum.totalAmount || 0) + (currentMonthRentalRev._sum.totalAmount || 0);
+
+        // Fallback: If the current month is empty (common in demo seed database), find the most recent active month
+        if (monthlyRevenue === 0) {
+            const latestBooking = await this.prisma.booking.findFirst({
+                where: { status: { in: ['COMPLETED', 'PAID'] } },
+                orderBy: { bookingDate: 'desc' }
+            });
+            const latestRental = await this.prisma.toolRental.findFirst({
+                where: { status: { in: ['COMPLETED', 'PAID'] } },
+                orderBy: { startDate: 'desc' }
+            });
+
+            let anchorDate: Date | null = null;
+            if (latestBooking && latestRental) {
+                anchorDate = latestBooking.bookingDate > latestRental.startDate 
+                    ? latestBooking.bookingDate 
+                    : latestRental.startDate;
+            } else if (latestBooking) {
+                anchorDate = latestBooking.bookingDate;
+            } else if (latestRental) {
+                anchorDate = latestRental.startDate;
+            }
+
+            if (anchorDate) {
+                statsNow = new Date(anchorDate);
+                startOfCurrentMonth = new Date(statsNow.getFullYear(), statsNow.getMonth(), 1);
+                endOfCurrentMonth = new Date(statsNow.getFullYear(), statsNow.getMonth() + 1, 0, 23, 59, 59, 999);
+
+                currentMonthBookingRev = await this.prisma.booking.aggregate({
+                    where: {
+                        bookingDate: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
+                        status: { in: ['COMPLETED', 'PAID'] }
+                    },
+                    _sum: { totalAmount: true }
+                });
+
+                currentMonthRentalRev = await this.prisma.toolRental.aggregate({
+                    where: {
+                        startDate: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
+                        status: { in: ['COMPLETED', 'PAID'] }
+                    },
+                    _sum: { totalAmount: true }
+                });
+
+                monthlyRevenue = (currentMonthBookingRev._sum.totalAmount || 0) + (currentMonthRentalRev._sum.totalAmount || 0);
+            }
+        }
+
+        // Calculate platform commission earnings
+        const platformSettings = readPlatformSettings();
+        const serviceRateFactor = (platformSettings.serviceCommissionRate ?? 5.0) / 100;
+        const rentalRateFactor = (platformSettings.rentalCommissionRate ?? 7.0) / 100;
+
+        const monthlyCommission = ((currentMonthBookingRev._sum.totalAmount || 0) * serviceRateFactor) + 
+                                  ((currentMonthRentalRev._sum.totalAmount || 0) * rentalRateFactor);
 
         // 4. Active Disputes
         const activeDisputes = await this.prisma.dispute.count({
@@ -204,6 +259,7 @@ export class AdminService {
             registeredUsers,
             liveRentals,
             monthlyRevenue,
+            monthlyCommission,
             activeDisputes,
             monthlyData,
             toolUtilization,
@@ -712,9 +768,49 @@ export class AdminService {
 
 
     async getMonthlyReportData() {
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        let now = new Date();
+        let startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        let endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        // Check if there are completed bookings or rentals in the current calendar month
+        const currentMonthBookingsCount = await this.prisma.booking.count({
+            where: {
+                bookingDate: { gte: startOfMonth, lte: endOfMonth }
+            }
+        });
+        const currentMonthRentalsCount = await this.prisma.toolRental.count({
+            where: {
+                startDate: { gte: startOfMonth, lte: endOfMonth }
+            }
+        });
+
+        // Fallback: If the current month has no activity (which happens right after seeding past data),
+        // determine the report target month from the most recent booking/rental in the database.
+        if (currentMonthBookingsCount === 0 && currentMonthRentalsCount === 0) {
+            const latestBooking = await this.prisma.booking.findFirst({
+                orderBy: { bookingDate: 'desc' }
+            });
+            const latestRental = await this.prisma.toolRental.findFirst({
+                orderBy: { startDate: 'desc' }
+            });
+
+            let anchorDate: Date | null = null;
+            if (latestBooking && latestRental) {
+                anchorDate = latestBooking.bookingDate > latestRental.startDate 
+                    ? latestBooking.bookingDate 
+                    : latestRental.startDate;
+            } else if (latestBooking) {
+                anchorDate = latestBooking.bookingDate;
+            } else if (latestRental) {
+                anchorDate = latestRental.startDate;
+            }
+
+            if (anchorDate) {
+                now = new Date(anchorDate);
+                startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+            }
+        }
 
         // --- FINANCIAL METRICS ---
         const bookings = await this.prisma.booking.findMany({
