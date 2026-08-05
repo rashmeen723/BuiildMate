@@ -7,7 +7,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { COLORS } from '../constants/theme';
-import { authApi, rentalsApi } from '../services/api';
+import { authApi, rentalsApi, API_BASE_URL } from '../services/api';
 
 type PaymentScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Payment'>;
 type PaymentScreenRouteProp = RouteProp<RootStackParamList, 'Payment'>;
@@ -72,9 +72,9 @@ const PaymentScreen = () => {
         if (!checkoutUrlParams) return '';
         const params = new URLSearchParams();
         params.append('merchant_id', checkoutUrlParams.merchantId);
-        params.append('return_url', 'https://buildmate.lk/success');
-        params.append('cancel_url', 'https://buildmate.lk/cancel');
-        params.append('notify_url', 'https://buildmate-api.onrender.com/payment/notify');
+        params.append('return_url', `${API_BASE_URL}/payment/success`);
+        params.append('cancel_url', `${API_BASE_URL}/payment/cancel`);
+        params.append('notify_url', `${API_BASE_URL}/payment/notify`);
         params.append('order_id', checkoutUrlParams.orderId);
         params.append('items', checkoutUrlParams.description);
         params.append('currency', 'LKR');
