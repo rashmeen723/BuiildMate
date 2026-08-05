@@ -203,7 +203,12 @@ const PaymentScreen = () => {
                         </View>
                         <WebView
                             source={{
-                                uri: `${checkoutUrlParams.checkoutUrl}?merchant_id=${checkoutUrlParams.merchantId}&return_url=https://buildmate.lk/success&cancel_url=https://buildmate.lk/cancel&notify_url=https://buildmate-api.onrender.com/payment/notify&order_id=${checkoutUrlParams.orderId}&items=${encodeURIComponent(checkoutUrlParams.description)}&currency=LKR&amount=${checkoutUrlParams.amount}&first_name=${encodeURIComponent(checkoutUrlParams.customerName.split(' ')[0] || 'Customer')}&last_name=${encodeURIComponent(checkoutUrlParams.customerName.split(' ')[1] || 'Name')}&email=${checkoutUrlParams.customerEmail}&phone=${checkoutUrlParams.customerPhone}&address=Colombo&city=Colombo&country=Sri+Lanka&hash=${checkoutUrlParams.hash}`
+                                uri: checkoutUrlParams.checkoutUrl,
+                                method: 'POST',
+                                body: `merchant_id=${checkoutUrlParams.merchantId}&return_url=https://buildmate.lk/success&cancel_url=https://buildmate.lk/cancel&notify_url=https://buildmate-api.onrender.com/payment/notify&order_id=${checkoutUrlParams.orderId}&items=${encodeURIComponent(checkoutUrlParams.description)}&currency=LKR&amount=${checkoutUrlParams.amount}&first_name=${encodeURIComponent(checkoutUrlParams.customerName.split(' ')[0] || 'Customer')}&last_name=${encodeURIComponent(checkoutUrlParams.customerName.split(' ')[1] || 'Name')}&email=${checkoutUrlParams.customerEmail}&phone=${checkoutUrlParams.customerPhone}&address=Colombo&city=Colombo&country=Sri+Lanka&hash=${checkoutUrlParams.hash}`,
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded'
+                                }
                             }}
                             onNavigationStateChange={(navState) => {
                                 console.log('WebView Navigation State:', navState.url);
