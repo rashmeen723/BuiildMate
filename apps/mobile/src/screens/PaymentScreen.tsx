@@ -68,6 +68,28 @@ const PaymentScreen = () => {
         }
     };
 
+    const getCheckoutBody = () => {
+        if (!checkoutUrlParams) return '';
+        const params = new URLSearchParams();
+        params.append('merchant_id', checkoutUrlParams.merchantId);
+        params.append('return_url', 'https://buildmate.lk/success');
+        params.append('cancel_url', 'https://buildmate.lk/cancel');
+        params.append('notify_url', 'https://buildmate-api.onrender.com/payment/notify');
+        params.append('order_id', checkoutUrlParams.orderId);
+        params.append('items', checkoutUrlParams.description);
+        params.append('currency', 'LKR');
+        params.append('amount', checkoutUrlParams.amount);
+        params.append('first_name', checkoutUrlParams.customerName.split(' ')[0] || 'Customer');
+        params.append('last_name', checkoutUrlParams.customerName.split(' ')[1] || 'Name');
+        params.append('email', checkoutUrlParams.customerEmail);
+        params.append('phone', checkoutUrlParams.customerPhone);
+        params.append('address', 'Colombo');
+        params.append('city', 'Colombo');
+        params.append('country', 'Sri Lanka');
+        params.append('hash', checkoutUrlParams.hash);
+        return params.toString();
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             {/* Header */}
@@ -93,20 +115,24 @@ const PaymentScreen = () => {
                         <>
                             <View style={styles.summaryRow}>
                                 <Text style={styles.summaryLabel}>Base Labor Fee</Text>
-                                <Text style={styles.summaryValue}>LKR {Math.round(baseAmount || 0).toLocaleString()}</Text>
+                                <Text style={styles.summaryValue}>LKR {baseAmount}</Text>
                             </View>
-                            <View style={styles.summaryRow}>
-                                <Text style={styles.summaryLabel}>Materials/Extra</Text>
-                                <Text style={styles.summaryValue}>LKR {Math.round(additionalCharges || 0).toLocaleString()}</Text>
-                            </View>
-                            <View style={styles.summaryRow}>
-                                <Text style={styles.summaryLabel}>BuildMate Service Fee</Text>
-                                <Text style={styles.summaryValue}>LKR {Math.round(serviceFee || (amount - (amount / 1.05))).toLocaleString()}</Text>
-                            </View>
+                            {additionalCharges !== undefined && additionalCharges > 0 && (
+                                <View style={styles.summaryRow}>
+                                    <Text style={styles.summaryLabel}>Additional Charges</Text>
+                                    <Text style={styles.summaryValue}>LKR {additionalCharges}</Text>
+                                </View>
+                            )}
+                            {serviceFee !== undefined && (
+                                <View style={styles.summaryRow}>
+                                    <Text style={styles.summaryLabel}>Service Fee</Text>
+                                    <Text style={styles.summaryValue}>LKR {serviceFee}</Text>
+                                </View>
+                            )}
                         </>
                     )}
 
-                    {!baseAmount && !additionalCharges && (
+                    {type === 'RENTAL' && (
                         <View style={styles.summaryRow}>
                             <Text style={styles.summaryLabel}>Type</Text>
                             <Text style={styles.summaryValue}>{type}</Text>
@@ -205,7 +231,7 @@ const PaymentScreen = () => {
                             source={{
                                 uri: checkoutUrlParams.checkoutUrl,
                                 method: 'POST',
-                                body: `merchant_id=${checkoutUrlParams.merchantId}&return_url=https://buildmate.lk/success&cancel_url=https://buildmate.lk/cancel&notify_url=https://buildmate-api.onrender.com/payment/notify&order_id=${checkoutUrlParams.orderId}&items=${encodeURIComponent(checkoutUrlParams.description)}&currency=LKR&amount=${checkoutUrlParams.amount}&first_name=${encodeURIComponent(checkoutUrlParams.customerName.split(' ')[0] || 'Customer')}&last_name=${encodeURIComponent(checkoutUrlParams.customerName.split(' ')[1] || 'Name')}&email=${checkoutUrlParams.customerEmail}&phone=${checkoutUrlParams.customerPhone}&address=Colombo&city=Colombo&country=Sri+Lanka&hash=${checkoutUrlParams.hash}`
+                                body: getCheckoutBody()
                             }}
                             onNavigationStateChange={(navState) => {
                                 console.log('WebView Navigation State:', navState.url);

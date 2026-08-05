@@ -62,6 +62,10 @@ export class PaymentService {
         const hashString = merchantId + orderId + formattedAmount + currency + hashedSecret;
         const signatureHash = this.md5(hashString).toUpperCase();
 
+        this.logger.log(`PayHere generation inputs - merchantId: '${merchantId}', orderId: '${orderId}', formattedAmount: '${formattedAmount}', currency: '${currency}', secretPrefix: '${merchantSecret.substring(0, 4)}'`);
+        this.logger.log(`PayHere generated hashString: '${hashString}'`);
+        this.logger.log(`PayHere generated signatureHash: '${signatureHash}'`);
+
         return {
             merchantId,
             orderId,
